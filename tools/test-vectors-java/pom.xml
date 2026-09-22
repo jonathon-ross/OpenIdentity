@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="
+             http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.openidentity</groupId>
+    <artifactId>test-vectors-java</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+
+    <name>OpenIdentity Test Vector Generator</name>
+
+    <description>
+        Standalone reference tool for generating deterministic
+        OpenIdentity cryptographic conformance vectors.
+        This module is not production OpenIdentity code.
+    </description>
+
+    <properties>
+
+        <!-- Java -->
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Dependencies -->
+        <bouncycastle.version>1.86</bouncycastle.version>
+        <jackson.version>2.20.0</jackson.version>
+
+        <!-- Plugins -->
+        <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
+        <exec.maven.plugin.version>3.5.0</exec.maven.plugin.version>
+
+    </properties>
+
+
+    <dependencies>
+
+        <!--
+            Bouncy Castle
+
+            Used for:
+              - Ed25519
+              - ML-DSA-65
+              - deterministic test-key generation
+              - signature generation/verification
+
+            Version is intentionally pinned because this tool
+            generates normative protocol test vectors.
+        -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
+
+
+        <!--
+            Jackson Databind
+
+            Used ONLY to write the human/machine-readable
+            cryptographic-agility-v0.1.json vector document.
+
+            Jackson MUST NOT be used to generate cryptographic
+            signing bytes.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+    </dependencies>
+
+
+    <build>
+
+        <plugins>
+
+            <!-- =====================================================
+                 Java Compiler
+                 ===================================================== -->
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
+
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+
+                    <compilerArgs>
+
+                        <!--
+                            Catch accidental compiler warnings while
+                            developing protocol tooling.
+                        -->
+                        <arg>-Xlint:all</arg>
+
+                    </compilerArgs>
+
+                </configuration>
+            </plugin>
+
+
+            <!-- =====================================================
+                 Execute Vector Generator
+                 ===================================================== -->
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.maven.plugin.version}</version>
+
+                <configuration>
+
+                    <mainClass>
+                        org.openidentity.vectors.GenerateVectors
+                    </mainClass>
+
+                    <!--
+                        Keep the generator on the normal runtime
+                        classpath.
+                    -->
+                    <classpathScope>runtime</classpathScope>
+
+                </configuration>
+            </plugin>
+
+        </plugins>
+
+    </build>
+
+
+    <!-- =============================================================
+         Dependency management philosophy
+
+         DO NOT:
+
+           - use version ranges
+           - use SNAPSHOT dependencies
+           - automatically upgrade cryptographic dependencies
+
+         Changes to dependencies can change normative vector output
+         and therefore MUST be reviewed deliberately.
+         ============================================================= -->
+
+</project>
