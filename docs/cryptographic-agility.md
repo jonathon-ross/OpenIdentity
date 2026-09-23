@@ -2,129 +2,393 @@
 
 **Document:** `cryptographic-agility.md`\
 **Story:** OI-002 --- Define Cryptographic Agility Model\
-**Status:** Draft v0.1 --- conformance candidate\
+**Status:** Draft v0.1\
 **Protocol:** OpenIdentity\
-**Wire Format:** OpenIdentity Operation v1
+**Wire Format:** OpenIdentity Operation v1\
+**Normative Keywords:** MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT,
+SHOULD, SHOULD NOT, MAY
 
 ## 1. Purpose
 
-This specification defines cryptographic authority for an OpenIdentity
-root identity while preserving the permanent root DID across key
-rotation, algorithm migration, post-quantum migration, provider changes,
-and registry changes. It also defines the canonical operation, proof,
-identity-state, state-hash, and conformance model proven by OI-002.
+This document defines how cryptographic authority is attached to an
+OpenIdentity root identity while preserving the permanent root DID
+across algorithm changes, post-quantum migration, key rotation, device
+replacement, registry migration, and provider changes.
 
-The keywords MUST, MUST NOT, SHALL, SHALL NOT, SHOULD, SHOULD NOT, and
-MAY are normative.
+## 2. Core separation
 
-## 2. Core invariants
+OpenIdentity separates Root Identity, Controller Policy, Verification
+Methods, Cryptographic Algorithms, Device Authentication, Recovery
+Policy, and Registry. A change to any controller key or algorithm MUST
+NOT change the root DID.
 
-The root identity is independent of controller keys and algorithms.
-Changing a controller key, controller policy, cryptographic algorithm,
-device, registry, or provider MUST NOT change the root DID.
+## 3. Cryptographic agility invariant
 
-Operations describe requested state transitions. Proofs provide
-cryptographic evidence. `IdentityState` describes the authoritative
-result of accepted transitions.
+OpenIdentity MUST support replacement of cryptographic algorithms
+without replacement of the root identity. The identity MUST NOT be
+derived from a controller key or algorithm.
 
-Root-controller keys MUST NOT normally be used directly as website or
-application login keys.
+## 4. v0.1 cryptographic profile
 
-## 3. v0.1 cryptographic profile
+OpenIdentity v0.1 SHALL support **Ed25519** as its classical component
+and **ML-DSA-65** (NIST FIPS 204, category 3) as its primary
+post-quantum component. Implementations SHOULD support
+**SLH-DSA-SHA2-192s** for high-assurance recovery/cryptographic
+diversity; it is not required for normal controller operations.
 
-OpenIdentity v0.1 SHALL support Ed25519 and ML-DSA-65.
+## 5. Default root controller
 
-The default root controller SHALL be THRESHOLD 2-of-2 containing exactly
-one Ed25519 VerificationMethod and one ML-DSA-65 VerificationMethod.
-Hybrid authorization uses independent proofs; v0.1 does not define a
-proprietary composite signature.
+The default v0.1 root policy SHALL be a THRESHOLD policy with threshold
+2 containing one Ed25519 VerificationMethod and one ML-DSA-65
+VerificationMethod. Both proofs are required for normal root-controller
+operations.
 
-Ed25519 uses COSE `kty=1`, `alg=-8`, `crv=6`, a 32-byte public key, and
-a 64-byte signature.
+## 6. Hybrid, not proprietary composite
 
-ML-DSA-65 uses COSE `kty=7`, `alg=-49`, a 1952-byte raw public key, and
-a 3309-byte signature.
+Hybrid authorization is expressed through independent proofs satisfying
+the controller policy. OpenIdentity v0.1 MUST NOT depend on a
+proprietary composite-signature format. Future standardized composite
+algorithms MAY be supported as additional VerificationMethods.
 
-Structurally valid unsupported algorithms MUST produce
-`UNSUPPORTED_ALGORITHM`. Unsupported algorithms MUST NOT cause threshold
-downgrade.
+## 7. Controller policies
 
-## 4. Controller policies and VerificationMethods
+v0.1 defines SINGLE and THRESHOLD policies. SINGLE contains exactly one
+VerificationMethod. THRESHOLD MUST satisfy
+`1 <= threshold <= numberOfVerificationMethods`. Verification Method IDs
+MUST be unique.
 
-v0.1 defines SINGLE (`type=1`) and THRESHOLD (`type=2`).
+## 8. VerificationMethod
 
-SINGLE contains exactly one VerificationMethod. THRESHOLD MUST satisfy
-`1 <= threshold <= methodCount`.
+A VerificationMethod consists of a 16-byte opaque, cryptographically
+generated Verification Method ID and a standardized `COSE_Key`. The
+Verification Method ID identifies the immutable VerificationMethod and
+is distinct from the identity or fingerprint of its cryptographic key.
+Array position MUST NOT identify a VerificationMethod.
 
-A VerificationMethod is:
+The canonical v0.1 representation remains:
 
 ``` text
 {
-  1: verificationMethodId,   ; exactly 16 bytes
+  1: verificationMethodId,
   2: COSE_Key
 }
 ```
 
-Verification Method IDs MUST be unique. VerificationMethods and proof
-collections MUST be sorted by Verification Method ID using unsigned
-bytewise lexicographic ordering. Duplicate IDs MUST be rejected.
+### 8.1 Verification Method Identifier Semantics
 
-## 5. Deterministic CBOR
+`verificationMethodId` is a 16-byte opaque identifier scoped to one
+OpenIdentity root identity.
 
-Cryptographically authoritative structures SHALL use RFC 8949
-deterministic CBOR. Arbitrary JSON serialization MUST NOT be signed or
-hashed.
+A producer MUST generate `verificationMethodId` using a
+cryptographically secure random number generator.
 
-v0.1 requires definite lengths, preferred integer serialization,
-deterministic map-key ordering, and rejection of duplicate map keys,
-unknown signed OpenIdentity map labels, floating point, NaN, Infinity,
-undefined, arbitrary tags, and unassigned simple values.
+A `verificationMethodId` MUST be unique across the complete history of
+the root identity. Once used, it MUST NOT be reused for another
+VerificationMethod, even after the original VerificationMethod has been
+removed from the active controller policy.
 
-## 6. Operation model
+`verificationMethodId` identifies an immutable logical
+VerificationMethod. It MUST NOT be derived from the associated public
+key, cryptographic algorithm, `COSE_Key`, COSE Key Thumbprint, registry,
+provider, or application.
 
-An Operation is:
+`verificationMethodId` is not a cryptographic key fingerprint.
 
-``` text
-{
-  1: protocolVersion,
-  2: operationType,
-  3: identity,
-  4: sequence,
-  5: previousStateHash,
-  6: payload
-}
-```
+The 16-byte representation exists as a compact identity-scoped
+identifier suitable for canonical OpenIdentity state, operations,
+authorization proofs, and controller proof-of-possession proofs.
 
-`protocolVersion=1`. The identity is exactly the raw 32 bytes defined by
-OI-001; the textual `did:open:z...` form MUST NOT be embedded.
+### 8.2 VerificationMethod immutability
 
-Operation codes are CREATE=1, ROTATE_CONTROLLER=2, RECOVER=3, and
-DEACTIVATE=4. Codes 5..23 are reserved. RECOVER is allocated but
-unsupported in v0.1 and MUST produce `UNSUPPORTED_OPERATION`.
+A VerificationMethod is immutable once introduced.
 
-`OperationBytes` are the deterministic CBOR encoding of exactly one
-Operation. They contain no authorization proofs and no controller
-proof-of-possession proofs.
+The following properties of an existing VerificationMethod MUST NOT be
+modified in place:
 
-## 7. SignedOperation envelope
+-   `verificationMethodId`;
+-   cryptographic algorithm;
+-   public key; and
+-   corresponding `COSE_Key` key material.
 
-The signed envelope is:
+Replacing a public key or changing its cryptographic algorithm creates a
+new VerificationMethod and therefore requires a new
+`verificationMethodId`.
+
+For example:
 
 ``` text
-{
-  1: operation,
-  2: [+ authorizationProof],
-  ? 3: [+ controllerProof]
-}
+VerificationMethod A
+├── methodId = A
+└── key = K1
+
+key rotation
+
+VerificationMethod B
+├── methodId = B
+└── key = K2
 ```
 
-CREATE normally omits field 3. ROTATE_CONTROLLER requires field 3
-semantically. Keeping both proof collections outside OperationBytes
-prevents circular signing dependencies.
+The following MUST NOT be interpreted as an in-place key rotation:
 
-## 8. Authorization
+``` text
+VerificationMethod A
+├── methodId = A
+└── key = K1
 
-Authorization signs deterministic CBOR encoding of:
+becomes
+
+VerificationMethod A
+├── methodId = A
+└── key = K2
+```
+
+A retired `verificationMethodId` MUST NOT later be reassigned to another
+VerificationMethod.
+
+This rule prevents historical ambiguity and ensures references to a
+VerificationMethod retain stable meaning across the complete history of
+the root identity.
+
+### 8.3 Identifier scope
+
+A `verificationMethodId` is scoped to its OpenIdentity root identity.
+
+The same 16-byte value under a different root identity does not identify
+the same VerificationMethod.
+
+The complete logical identity of a VerificationMethod is therefore
+conceptually:
+
+``` text
+(rootIdentity, verificationMethodId)
+```
+
+Canonical OpenIdentity structures do not need to repeat the root
+identity alongside every Verification Method ID when the containing
+operation or state already establishes that identity.
+
+### 8.4 External identifier projection
+
+An external representation MAY deterministically encode
+`verificationMethodId` into the fragment component of a W3C
+VerificationMethod identifier.
+
+Conceptually:
+
+``` text
+OpenIdentity root DID
+        +
+verificationMethodId
+        |
+        v
+W3C VerificationMethod identifier
+
+did:open:<root>#<method-fragment>
+```
+
+The external representation MUST preserve the distinction between root
+identity, VerificationMethod identity, and cryptographic key identity.
+
+The exact W3C Controlled Identifier and DID Document projection is
+defined separately and MUST NOT alter the canonical OI-002 wire
+representation.
+
+### 8.5 Cryptographic Key Identity
+
+VerificationMethod identity and cryptographic key identity are separate
+concepts.
+
+OpenIdentity uses `verificationMethodId` to identify the
+VerificationMethod.
+
+When an identifier or fingerprint for the exact cryptographic public key
+is required, implementations SHOULD use the COSE Key Thumbprint defined
+by RFC 9679.
+
+OpenIdentity v0.1 implementations SHALL support SHA-256 COSE Key
+Thumbprints for this purpose.
+
+Conceptually:
+
+``` text
+VerificationMethod
+|
+├── verificationMethodId
+|      └── identifies the immutable VerificationMethod
+|
+└── COSE_Key
+       |
+       └── RFC 9679 COSE Key Thumbprint
+              └── identifies the exact cryptographic key
+```
+
+Changing the public key necessarily changes its COSE Key Thumbprint.
+Because a VerificationMethod is immutable, changing that public key also
+requires creation of a new VerificationMethod with a new
+`verificationMethodId`.
+
+### 8.6 Thumbprints are derived data
+
+A COSE Key Thumbprint is derived from the `COSE_Key`.
+
+The thumbprint MUST NOT be added to the canonical OpenIdentity
+VerificationMethod merely to duplicate information already represented
+by the `COSE_Key`.
+
+A resolver, cache, API, interoperability adapter, or other
+implementation component MAY calculate and expose the RFC 9679
+thumbprint when useful.
+
+### 8.7 No custom key-fingerprint scheme
+
+OpenIdentity implementations MUST NOT define a proprietary key
+fingerprint when an RFC 9679 COSE Key Thumbprint satisfies the
+requirement.
+
+This restriction does not prohibit separate identifiers for concepts
+other than cryptographic key identity.
+
+In particular:
+
+``` text
+Root Identity ID
+    |
+    ├── Verification Method ID
+    |      16-byte opaque identity-scoped identifier
+    |
+    ├── COSE Key Thumbprint
+    |      RFC 9679 exact-key identifier
+    |
+    └── Pairwise Identifier
+           relationship/application-scoped identifier
+           defined separately
+```
+
+These identifiers serve different purposes and MUST NOT be treated as
+interchangeable.
+
+### 8.8 Standards Interoperability Principle
+
+The canonical OpenIdentity representation uses compact deterministic
+CBOR and `COSE_Key` for protocol processing.
+
+External standards-based representations MAY project the same
+authoritative state into W3C DID, Controlled Identifier, Multikey, or
+other standardized representations.
+
+Such projections MUST be deterministic representations of authoritative
+OpenIdentity state and MUST NOT become independent sources of
+cryptographic truth.
+
+An interoperability projection MUST NOT alter the root identity,
+controller-policy semantics, VerificationMethod identity, key material,
+authorization thresholds, sequence, StateHash, or operation history.
+
+If an external representation cannot faithfully express an OpenIdentity
+semantic, the implementation MUST NOT silently discard or weaken that
+semantic. The missing semantic MUST instead be represented through an
+appropriate standards-compatible extension or accompanying metadata
+defined by the relevant OpenIdentity interoperability specification.
+
+## 9. COSE identifiers and keys
+
+OpenIdentity SHALL use IANA COSE algorithm identifiers where
+standardized and SHALL use `COSE_Key` for public verification keys.
+Proprietary algorithm numbers MUST NOT replace existing standardized
+COSE identifiers.
+
+## 10. Ed25519 profile
+
+Ed25519 SHALL use the standardized COSE OKP/Ed25519 representation. The
+public key MUST be exactly 32 bytes. Generic EdDSA/OKP representations
+that do not identify Ed25519 for this profile MUST be rejected.
+
+## 11. ML-DSA-65 profile
+
+ML-DSA-65 SHALL use COSE algorithm identifier `-49` and AKP key type
+`7`. Its raw public key MUST be exactly 1952 bytes and its signature
+MUST be exactly 3309 bytes.
+
+## 12. Future algorithms
+
+Structurally valid unknown algorithms MUST produce
+`UNSUPPORTED_ALGORITHM`, not `INVALID_IDENTITY`. Algorithm support and
+retirement are verifier policy, not identity-state properties.
+
+## 13. Root keys are not login keys
+
+Root-controller keys MUST NOT normally be used directly for website
+login. Device/application authentication SHALL be separately authorized
+and specified.
+
+## 14. Canonical operation representation
+
+Human/API representations MAY use JSON, but signatures MUST NOT be
+calculated over arbitrary JSON serialization. Canonical signed data
+SHALL use RFC 8949 deterministic CBOR.
+
+## 15. Deterministic CBOR profile
+
+Permitted types, where defined by schema, are unsigned integers, signed
+integers, byte strings, text strings, arrays, maps, and nil. Floating
+point, NaN, Infinity, undefined, arbitrary simple values,
+indefinite-length items, arbitrary tags, unknown map labels, and
+duplicate map labels are prohibited. Definite lengths and preferred
+serialization are REQUIRED.
+
+## 16. Canonical ordering
+
+Protocol maps SHALL use integer labels. Arrays representing unordered
+sets MUST have a canonical order. Verification methods and proofs MUST
+be sorted by Verification Method ID using unsigned bytewise
+lexicographic ordering. Duplicate IDs MUST be rejected.
+
+## 17. Operation model
+
+An Operation contains:
+
+-   `1` protocolVersion
+-   `2` operationType
+-   `3` identity
+-   `4` sequence
+-   `5` previousStateHash
+-   `6` payload
+
+The identity field SHALL contain the raw 32 identifier bytes from
+OI-001. The textual `did:open:z...` form MUST NOT be embedded in the
+canonical signed Operation.
+
+## 18. Version and operation codes
+
+`protocolVersion = 1`.
+
+Operation codes:
+
+-   `1` CREATE
+-   `2` ROTATE_CONTROLLER
+-   `3` RECOVER
+-   `4` DEACTIVATE
+-   `5..23` reserved for future core operations
+
+Unknown operation types MUST produce `UNSUPPORTED_OPERATION`.
+
+## 19. Sequence and previous state
+
+CREATE SHALL use sequence 1 and `previousStateHash = nil`. Subsequent
+normal operations SHALL use `currentSequence + 1` and a binary
+self-describing Multihash of the previous authoritative identity state.
+v0.1 SHALL support SHA2-256 Multihash.
+
+## 20. OperationBytes
+
+OperationBytes are produced by schema validation, canonical collection
+ordering, and deterministic RFC 8949 CBOR encoding. Every compliant
+implementation MUST produce identical OperationBytes for the same
+logical Operation.
+
+## 21. Authorization SigningInput
+
+Controller authorization signs the deterministic CBOR encoding of:
 
 ``` text
 [
@@ -134,112 +398,90 @@ Authorization signs deterministic CBOR encoding of:
 ]
 ```
 
-An authorization proof is:
+All controller algorithms MUST sign the exact same SigningInput.
 
-``` text
-{
-  1: verificationMethodId,
-  2: signature
-}
-```
+## 22. Proof structure
 
-A verifier MUST resolve the proof against the applicable controller
-policy, reject duplicate or unauthorized IDs, validate the COSE key and
-algorithm, verify the exact canonical SigningInput, count each method at
-most once, and require the threshold to be satisfied.
+A proof contains the Verification Method ID and raw algorithm-specific
+signature bytes. The algorithm is obtained from the referenced
+VerificationMethod's COSE_Key.
 
-A 2-of-2 policy remains 2-of-2 even when one algorithm is unavailable.
+## 23. Proof evaluation
 
-## 9. CREATE
+For every proof, the verifier MUST:
 
-CREATE SHALL have `protocolVersion=1`, `operationType=1`, `sequence=1`,
-`previousStateHash=nil`, a 32-byte identity, and a valid controller
-policy.
+1.  Parse the proof according to the v1 schema.
+2.  Resolve the Verification Method ID from the applicable controller
+    policy.
+3.  Reject duplicate proof entries for the same Verification Method ID.
+4.  Validate the referenced COSE_Key.
+5.  Determine the algorithm and whether verifier policy permits it for
+    the operation.
+6.  Validate signature representation and algorithm-specific length.
+7.  Verify the signature against the exact canonical SigningInput.
+8.  Count the Verification Method ID at most once.
+9.  Compare the number of distinct authorized valid proofs to the policy
+    threshold.
 
-Its payload is:
+A proof counts only if its method is authorized, structurally valid,
+supported for the operation, cryptographically valid, and not already
+counted.
 
-``` text
-{
-  1: controllerPolicy,
-  ? 2: recoveryCommitment
-}
-```
+Malformed proofs MUST cause validation failure rather than being
+silently ignored. If the threshold is not met, authorization MUST fail
+with `CONTROLLER_THRESHOLD_NOT_SATISFIED` or an equivalent typed error.
 
-CREATE has no prior controller. The policy being created authorizes
-creation. Default-profile CREATE therefore requires valid Ed25519 and
-ML-DSA-65 authorization proofs.
+## 24. Duplicate and unauthorized proofs
 
-## 10. Canonical IdentityState
+Duplicate proofs MUST NOT satisfy multiple threshold positions and
+SHOULD produce `DUPLICATE_PROOF`. A proof from a VerificationMethod
+outside the applicable controller policy MUST NOT count and MAY produce
+`UNAUTHORIZED_VERIFICATION_METHOD`.
 
-Every accepted state-changing operation produces canonical authoritative
-state:
+## 25. CREATE field requirements
 
-``` text
-{
-  1: stateVersion,
-  2: identity,
-  3: sequence,
-  4: status,
-  5: controllerPolicy,
-  ? 6: recoveryCommitment
-}
-```
+CREATE has no previous controller policy; the controller policy in its
+payload authorizes creation.
 
-`stateVersion=1`. Status `1` is ACTIVE and status `2` is DEACTIVATED.
+CREATE SHALL have:
 
-IdentityState contains no signatures, proofs, transport metadata, or
-registry-specific metadata. Its deterministic CBOR encoding is
-`StateBytes`.
+-   `protocolVersion = 1`
+-   `operationType = 1`
+-   `sequence = 1`
+-   `previousStateHash = nil`
+-   identity = exactly 32 raw bytes from OI-001
+-   a structurally valid controller policy
 
-A normal CREATE produces ACTIVE state at sequence 1 containing the newly
-established controller policy.
+For the default v0.1 profile, the policy SHOULD be 2-of-2 with exactly
+one Ed25519 VerificationMethod and one ML-DSA-65 VerificationMethod.
 
-## 11. StateHash and chaining
+The CREATE proof set MUST satisfy that policy. A default-profile CREATE
+MUST therefore contain valid Ed25519 and ML-DSA-65 proofs over the same
+canonical SigningInput.
 
-v0.1 calculates:
+CREATE MUST be rejected for invalid identity length, wrong sequence,
+non-nil previousStateHash, malformed policy, duplicate method IDs,
+invalid threshold, unsupported required algorithm, missing/invalid
+required proof, or unsatisfied threshold.
 
-``` text
-digest    = SHA-256(StateBytes)
-StateHash = 0x12 || 0x20 || digest
-```
+## 26. ROTATE_CONTROLLER
 
-`0x12` is the SHA2-256 Multihash code and `0x20` is the 32-byte digest
-length. The resulting StateHash is exactly 34 bytes.
+ROTATE_CONTROLLER SHALL use operation type 2, `currentSequence + 1`, and
+the valid previous-state Multihash.
 
-For subsequent operations:
+The **current** authoritative controller policy authorizes the rotation.
+The proposed new policy MUST NOT authorize its own installation.
 
-``` text
-sequence = currentState.sequence + 1
-previousStateHash = StateHash(currentState)
-```
+The payload SHALL contain the proposed new controller policy and
+proof-of-possession evidence for its new VerificationMethods.
 
-A verifier MUST recompute the predecessor hash from canonical
-StateBytes.
-
-## 12. ROTATE_CONTROLLER
-
-ROTATE_CONTROLLER uses operation type 2. Its payload contains only:
-
-``` text
-{
-  1: newControllerPolicy
-}
-```
-
-The current authoritative controller policy authorizes the operation.
-The proposed controller MUST NOT authorize its own installation.
-
-After successful authorization and proof of possession, the resulting
-ACTIVE IdentityState increments sequence and replaces the current
-controller policy with the proposed policy without changing the root
-identity.
-
-## 13. Controller proof of possession
+## 27. New-controller proof of possession
 
 Every VerificationMethod installed by ROTATE_CONTROLLER MUST provide
-exactly one valid proof of possession in SignedOperation field 3.
+proof of possession unless a future specification defines a safe
+exception.
 
-Each proposed method signs:
+The possession signing structure is:
 
 ``` text
 [
@@ -250,152 +492,153 @@ Each proposed method signs:
 ]
 ```
 
-The method ID is part of the signed domain. Authorization proofs MUST
-NOT be accepted as controller proofs and controller proofs MUST NOT be
-accepted as authorization proofs.
+It SHALL be deterministically CBOR encoded.
 
-A verifier MUST reject missing proofs, duplicate proofs, signatures made
-over the authorization domain, signatures bound to another method ID, or
-signatures that fail under the proposed public key.
+A possession proof MUST NOT be accepted as an authorization proof, and
+an authorization proof MUST NOT be accepted as a possession proof.
 
-## 14. RECOVER and DEACTIVATE
+## 28. Proof-of-possession evaluation
 
-RECOVER (`operationType=3`) is reserved but invalid in v0.1. Recovery
-payload, authorization, thresholds, timing, and state-transition
-semantics are deferred.
+For every VerificationMethod in the proposed new policy, the verifier
+MUST locate exactly one corresponding possession proof, validate the
+proposed COSE_Key, construct the canonical Controller Proof
+SigningInput, and verify the proof using the proposed public key.
 
-DEACTIVATE (`operationType=4`) is structurally allocated. A valid
-deactivation chains from the current StateHash and produces DEACTIVATED
-IdentityState. Final permanence, delay, recoverability, and additional
-policy requirements require further specification before production use.
+ROTATE_CONTROLLER MUST fail if any required proposed VerificationMethod
+lacks valid proof of possession.
 
-## 15. Stable conformance errors
+## 29. RECOVER
 
-OI-002 v0.1 defines these conformance errors:
+Operation code 3 is reserved for RECOVER. Recovery authorities,
+thresholds, delays, and proof semantics are intentionally deferred.
+Implementations MUST NOT infer recovery authorization from ordinary
+controller-policy rules.
 
-``` text
-INVALID_SEQUENCE
-INVALID_PREVIOUS_STATE_HASH
-INVALID_CONTROLLER_THRESHOLD
-DUPLICATE_VERIFICATION_METHOD
-CONTROLLER_THRESHOLD_NOT_SATISFIED
-DUPLICATE_PROOF
-INVALID_SIGNATURE
-UNAUTHORIZED_VERIFICATION_METHOD
-MISSING_PROOF_OF_POSSESSION
-INVALID_PROOF_OF_POSSESSION
-UNSUPPORTED_ALGORITHM
-UNSUPPORTED_PROTOCOL_FEATURE
-UNSUPPORTED_OPERATION
-```
+## 30. DEACTIVATE
 
-Implementations MAY expose additional typed errors for malformed
-encoding, identity, COSE keys, or signature representation.
+Operation code 4 is reserved for DEACTIVATE. Until its semantics are
+finalized, normal controller authorization SHALL be required by default.
+Permanence, delay, and recoverability are outside OI-002.
+
+## 31. Algorithm-specific signature requirements
+
+Algorithm-specific validation occurs only after the common SigningInput
+has been constructed. Ed25519 proofs MUST use the standardized Ed25519
+signature representation. ML-DSA-65 proof signatures MUST be exactly
+3309 bytes.
+
+## 32. Failure isolation and no downgrade
+
+Failure or lack of support for one verification method MUST NOT weaken
+or reinterpret another method. A 2-of-2 policy remains 2-of-2.
+Implementations MUST NOT silently reduce thresholds because an algorithm
+is unavailable, deprecated, expensive, or unsupported.
+
+## 33. Algorithm migration
+
+Controller rotation is the normal algorithm-migration mechanism. The
+current policy authorizes the new policy and the new keys prove
+possession. Algorithm migration MUST NOT change the root DID.
+
+## 34. Protocol validity vs security policy
+
+Historical protocol validity and current security acceptability are
+distinct. A verifier MAY validate an old signature historically while
+refusing the same algorithm for new controller operations.
+
+## 35. Stable error semantics
+
+Implementations SHOULD expose stable typed errors including:
+
+-   `UNSUPPORTED_ALGORITHM`
+-   `UNSUPPORTED_OPERATION`
+-   `UNSUPPORTED_PROTOCOL_FEATURE`
+-   `INVALID_COSE_KEY`
+-   `INVALID_SIGNATURE_FORMAT`
+-   `INVALID_SIGNATURE`
+-   `DUPLICATE_VERIFICATION_METHOD`
+-   `DUPLICATE_PROOF`
+-   `UNAUTHORIZED_VERIFICATION_METHOD`
+-   `INVALID_CONTROLLER_THRESHOLD`
+-   `CONTROLLER_THRESHOLD_NOT_SATISFIED`
+-   `INVALID_SEQUENCE`
+-   `INVALID_PREVIOUS_STATE_HASH`
+-   `MISSING_PROOF_OF_POSSESSION`
+-   `INVALID_PROOF_OF_POSSESSION`
+
 Human-readable messages MAY vary.
 
-## 16. Validation precedence
+## 36. Conformance vectors
 
-Normative negative vectors require deterministic rejection semantics.
-Validation conceptually proceeds in this order:
+OI-002 SHALL publish machine-readable byte-exact vectors covering:
 
-1.  decode CBOR and enforce deterministic encoding;
-2.  validate allowed labels and structural shape;
-3.  validate protocol version and operation type;
-4.  validate identity representation;
-5.  validate operation-specific sequence;
-6.  validate previousStateHash requirements;
-7.  validate controller-policy structure and threshold;
-8.  reject duplicate Verification Method IDs;
-9.  validate supported COSE algorithms and keys;
-10. validate proof collections and reject duplicate proof IDs;
-11. reject unauthorized proof IDs;
-12. evaluate threshold coverage;
-13. verify authorization signatures;
-14. validate proof-of-possession coverage;
-15. verify proof-of-possession signatures and domain binding; and
-16. apply the state transition.
+-   deterministic OperationBytes;
+-   authorization SigningInput;
+-   controller-proof SigningInput;
+-   canonical ordering;
+-   valid and invalid controller policies;
+-   duplicate rejection;
+-   Ed25519 proof verification;
+-   ML-DSA-65 proof verification;
+-   hybrid threshold success/failure; and
+-   proof of possession.
 
-Implementations MAY optimize internally only when externally observable
-conformance behavior remains equivalent.
+Expected bytes MUST be independently verified before becoming normative.
 
-## 17. Normative conformance vectors
+## 37. Relationship to OI-001
 
-The normative artifact is:
+OI-001 defines the permanent root identifier. OI-002 MUST NOT change
+that identifier format. Controller keys, algorithms, and COSE
+identifiers MUST remain absent from the root DID.
 
-``` text
-test-vectors/cryptographic-agility-v0.1.json
-```
+## 38. Relationship to recovery
 
-It contains:
+Recovery is intentionally independent from normal controller authority.
+No algorithm used for normal controller authority SHOULD be the sole
+mechanism capable of recovering the identity. Detailed recovery design
+is deferred.
 
-``` text
-V01  SINGLE Ed25519 CREATE
-V02  Hybrid Ed25519 + ML-DSA-65 2-of-2 CREATE
-V03  Canonical ordering equivalence
-V04  ROTATE_CONTROLLER with authorization and proof of possession
-I01-I20 negative conformance vectors
-```
+## 39. OI-002 protocol invariants
 
-The vectors cover deterministic CBOR, OperationBytes, both signing
-domains, Ed25519 and ML-DSA-65 interoperability, canonical ordering,
-IdentityState, StateHash chaining, rotation, threshold behavior,
-proof-of-possession, duplicate rejection, unsupported
-algorithms/operations, and stable negative validation.
+1.  Root identity is independent of cryptographic algorithms.
+2.  Default v0.1 control is hybrid Ed25519 + ML-DSA-65.
+3.  Hybrid authorization uses controller policy rather than a
+    proprietary composite signature.
+4.  All controller proofs sign the same canonical SigningInput.
+5.  Canonical signed data uses deterministic RFC 8949 CBOR.
+6.  Public verification keys use standardized COSE representations.
+7.  Standardized COSE/IANA algorithm identifiers are used where
+    available.
+8.  Controller policies cannot be silently downgraded.
+9.  Root keys are not ordinary login keys.
+10. Algorithm migration does not change the root DID.
+11. Unknown algorithms are unsupported rather than automatically
+    malformed.
+12. New controller keys prove possession before installation.
 
-Expected bytes MUST be independently verified before publication. The
-normative JSON SHALL be accompanied by
-`cryptographic-agility-v0.1.sha256` after final independent
-verification.
+## 40. Deferred work
 
-## 18. Proven implementation behavior
+OI-002 intentionally defers:
 
-The OI-002 conformance work has established cross-implementation
-agreement between the Java reference generator and independent Python
-verification for the positive vectors, including deterministic CBOR and
-Ed25519/ML-DSA-65 verification.
+-   complete recovery-policy design;
+-   device/passkey authorization;
+-   pairwise application identifiers;
+-   credential signing/presentation;
+-   registry-specific verification mechanics;
+-   Solana implementation details;
+-   algorithm-specific hardware storage; and
+-   final deactivation semantics.
 
-V03 proves reversed input ordering produces byte-identical canonical
-ControllerPolicy, OperationBytes, SigningInput, and SignedOperation.
-
-V04 proves predecessor StateHash linkage, current-controller
-authorization, new-controller proof of possession, signing-domain
-separation, resulting IdentityState, and resulting StateHash.
-
-The normative negative suite I01-I20 defines required rejection
-behavior.
-
-## 19. Relationship to OI-001
-
-OI-001 defines the permanent root identifier. OI-002 does not alter that
-format. Controller keys, algorithms, COSE identifiers, sequence, and
-registry information remain absent from the root DID.
-
-## 20. Deferred work
-
-OI-002 intentionally defers complete recovery-policy design,
-device/passkey authorization, pairwise application identifiers,
-credential presentation, registry-specific verification mechanics,
-ledger implementation details, hardware key storage, and final
-production deactivation policy.
-
-## 21. OI-002 completion gate
+## 41. Completion criteria
 
 OI-002 is complete when:
 
 -   this document and `openidentity-operation-v1.cddl` agree;
--   Ed25519 and ML-DSA-65 profiles are fixed;
--   default hybrid policy is fixed;
--   deterministic CBOR and canonical ordering are fixed;
--   authorization and proof-of-possession signing domains are fixed;
--   IdentityState and StateHash are fixed;
--   CREATE and ROTATE_CONTROLLER semantics are fixed;
--   stable error semantics and validation precedence are documented;
--   V01-V04 and I01-I20 are present in the normative JSON;
--   `verify_cryptographic_agility.py` independently passes the normative
-    JSON; and
--   `cryptographic-agility-v0.1.sha256` verifies the exact published
-    normative artifact.
-
-Once the checksum is published, changing any normative byte, field,
-algorithm identifier, state rule, signing domain, or conformance
-expectation requires a new specification/vector version.
+-   Ed25519 and ML-DSA-65 COSE representations are fixed;
+-   the default 2-of-2 hybrid profile is fixed;
+-   deterministic CBOR rules are fixed;
+-   authorization and possession signing structures are fixed;
+-   stable validation/error semantics are documented;
+-   byte-exact CBOR/signing test vectors are generated and independently
+    verified; and
+-   the normative vector file has a published checksum.

@@ -1,0 +1,11 @@
+{
+  "name": "openidentity-jsonld-context-verifier",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify": "node verify_openidentity_context.mjs ../../contexts/openidentity-v1.jsonld"
+  },
+  "dependencies": {
+    "jsonld": "^9.0.0"
+  }
+}

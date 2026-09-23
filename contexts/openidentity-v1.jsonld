@@ -1,0 +1,18 @@
+{
+  "@context": {
+    "@protected": true,
+    "openIdentityVerificationPolicy": {
+      "@id": "https://openidentity.foundation/ns#verificationPolicy"
+    },
+    "appliesTo": {
+      "@id": "https://openidentity.foundation/ns#appliesTo",
+      "@type": "@vocab"
+    },
+    "threshold": {
+      "@id": "https://openidentity.foundation/ns#threshold",
+      "@type": "http://www.w3.org/2001/XMLSchema#integer"
+    },
+    "Single": "https://openidentity.foundation/ns#Single",
+    "Threshold": "https://openidentity.foundation/ns#Threshold"
+  }
+}

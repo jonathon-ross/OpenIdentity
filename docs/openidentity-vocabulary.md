@@ -1,0 +1,97 @@
+# OpenIdentity Vocabulary
+
+**Vocabulary namespace:** `https://openidentity.foundation/ns#`\
+**Vocabulary document:** `https://openidentity.foundation/ns`\
+**JSON-LD context v1:** `https://openidentity.foundation/ns/v1`
+
+## Stability
+
+The semantic vocabulary namespace is unversioned. The v1 context is
+immutable once published. Future incompatible context processing changes
+require a new versioned context such as `/ns/v2`.
+
+The v1 context SHA-256 is:
+
+``` text
+2125613959be8c288fd31a0aa2258d652cd9812ab21a0b5c6bc10a4081e8c6f4
+```
+
+Implementations SHOULD bundle or integrity-pin the context rather than
+require live retrieval during security-sensitive processing. W3C
+guidance recommends published contexts, explicit term definitions,
+protected terms, and integrity/caching mechanisms for remote contexts.
+
+## Terms
+
+### verificationPolicy
+
+URI: `https://openidentity.foundation/ns#verificationPolicy`
+
+JSON term: `openIdentityVerificationPolicy`
+
+A deterministic projection of the authoritative OpenIdentity
+`ControllerPolicy`. It describes how eligible verification methods
+combine for the relationship identified by `appliesTo`.
+
+It is informational in a projected DID document. OpenIdentity
+state-transition authorization remains governed by canonical
+`IdentityState.ControllerPolicy`.
+
+### appliesTo
+
+URI: `https://openidentity.foundation/ns#appliesTo`
+
+Identifies the W3C verification relationship to which the projected
+policy applies. OI-002 root-controller policy projects to
+`capabilityInvocation`.
+
+### threshold
+
+URI: `https://openidentity.foundation/ns#threshold`
+
+Integer number of distinct qualifying verification methods required by a
+`Threshold` policy.
+
+### Single
+
+URI: `https://openidentity.foundation/ns#Single`
+
+Policy type representing one required VerificationMethod.
+
+### Threshold
+
+URI: `https://openidentity.foundation/ns#Threshold`
+
+Policy type representing an m-of-n verification policy.
+
+## Reused W3C terms
+
+OpenIdentity does not redefine standard terms such as `id`, `type`,
+`controller`, `verificationMethod`, `capabilityInvocation`, `Multikey`,
+or `publicKeyMultibase`. Their definitions come from the applicable W3C
+contexts/vocabularies.
+
+## Context usage
+
+A JSON-LD projection should load the applicable DID/Controlled
+Identifier and Multikey contexts before the OpenIdentity context. The
+exact base DID context version used by a frozen projection profile MUST
+be recorded in that profile.
+
+Example policy:
+
+``` json
+{
+  "id": "did:open:<root>#controller-policy",
+  "type": "Threshold",
+  "appliesTo": "capabilityInvocation",
+  "threshold": 2,
+  "verificationMethod": [
+    "did:open:<root>#vm-A",
+    "did:open:<root>#vm-B"
+  ]
+}
+```
+
+The containing DID document associates this node through
+`openIdentityVerificationPolicy`.
