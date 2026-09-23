@@ -1,0 +1,4 @@
+458c07e5af8e9119dabc5ed752ad85edb4ac06123718b831a2665d93bca236bd *contexts/openidentity-v1.jsonld
+4de6b156e471b1c605d894664cbb18cf66c091108a6eb1596d999600ee06cb07 *docs/w3c-identity-projection.md
+6e0fa70f94df7ca69197020c3efe6033dc5a847790774cce79dcd3b4ad9677e0 *test-vectors/w3c-projection-v0.1.json
+48116fd45d4a445131db2cea63e6ca860d70bdc676aea836c404dfd644d1a290 *tools/test-vectors/verify_w3c_projection.py
