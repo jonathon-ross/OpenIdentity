@@ -1,0 +1,19 @@
+/ns/v1
+  Content-Type: application/ld+json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+/ns/v1.jsonld
+  Content-Type: application/ld+json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+/ns/v1.sha256
+  Content-Type: text/plain; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable
+
+/ns
+  Cache-Control: public, max-age=3600
