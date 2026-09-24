@@ -6,17 +6,23 @@ public final class OpenIdentityCbor {
     private static final int PROTOCOL_VERSION = 1;
     private static final int CREATE_OPERATION = 1;
     private static final int ROTATE_CONTROLLER_OPERATION = 2;
+    private static final int SET_ASSERTION_POLICY_OPERATION = 5;
     private static final int SINGLE_POLICY = 1;
     private static final int THRESHOLD_POLICY = 2;
     private static final int SIGNING_STRUCTURE_VERSION = 1;
     private static final int IDENTITY_STATE_VERSION = 1;
+    private static final int IDENTITY_STATE_VERSION_V2 = 2;
     private static final int IDENTITY_STATUS_ACTIVE = 1;
+    private static final int CREDENTIAL_VERSION = 1;
+    private static final int CREDENTIAL_SIGNING_STRUCTURE_VERSION = 1;
 
     private static final String OPERATION_CONTEXT = "OpenIdentity Operation";
     private static final String CONTROLLER_PROOF_CONTEXT =
             "OpenIdentity Controller Proof";
+    private static final String CREDENTIAL_CONTEXT = "OpenIdentity Credential";
 
-    private OpenIdentityCbor() {}
+    private OpenIdentityCbor() {
+    }
 
     public record EncodedVerificationMethod(byte[] id, byte[] encoded) {
         public EncodedVerificationMethod {
@@ -32,11 +38,13 @@ public final class OpenIdentityCbor {
             encoded = Arrays.copyOf(encoded, encoded.length);
         }
 
-        @Override public byte[] id() {
+        @Override
+        public byte[] id() {
             return Arrays.copyOf(id, id.length);
         }
 
-        @Override public byte[] encoded() {
+        @Override
+        public byte[] encoded() {
             return Arrays.copyOf(encoded, encoded.length);
         }
     }
@@ -58,13 +66,15 @@ public final class OpenIdentityCbor {
             encoded = Arrays.copyOf(encoded, encoded.length);
         }
 
-        @Override public byte[] verificationMethodId() {
+        @Override
+        public byte[] verificationMethodId() {
             return Arrays.copyOf(
                     verificationMethodId,
                     verificationMethodId.length);
         }
 
-        @Override public byte[] encoded() {
+        @Override
+        public byte[] encoded() {
             return Arrays.copyOf(encoded, encoded.length);
         }
     }
@@ -86,10 +96,14 @@ public final class OpenIdentityCbor {
         }
         var c = new DeterministicCborWriter();
         c.writeMapHeader(4);
-        c.writeUnsigned(1); c.writeUnsigned(1);
-        c.writeUnsigned(3); c.writeSigned(-8);
-        c.writeSigned(-1); c.writeUnsigned(6);
-        c.writeSigned(-2); c.writeByteString(publicKey);
+        c.writeUnsigned(1);
+        c.writeUnsigned(1);
+        c.writeUnsigned(3);
+        c.writeSigned(-8);
+        c.writeSigned(-1);
+        c.writeUnsigned(6);
+        c.writeSigned(-2);
+        c.writeByteString(publicKey);
         return c.toByteArray();
     }
 
@@ -100,9 +114,12 @@ public final class OpenIdentityCbor {
         }
         var c = new DeterministicCborWriter();
         c.writeMapHeader(3);
-        c.writeUnsigned(1); c.writeUnsigned(7);
-        c.writeUnsigned(3); c.writeSigned(-49);
-        c.writeSigned(-1); c.writeByteString(publicKey);
+        c.writeUnsigned(1);
+        c.writeUnsigned(7);
+        c.writeUnsigned(3);
+        c.writeSigned(-49);
+        c.writeSigned(-1);
+        c.writeByteString(publicKey);
         return c.toByteArray();
     }
 
@@ -115,8 +132,10 @@ public final class OpenIdentityCbor {
         }
         var c = new DeterministicCborWriter();
         c.writeMapHeader(2);
-        c.writeUnsigned(1); c.writeByteString(methodId);
-        c.writeUnsigned(2); c.writeEncoded(coseKey);
+        c.writeUnsigned(1);
+        c.writeByteString(methodId);
+        c.writeUnsigned(2);
+        c.writeEncoded(coseKey);
         return new EncodedVerificationMethod(methodId, c.toByteArray());
     }
 
@@ -127,8 +146,10 @@ public final class OpenIdentityCbor {
         }
         var c = new DeterministicCborWriter();
         c.writeMapHeader(2);
-        c.writeUnsigned(1); c.writeUnsigned(SINGLE_POLICY);
-        c.writeUnsigned(2); c.writeArrayHeader(1);
+        c.writeUnsigned(1);
+        c.writeUnsigned(SINGLE_POLICY);
+        c.writeUnsigned(2);
+        c.writeArrayHeader(1);
         c.writeEncoded(method.encoded());
         return c.toByteArray();
     }
@@ -147,9 +168,12 @@ public final class OpenIdentityCbor {
 
         var c = new DeterministicCborWriter();
         c.writeMapHeader(3);
-        c.writeUnsigned(1); c.writeUnsigned(THRESHOLD_POLICY);
-        c.writeUnsigned(2); c.writeUnsigned(threshold);
-        c.writeUnsigned(3); c.writeArrayHeader(sorted.size());
+        c.writeUnsigned(1);
+        c.writeUnsigned(THRESHOLD_POLICY);
+        c.writeUnsigned(2);
+        c.writeUnsigned(threshold);
+        c.writeUnsigned(3);
+        c.writeArrayHeader(sorted.size());
         for (var method : sorted) {
             c.writeEncoded(method.encoded());
         }
@@ -172,12 +196,18 @@ public final class OpenIdentityCbor {
 
         var c = new DeterministicCborWriter();
         c.writeMapHeader(6);
-        c.writeUnsigned(1); c.writeUnsigned(PROTOCOL_VERSION);
-        c.writeUnsigned(2); c.writeUnsigned(CREATE_OPERATION);
-        c.writeUnsigned(3); c.writeByteString(identity);
-        c.writeUnsigned(4); c.writeUnsigned(1);
-        c.writeUnsigned(5); c.writeNull();
-        c.writeUnsigned(6); c.writeEncoded(payload.toByteArray());
+        c.writeUnsigned(1);
+        c.writeUnsigned(PROTOCOL_VERSION);
+        c.writeUnsigned(2);
+        c.writeUnsigned(CREATE_OPERATION);
+        c.writeUnsigned(3);
+        c.writeByteString(identity);
+        c.writeUnsigned(4);
+        c.writeUnsigned(1);
+        c.writeUnsigned(5);
+        c.writeNull();
+        c.writeUnsigned(6);
+        c.writeEncoded(payload.toByteArray());
         return c.toByteArray();
     }
 
@@ -223,12 +253,75 @@ public final class OpenIdentityCbor {
 
         var c = new DeterministicCborWriter();
         c.writeMapHeader(6);
-        c.writeUnsigned(1); c.writeUnsigned(PROTOCOL_VERSION);
-        c.writeUnsigned(2); c.writeUnsigned(ROTATE_CONTROLLER_OPERATION);
-        c.writeUnsigned(3); c.writeByteString(identity);
-        c.writeUnsigned(4); c.writeUnsigned(sequence);
-        c.writeUnsigned(5); c.writeByteString(previousStateHash);
-        c.writeUnsigned(6); c.writeEncoded(payload);
+        c.writeUnsigned(1);
+        c.writeUnsigned(PROTOCOL_VERSION);
+        c.writeUnsigned(2);
+        c.writeUnsigned(ROTATE_CONTROLLER_OPERATION);
+        c.writeUnsigned(3);
+        c.writeByteString(identity);
+        c.writeUnsigned(4);
+        c.writeUnsigned(sequence);
+        c.writeUnsigned(5);
+        c.writeByteString(previousStateHash);
+        c.writeUnsigned(6);
+        c.writeEncoded(payload);
+        return c.toByteArray();
+    }
+
+    /**
+     * SET_ASSERTION_POLICY payload contains a complete replacement policy,
+     * or nil to remove assertion authority.
+     */
+    public static byte[] setAssertionPolicyPayload(byte[] assertionPolicy) {
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(1);
+        c.writeUnsigned(1);
+        if (assertionPolicy == null) {
+            c.writeNull();
+        } else {
+            c.writeEncoded(assertionPolicy);
+        }
+        return c.toByteArray();
+    }
+
+    /**
+     * Operation type 5. The current ControllerPolicy authorizes this
+     * operation. Proposed assertion keys prove possession separately in
+     * signed-operation field 3.
+     */
+    public static byte[] setAssertionPolicyOperation(
+            byte[] identity,
+            long sequence,
+            byte[] previousStateHash,
+            byte[] assertionPolicy) {
+        validateIdentity(identity);
+        if (sequence < 2) {
+            throw new IllegalArgumentException(
+                    "SET_ASSERTION_POLICY sequence must be >= 2");
+        }
+        if (previousStateHash == null
+                || previousStateHash.length < 1
+                || previousStateHash.length > 128) {
+            throw new IllegalArgumentException(
+                    "Previous state hash must contain 1..128 bytes");
+        }
+
+        byte[] payload = setAssertionPolicyPayload(assertionPolicy);
+
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(6);
+        c.writeUnsigned(1);
+        c.writeUnsigned(PROTOCOL_VERSION);
+        c.writeUnsigned(2);
+        c.writeUnsigned(SET_ASSERTION_POLICY_OPERATION);
+        c.writeUnsigned(3);
+        c.writeByteString(identity);
+        c.writeUnsigned(4);
+        c.writeUnsigned(sequence);
+        c.writeUnsigned(5);
+        c.writeByteString(previousStateHash);
+        c.writeUnsigned(6);
+        c.writeEncoded(payload);
         return c.toByteArray();
     }
 
@@ -286,8 +379,10 @@ public final class OpenIdentityCbor {
 
         var c = new DeterministicCborWriter();
         c.writeMapHeader(2);
-        c.writeUnsigned(1); c.writeByteString(methodId);
-        c.writeUnsigned(2); c.writeByteString(signature);
+        c.writeUnsigned(1);
+        c.writeByteString(methodId);
+        c.writeUnsigned(2);
+        c.writeByteString(signature);
         return new EncodedProof(methodId, c.toByteArray());
     }
 
@@ -305,13 +400,13 @@ public final class OpenIdentityCbor {
 
     /**
      * Full envelope:
-     *
+     * <p>
      * {
-     *   1: operation,
-     *   2: authorizationProofs,
-     *   3: controllerProofs     // omitted when empty
+     * 1: operation,
+     * 2: authorizationProofs,
+     * 3: controllerProofs     // omitted when empty
      * }
-     *
+     * <p>
      * Controller proofs are deliberately outside OperationBytes.
      */
     public static byte[] signedOperation(
@@ -374,11 +469,208 @@ public final class OpenIdentityCbor {
 
         var c = new DeterministicCborWriter();
         c.writeMapHeader(5);
-        c.writeUnsigned(1); c.writeUnsigned(IDENTITY_STATE_VERSION);
-        c.writeUnsigned(2); c.writeByteString(identity);
-        c.writeUnsigned(3); c.writeUnsigned(sequence);
-        c.writeUnsigned(4); c.writeUnsigned(IDENTITY_STATUS_ACTIVE);
-        c.writeUnsigned(5); c.writeEncoded(controllerPolicy);
+        c.writeUnsigned(1);
+        c.writeUnsigned(IDENTITY_STATE_VERSION);
+        c.writeUnsigned(2);
+        c.writeByteString(identity);
+        c.writeUnsigned(3);
+        c.writeUnsigned(sequence);
+        c.writeUnsigned(4);
+        c.writeUnsigned(IDENTITY_STATUS_ACTIVE);
+        c.writeUnsigned(5);
+        c.writeEncoded(controllerPolicy);
+        return c.toByteArray();
+    }
+
+    /**
+     * Canonical ACTIVE IdentityState v2.
+     * <p>
+     * Map labels:
+     * 1 = state version = 2
+     * 2 = identity
+     * 3 = sequence
+     * 4 = ACTIVE
+     * 5 = ControllerPolicy
+     * 7 = AssertionPolicy when non-null
+     * <p>
+     * Recovery commitment label 6 is not accepted by this convenience
+     * overload because the current vector suite does not carry one.
+     */
+    public static byte[] activeIdentityStateV2(
+            byte[] identity,
+            long sequence,
+            byte[] controllerPolicy,
+            byte[] assertionPolicy) {
+        validateIdentity(identity);
+        if (sequence < 1) {
+            throw new IllegalArgumentException(
+                    "State sequence must be >= 1");
+        }
+        if (controllerPolicy == null) {
+            throw new IllegalArgumentException(
+                    "Controller policy cannot be null");
+        }
+
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(assertionPolicy == null ? 5 : 6);
+        c.writeUnsigned(1);
+        c.writeUnsigned(IDENTITY_STATE_VERSION_V2);
+        c.writeUnsigned(2);
+        c.writeByteString(identity);
+        c.writeUnsigned(3);
+        c.writeUnsigned(sequence);
+        c.writeUnsigned(4);
+        c.writeUnsigned(IDENTITY_STATUS_ACTIVE);
+        c.writeUnsigned(5);
+        c.writeEncoded(controllerPolicy);
+        if (assertionPolicy != null) {
+            c.writeUnsigned(7);
+            c.writeEncoded(assertionPolicy);
+        }
+        return c.toByteArray();
+    }
+
+    /**
+     * Canonical OI-003 credential v1.
+     *
+     * Claim values accepted by this reference encoder:
+     * Long/Integer/Short/Byte, String, byte[], Boolean, null,
+     * List<?> and Map<String,?>.
+     */
+    public static byte[] openIdentityCredential(
+            byte[] credentialId,
+            byte[] issuerIdentity,
+            byte[] issuanceStateHash,
+            long validFrom,
+            Long validUntil,
+            String credentialProfile,
+            byte[] credentialSubject,
+            Map<String, ?> claims) {
+        if (credentialId == null || credentialId.length != 32)
+            throw new IllegalArgumentException("Credential ID must be exactly 32 bytes");
+        validateIdentity(issuerIdentity);
+        if (issuanceStateHash == null || issuanceStateHash.length < 1
+                || issuanceStateHash.length > 128)
+            throw new IllegalArgumentException("Issuance StateHash must contain 1..128 bytes");
+        if (validFrom < 0)
+            throw new IllegalArgumentException("validFrom must be non-negative");
+        if (validUntil != null && validUntil <= validFrom)
+            throw new IllegalArgumentException("validUntil must be greater than validFrom");
+        if (credentialProfile == null || credentialProfile.isEmpty())
+            throw new IllegalArgumentException("Credential profile cannot be empty");
+        if (credentialSubject == null || credentialSubject.length == 0)
+            throw new IllegalArgumentException("Credential subject cannot be empty");
+        if (claims == null || claims.isEmpty())
+            throw new IllegalArgumentException("Credential claims cannot be empty");
+
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(validUntil == null ? 8 : 9);
+        c.writeUnsigned(1); c.writeUnsigned(CREDENTIAL_VERSION);
+        c.writeUnsigned(2); c.writeByteString(credentialId);
+        c.writeUnsigned(3); c.writeByteString(issuerIdentity);
+        c.writeUnsigned(4); c.writeByteString(issuanceStateHash);
+        c.writeUnsigned(5); c.writeUnsigned(validFrom);
+        if (validUntil != null) {
+            c.writeUnsigned(6); c.writeUnsigned(validUntil);
+        }
+        c.writeUnsigned(7); c.writeTextString(credentialProfile);
+        c.writeUnsigned(8); c.writeByteString(credentialSubject);
+        c.writeUnsigned(9); writeClaimMap(c, claims);
+        return c.toByteArray();
+    }
+
+    public static byte[] credentialSigningInput(byte[] credentialBytes) {
+        if (credentialBytes == null)
+            throw new IllegalArgumentException("Credential bytes cannot be null");
+        var c = new DeterministicCborWriter();
+        c.writeArrayHeader(3);
+        c.writeTextString(CREDENTIAL_CONTEXT);
+        c.writeUnsigned(CREDENTIAL_SIGNING_STRUCTURE_VERSION);
+        c.writeByteString(credentialBytes);
+        return c.toByteArray();
+    }
+
+    public static EncodedProof credentialProof(byte[] methodId, byte[] signature) {
+        return proof(methodId, signature);
+    }
+
+    public static byte[] securedCredential(
+            byte[] credential,
+            List<EncodedProof> proofs) {
+        if (credential == null)
+            throw new IllegalArgumentException("Credential cannot be null");
+        List<EncodedProof> canonical = canonicalProofs(proofs, "credential proof");
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(2);
+        c.writeUnsigned(1); c.writeEncoded(credential);
+        c.writeUnsigned(2); c.writeArrayHeader(canonical.size());
+        for (var proof : canonical) c.writeEncoded(proof.encoded());
+        return c.toByteArray();
+    }
+
+    private static void writeClaimMap(
+            DeterministicCborWriter c,
+            Map<String, ?> map) {
+        var entries = new ArrayList<Map.Entry<String, ?>>(map.entrySet());
+        for (var e : entries) {
+            if (e.getKey() == null || e.getKey().isEmpty())
+                throw new IllegalArgumentException("Claim keys must be non-empty text strings");
+        }
+        // RFC 8949 Core Deterministic map order compares deterministic encoded
+        // keys by length first, then bytewise lexical order.
+        entries.sort((a, b) -> compareDeterministicTextKeys(a.getKey(), b.getKey()));
+        c.writeMapHeader(entries.size());
+        for (var e : entries) {
+            c.writeTextString(e.getKey());
+            writeClaimValue(c, e.getValue());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void writeClaimValue(DeterministicCborWriter c, Object value) {
+        if (value == null) {
+            c.writeNull();
+        } else if (value instanceof Boolean b) {
+            // RFC 8949 simple values: false = 0xf4, true = 0xf5.
+            // DeterministicCborWriter has no boolean convenience method,
+            // so emit the canonical one-byte encoding directly.
+            c.writeEncoded(new byte[] {(byte) (b ? 0xf5 : 0xf4)});
+        } else if (value instanceof Byte || value instanceof Short
+                || value instanceof Integer || value instanceof Long) {
+            long n = ((Number) value).longValue();
+            c.writeSigned(n);
+        } else if (value instanceof String text) {
+            c.writeTextString(text);
+        } else if (value instanceof byte[] bytes) {
+            c.writeByteString(bytes);
+        } else if (value instanceof List<?> list) {
+            c.writeArrayHeader(list.size());
+            for (Object item : list) writeClaimValue(c, item);
+        } else if (value instanceof Map<?, ?> raw) {
+            Map<String,Object> nested = new LinkedHashMap<>();
+            for (var e : raw.entrySet()) {
+                if (!(e.getKey() instanceof String key))
+                    throw new IllegalArgumentException("Nested claim map keys must be text strings");
+                if (nested.put(key, e.getValue()) != null)
+                    throw new IllegalArgumentException("Duplicate nested claim key");
+            }
+            writeClaimMap(c, nested);
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported claim value type: " + value.getClass().getName());
+        }
+    }
+
+    private static int compareDeterministicTextKeys(String a, String b) {
+        byte[] ea = encodedTextKey(a);
+        byte[] eb = encodedTextKey(b);
+        if (ea.length != eb.length) return Integer.compare(ea.length, eb.length);
+        return UNSIGNED_BYTES.compare(ea, eb);
+    }
+
+    private static byte[] encodedTextKey(String key) {
+        var c = new DeterministicCborWriter();
+        c.writeTextString(key);
         return c.toByteArray();
     }
 

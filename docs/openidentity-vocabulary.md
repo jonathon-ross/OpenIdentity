@@ -16,6 +16,11 @@ The v1 context SHA-256 is:
 2125613959be8c288fd31a0aa2258d652cd9812ab21a0b5c6bc10a4081e8c6f4
 ```
 
+OI-003 credential projection terms are additions to the unversioned
+vocabulary. They MUST NOT be added retroactively to the immutable v1
+context. A cumulative v2 context SHALL carry the existing v1 mappings
+plus the OI-003 credential projection mappings.
+
 Implementations SHOULD bundle or integrity-pin the context rather than
 require live retrieval during security-sensitive processing. W3C
 guidance recommends published contexts, explicit term definitions,
@@ -63,6 +68,65 @@ Policy type representing one required VerificationMethod.
 URI: `https://openidentity.foundation/ns#Threshold`
 
 Policy type representing an m-of-n verification policy.
+
+
+### OpenIdentityCredential
+
+URI: `https://openidentity.foundation/ns#OpenIdentityCredential`
+
+JSON-LD term: `OpenIdentityCredential`
+
+W3C-facing type identifying a deterministic projection of a canonical
+OI-003 OpenIdentity credential.
+
+The projected representation is an interoperability view. The canonical
+OI-003 `SecuredCredential` remains the cryptographic source of truth.
+
+### credentialProfile
+
+URI: `https://openidentity.foundation/ns#credentialProfile`
+
+JSON-LD term: `openIdentityCredentialProfile`
+
+Identifies the immutable OI-003 Credential Profile governing the
+credential's subject syntax, claims, semantics, and interoperability
+projection rules.
+
+The value is an absolute URI. It is an identifier and MUST NOT be
+interpreted as a requirement to dereference the URI during cryptographic
+verification.
+
+### issuanceStateHash
+
+URI: `https://openidentity.foundation/ns#issuanceStateHash`
+
+JSON-LD term: `openIdentityIssuanceStateHash`
+
+Identifies the exact historical authoritative OpenIdentity
+`IdentityState` whose `AssertionPolicy` authorized issuance of the
+credential.
+
+In the W3C credential projection, the value is the Multibase
+representation of the exact native OI-003 `issuanceStateHash`. It MUST
+NOT be recomputed from the projected W3C credential.
+
+The current IdentityState MUST NOT be substituted for the historical
+state identified by this value.
+
+### securedCredential
+
+URI: `https://openidentity.foundation/ns#securedCredential`
+
+JSON-LD term: `openIdentitySecuredCredential`
+
+Carries the Multibase representation of the exact canonical native
+OI-003 `SecuredCredential` bytes in an OpenIdentity W3C credential
+projection.
+
+Native OI-003 verification operates on the decoded canonical bytes.
+This term does not define a W3C Data Integrity proof and MUST NOT cause
+native OI-003 credential proofs to be interpreted as
+`DataIntegrityProof`.
 
 ## Reused W3C terms
 

@@ -79,4 +79,20 @@ public final class TestKeys {
                     707172737475767778797a7b7c7d7e7f
                     """
             );
+
+    public static final byte[] ED25519_METHOD_ID_C =
+            Hex.decode(
+                    """
+                    404142434445464748494a4b4c4d4e4f
+                    """
+            );
+
+    public static final byte[] ED25519_SEED_C =
+            Hex.decode(
+                    """
+                    808182838485868788898a8b8c8d8e8f
+                    909192939495969798999a9b9c9d9e9f
+                    """
+            );
+
 }

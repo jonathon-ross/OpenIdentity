@@ -32,4 +32,6 @@ bin/
 .idea
 *.iml
 
+test-vectors/generated/
+
 **/target
