@@ -243,6 +243,17 @@ identity-id = bstr .size 32
 ; =====================================================================
 ; Sequence
 ; =====================================================================
+;
+; Sequence state-machine semantics are defined by OI-008.
+;
+; CREATE uses sequence 1. Every authoritative state-changing operation
+; after CREATE MUST use:
+;
+;   sequence = current authoritative sequence + 1
+;
+; Sequence MUST NOT decrease, reset, skip, or wrap.
+; The uint64 bound below is the protocol-v0.1 wire representation.
+; =====================================================================
 
 subsequent-sequence = 2..18446744073709551615
 
@@ -628,6 +639,8 @@ operation-bytes = bstr
 ; Deterministic CBOR Requirements
 ; =====================================================================
 ;
+; Canonical serialization semantics are defined by OI-009.
+;
 ; Every cryptographically authoritative structure MUST use RFC 8949
 ; Core Deterministic Encoding Requirements.
 ;
@@ -638,6 +651,8 @@ operation-bytes = bstr
 ; - deterministic map-key ordering
 ; - rejection of duplicate map keys
 ; - rejection of unknown OpenIdentity-defined map labels
+; - optional map fields are omitted when absent
+; - nil is encoded only where the schema explicitly gives nil semantic meaning
 ; - no floating-point values
 ; - no NaN or Infinity
 ; - no undefined

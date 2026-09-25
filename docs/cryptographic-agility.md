@@ -4,7 +4,7 @@
 **Story:** OI-002 --- Define Cryptographic Agility Model\
 **Status:** Draft v0.1\
 **Protocol:** OpenIdentity\
-**Wire Format:** OpenIdentity Operation v1\
+**Wire Format:** OpenIdentity Operation v2\
 **Normative Keywords:** MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT,
 SHOULD, SHOULD NOT, MAY
 
@@ -102,12 +102,23 @@ SHALL use RFC 8949 deterministic CBOR.
 
 ## 15. Deterministic CBOR profile
 
+Canonical serialization semantics are defined by OI-009.
+
 Permitted types, where defined by schema, are unsigned integers, signed
 integers, byte strings, text strings, arrays, maps, and nil. Floating
 point, NaN, Infinity, undefined, arbitrary simple values,
 indefinite-length items, arbitrary tags, unknown map labels, and
 duplicate map labels are prohibited. Definite lengths and preferred
 serialization are REQUIRED.
+
+An absent optional field MUST be omitted from its CBOR map. It MUST NOT
+be encoded as `nil` unless the applicable schema explicitly assigns
+semantic meaning to `nil`.
+
+Human-readable JSON, YAML, database records, transport envelopes, and
+ledger-specific representations are not authoritative signed
+serialization. Cryptographically authoritative bytes are produced only
+from the validated OpenIdentity data model using deterministic CBOR.
 
 ## 16. Canonical ordering
 
