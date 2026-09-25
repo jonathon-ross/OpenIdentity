@@ -1,82 +1,79 @@
 ; =====================================================================
+; HISTORICAL / FROZEN SCHEMA NOTICE
+; =====================================================================
+;
+; This file preserves the earlier OpenIdentity Operation Wire Format v1
+; for historical compatibility and verification of frozen artifacts.
+;
+; Current OpenIdentity protocol development uses:
+;
+;   spec/cddl/openidentity-operation-v2.cddl
+;
+; Do not interpret omissions or reserved operations in this historical
+; schema as limitations of the current v2 schema.
+; =====================================================================
+;
+; =====================================================================
 ; OpenIdentity Operation Wire Format v1
 ; File: spec/cddl/openidentity-operation-v1.cddl
 ; =====================================================================
 ;
-; Normative encoding:
-;   RFC 8949 Core Deterministic Encoding Requirements plus the
-;   restrictions defined by docs/cryptographic-agility.md.
+; Normative encoding: RFC 8949 Core Deterministic Encoding Requirements
+; plus restrictions in docs/cryptographic-agility.md.
 ;
 ; CDDL defines structural validity. Semantic requirements such as
-; canonical collection ordering, threshold evaluation, signature
-; verification, state-transition validation, replay protection, and
-; proof-of-possession are defined by the specification.
+; ordering, threshold evaluation, signature verification, replay
+; protection, and proof-of-possession are defined in the specification.
 ; =====================================================================
 
 start = signed-operation
 
-; =====================================================================
-; Signed Operation
-; =====================================================================
-;
+; ---------------------------------------------------------------------
+; Signed operation envelope
 ; 1 = operation
 ; 2 = authorization proofs
-; 3 = controller proof-of-possession proofs (optional)
-;
-; No proof collection is included when calculating OperationBytes.
-;
-; CREATE normally omits field 3.
-; ROTATE_CONTROLLER requires field 3 semantically and MUST provide
-; exactly one valid controller proof for every VerificationMethod in
-; the proposed new controller policy.
-; =====================================================================
+; ---------------------------------------------------------------------
 
 signed-operation = {
     1 => operation,
-    2 => [+ authorization-proof],
-    ? 3 => [+ controller-proof]
+    2 => [+ authorization-proof]
 }
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Operations
-; =====================================================================
-;
-; Each valid operation type is structurally bound to its payload.
-; RECOVER is allocated but intentionally absent until defined.
-; =====================================================================
+; Each operation type is structurally bound to its correct payload.
+; ---------------------------------------------------------------------
 
 operation =
       create-operation
     / rotate-controller-operation
     / deactivate-operation
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Operation Type Registry
-; =====================================================================
 ;
 ; 1 = CREATE
 ; 2 = ROTATE_CONTROLLER
-; 3 = RECOVER (allocated, NOT valid in this schema)
+; 3 = RECOVER (allocated, but NOT defined/valid in this schema)
 ; 4 = DEACTIVATE
 ;
 ; 5..23 reserved for future OpenIdentity core operations.
-; =====================================================================
+; ---------------------------------------------------------------------
 
 create-operation-type = 1
 rotate-controller-operation-type = 2
 recover-operation-type = 3
 deactivate-operation-type = 4
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; CREATE
-; =====================================================================
 ;
 ; Structurally enforced:
-;   protocolVersion   = 1
-;   operationType     = 1
-;   sequence          = 1
-;   previousStateHash = nil
-; =====================================================================
+; protocolVersion = 1
+; operationType = 1
+; sequence = 1
+; previousStateHash = nil
+; ---------------------------------------------------------------------
 
 create-operation = {
     1 => protocol-version,
@@ -89,25 +86,14 @@ create-operation = {
 
 create-sequence = 1
 
-; 1 = controller policy
-; 2 = recovery commitment (optional)
-
 create-payload = {
     1 => controller-policy,
     ? 2 => recovery-commitment
 }
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; ROTATE_CONTROLLER
-; =====================================================================
-;
-; Semantic requirements:
-;   sequence = current authoritative sequence + 1
-;   previousStateHash = hash of current canonical IdentityState
-;
-; The CURRENT controller policy authorizes the operation.
-; Proposed new keys prove possession separately.
-; =====================================================================
+; ---------------------------------------------------------------------
 
 rotate-controller-operation = {
     1 => protocol-version,
@@ -118,21 +104,14 @@ rotate-controller-operation = {
     6 => rotate-controller-payload
 }
 
-; 1 = proposed new controller policy
-;
-; Controller proof-of-possession evidence is deliberately NOT part of
-; the operation payload because those proofs sign OperationBytes.
-; Including them here would create a circular signing dependency.
-;
-; The proofs are carried in field 3 of signed-operation.
-
 rotate-controller-payload = {
-    1 => controller-policy
+    1 => controller-policy,
+    2 => [+ controller-proof]
 }
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; DEACTIVATE
-; =====================================================================
+; ---------------------------------------------------------------------
 
 deactivate-operation = {
     1 => protocol-version,
@@ -145,70 +124,54 @@ deactivate-operation = {
 
 deactivate-payload = {}
 
-; =====================================================================
-; Protocol Version
-; =====================================================================
+; ---------------------------------------------------------------------
+; Protocol version
+; ---------------------------------------------------------------------
 
 protocol-version = 1
 
-; =====================================================================
-; Root Identity Identifier
-; =====================================================================
-;
+; ---------------------------------------------------------------------
+; Root identity identifier
 ; Exactly the raw 32 identifier bytes defined by OI-001.
-; The textual did:open:z... representation MUST NOT appear in the
-; canonical operation or canonical IdentityState.
-; =====================================================================
+; ---------------------------------------------------------------------
 
 identity-id = bstr .size 32
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Sequence
-; =====================================================================
+; CREATE is fixed to 1. Subsequent operations are uint64 >= 2.
+; The currentSequence + 1 relationship is checked semantically.
+; ---------------------------------------------------------------------
 
 subsequent-sequence = 2..18446744073709551615
 
-; =====================================================================
-; Previous State Hash
-; =====================================================================
+; ---------------------------------------------------------------------
+; Previous state hash
 ;
-; Contains one binary Multihash.
-;
-; OpenIdentity v0.1 producers MUST emit a SHA2-256 Multihash:
-;
-;   0x12 || 0x20 || SHA-256(StateBytes)
-;
-; resulting in exactly 34 bytes.
-;
-; The wider structural bound permits future supported Multihashes.
-; A verifier MUST semantically validate the Multihash.
-; =====================================================================
+; Binary Multihash. v0.1 requires SHA2-256 support.
+; The broader structural bound permits future supported Multihashes.
+; ---------------------------------------------------------------------
 
 previous-state-hash = bstr .size (1..128)
 
-; =====================================================================
-; Recovery Commitment
-; =====================================================================
-;
+; ---------------------------------------------------------------------
+; Recovery commitment
 ; Opaque until the recovery specification defines its format.
-; =====================================================================
+; ---------------------------------------------------------------------
 
 recovery-commitment = bstr .size (1..128)
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Controller Policy
-; =====================================================================
+; ---------------------------------------------------------------------
 
 controller-policy =
       single-policy
     / threshold-policy
 
-; ---------------------------------------------------------------------
-; SINGLE
-;
-; 1 = policy type = 1
-; 2 = exactly one VerificationMethod
-; ---------------------------------------------------------------------
+; SINGLE:
+; 1 = policy type (1)
+; 2 = exactly one verification method
 
 single-policy = {
     1 => single-policy-type,
@@ -217,16 +180,13 @@ single-policy = {
 
 single-policy-type = 1
 
-; ---------------------------------------------------------------------
-; THRESHOLD
-;
-; 1 = policy type = 2
+; THRESHOLD:
+; 1 = policy type (2)
 ; 2 = threshold
-; 3 = VerificationMethods
+; 3 = verification methods
 ;
 ; Semantic invariant:
-;   1 <= threshold <= number of VerificationMethods
-; ---------------------------------------------------------------------
+; 1 <= threshold <= number of verification methods
 
 threshold-policy = {
     1 => threshold-policy-type,
@@ -237,13 +197,12 @@ threshold-policy = {
 threshold-policy-type = 2
 threshold = 1..65535
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Verification Method
-; =====================================================================
 ;
-; 1 = 16-byte Verification Method ID
+; 1 = 16-byte verification method ID
 ; 2 = COSE_Key
-; =====================================================================
+; ---------------------------------------------------------------------
 
 verification-method = {
     1 => verification-method-id,
@@ -252,9 +211,9 @@ verification-method = {
 
 verification-method-id = bstr .size 16
 
-; =====================================================================
-; OpenIdentity COSE Keys
-; =====================================================================
+; ---------------------------------------------------------------------
+; OpenIdentity COSE keys
+; ---------------------------------------------------------------------
 
 openidentity-cose-key =
       ed25519-cose-key
@@ -263,9 +222,9 @@ openidentity-cose-key =
 ; ---------------------------------------------------------------------
 ; Ed25519 COSE_Key
 ;
-;  1 = kty = 1  (OKP)
+;  1 = kty = 1 (OKP)
 ;  3 = alg = -8 (EdDSA)
-; -1 = crv = 6  (Ed25519)
+; -1 = crv = 6 (Ed25519)
 ; -2 = x = 32-byte public key
 ; ---------------------------------------------------------------------
 
@@ -284,7 +243,7 @@ ed25519-public-key = bstr .size 32
 ; ---------------------------------------------------------------------
 ; ML-DSA-65 COSE_Key
 ;
-;  1 = kty = 7   (AKP)
+;  1 = kty = 7 (AKP)
 ;  3 = alg = -49 (ML-DSA-65)
 ; -1 = pub = 1952-byte raw public key
 ; ---------------------------------------------------------------------
@@ -299,113 +258,43 @@ ml-dsa-kty = 7
 ml-dsa-65-alg = -49
 ml-dsa-65-public-key = bstr .size 1952
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Authorization Proof
-; =====================================================================
 ;
-; 1 = Verification Method ID
-; 2 = raw algorithm-specific signature bytes
-; =====================================================================
+; 1 = verification method ID
+; 2 = raw signature bytes
+; ---------------------------------------------------------------------
 
 authorization-proof = {
     1 => verification-method-id,
     2 => signature
 }
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Controller Proof of Possession
-; =====================================================================
+;
+; Used by ROTATE_CONTROLLER for proposed new keys.
+; ---------------------------------------------------------------------
 
 controller-proof = {
     1 => verification-method-id,
     2 => signature
 }
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Signature
-; =====================================================================
 ;
-; v0.1 semantic sizes:
-;   Ed25519   = 64 bytes
-;   ML-DSA-65 = 3309 bytes
-; =====================================================================
+; Algorithm-specific semantic validation determines exact size.
+;
+; v0.1:
+; Ed25519   = 64 bytes
+; ML-DSA-65 = 3309 bytes
+; ---------------------------------------------------------------------
 
 signature = bstr .size (1..65535)
 
-; =====================================================================
-; Canonical Identity State v1
-; =====================================================================
-;
-; IdentityState represents the current authoritative state resulting
-; from applying a valid OpenIdentity operation.
-;
-; IdentityState is NOT an operation and contains NO authorization
-; proofs, signatures, transport metadata, or registry-specific data.
-;
-; Map labels:
-;   1 = state version
-;   2 = identity
-;   3 = sequence
-;   4 = status
-;   5 = controller policy
-;   6 = recovery commitment (optional)
-;
-; StateBytes are the deterministic RFC 8949 CBOR encoding of this map.
-; =====================================================================
-
-identity-state = {
-    1 => identity-state-version,
-    2 => identity-id,
-    3 => state-sequence,
-    4 => identity-status,
-    5 => controller-policy,
-    ? 6 => recovery-commitment
-}
-
-identity-state-version = 1
-state-sequence = 1..18446744073709551615
-
 ; ---------------------------------------------------------------------
-; Identity Status
-;
-; 1 = ACTIVE
-; 2 = DEACTIVATED
-; ---------------------------------------------------------------------
-
-identity-status =
-      active-status
-    / deactivated-status
-
-active-status = 1
-deactivated-status = 2
-
-; =====================================================================
-; State Hash
-; =====================================================================
-;
-; OpenIdentity v0.1 state hash calculation:
-;
-;   StateBytes =
-;       deterministicCBOR(identity-state)
-;
-;   digest =
-;       SHA-256(StateBytes)
-;
-;   StateHash =
-;       0x12 || 0x20 || digest
-;
-; where:
-;   0x12 = Multihash SHA2-256 code
-;   0x20 = 32-byte digest length
-;
-; StateHash is therefore 34 bytes for the v0.1 SHA2-256 profile.
-;
-; A subsequent operation places StateHash into previousStateHash.
-; =====================================================================
-
-; =====================================================================
 ; Authorization Signing Structure
-; =====================================================================
 ;
 ; Sign deterministic CBOR encoding of:
 ;
@@ -414,7 +303,7 @@ deactivated-status = 2
 ;   1,
 ;   operationBytes
 ; ]
-; =====================================================================
+; ---------------------------------------------------------------------
 
 operation-signing-structure = [
     "OpenIdentity Operation",
@@ -422,9 +311,8 @@ operation-signing-structure = [
     operation-bytes
 ]
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Controller Proof-of-Possession Signing Structure
-; =====================================================================
 ;
 ; Sign deterministic CBOR encoding of:
 ;
@@ -434,7 +322,7 @@ operation-signing-structure = [
 ;   operationBytes,
 ;   verificationMethodId
 ; ]
-; =====================================================================
+; ---------------------------------------------------------------------
 
 controller-proof-signing-structure = [
     "OpenIdentity Controller Proof",
@@ -445,33 +333,34 @@ controller-proof-signing-structure = [
 
 signing-structure-version = 1
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; Operation Bytes
-; =====================================================================
 ;
 ; Complete deterministic RFC 8949 CBOR encoding of exactly one valid
-; OpenIdentity Operation. It excludes authorization proofs and
-; transport metadata.
-; =====================================================================
+; OpenIdentity Operation. It excludes authorization proofs and transport
+; metadata.
+; ---------------------------------------------------------------------
 
 operation-bytes = bstr
 
 ; =====================================================================
-; Canonical Ordering Requirements
+; Normative Semantic Requirements
 ; =====================================================================
+
+; ---------------------------------------------------------------------
+; Canonical Ordering
 ;
-; VerificationMethods MUST be sorted by Verification Method ID using
+; Verification methods MUST be sorted by verification-method-id using
 ; unsigned bytewise lexicographic ordering.
 ;
 ; Authorization proofs and controller proofs MUST use the same ordering.
 ;
-; Duplicate Verification Method IDs MUST be rejected within each
+; Duplicate verification-method-id values MUST be rejected within each
 ; relevant collection.
-; =====================================================================
+; ---------------------------------------------------------------------
 
-; =====================================================================
-; Deterministic CBOR Requirements
-; =====================================================================
+; ---------------------------------------------------------------------
+; Deterministic CBOR
 ;
 ; Every cryptographically authoritative structure MUST use RFC 8949
 ; Core Deterministic Encoding Requirements.
@@ -491,64 +380,106 @@ operation-bytes = bstr
 ;
 ; Negative integers are permitted where explicitly required by
 ; standardized COSE structures and identifiers.
-; =====================================================================
+; ---------------------------------------------------------------------
 
-; =====================================================================
-; CREATE State Transition
-; =====================================================================
+; ---------------------------------------------------------------------
+; CREATE Semantics
 ;
-; A valid CREATE produces:
+; MUST have:
+; protocolVersion   = 1
+; operationType     = 1
+; identity length   = 32 bytes
+; sequence          = 1
+; previousStateHash = nil
 ;
-; {
-;   1: 1,                    stateVersion
-;   2: identity,
-;   3: 1,                    sequence
-;   4: 1,                    ACTIVE
-;   5: controllerPolicy,
-;   6: recoveryCommitment?   if supplied by CREATE
-; }
+; CREATE authorization is evaluated against the controller policy in
+; the CREATE payload.
 ;
-; The resulting deterministic CBOR bytes are StateBytes.
-; =====================================================================
+; Default v0.1 profile:
+; THRESHOLD, threshold=2, one Ed25519 method, one ML-DSA-65 method.
+; Both authorization proofs MUST be valid.
+; ---------------------------------------------------------------------
 
-; =====================================================================
-; ROTATE_CONTROLLER State Transition
-; =====================================================================
+; ---------------------------------------------------------------------
+; ROTATE_CONTROLLER Semantics
 ;
-; A valid ROTATE_CONTROLLER:
+; MUST have:
+; protocolVersion = 1
+; operationType    = 2
+; sequence         = current authoritative sequence + 1
+; previousStateHash = valid Multihash of current authoritative state
 ;
-; - MUST use previousStateHash equal to the StateHash of the current
-;   authoritative IdentityState
-; - MUST use sequence = current state sequence + 1
-; - MUST be authorized by the CURRENT controller policy
-; - MUST include, in signed-operation field 3, valid proof of possession
-;   for every proposed new VerificationMethod
+; Authorization is evaluated against the CURRENT controller policy.
+; The proposed new policy MUST NOT authorize its own installation.
 ;
-; Applying it produces a new ACTIVE IdentityState containing the new
-; controller policy and incremented sequence.
-; =====================================================================
+; Every proposed new VerificationMethod MUST provide valid proof of
+; possession using controller-proof-signing-structure.
+; ---------------------------------------------------------------------
 
-; =====================================================================
-; DEACTIVATE State Transition
-; =====================================================================
+; ---------------------------------------------------------------------
+; DEACTIVATE Semantics
 ;
-; A valid DEACTIVATE uses the current StateHash as previousStateHash
-; and produces an IdentityState whose status is DEACTIVATED.
+; MUST have:
+; protocolVersion = 1
+; operationType    = 4
+; sequence         = current authoritative sequence + 1
+; previousStateHash = valid Multihash of current authoritative state
 ;
-; Final permanence and recovery semantics are defined separately.
-; =====================================================================
+; Normal controller authorization is required under v1.
+; Final permanence, delay, and recovery semantics are separate.
+; ---------------------------------------------------------------------
 
-; =====================================================================
+; ---------------------------------------------------------------------
 ; RECOVER Reservation
-; =====================================================================
 ;
-; Operation code 3 is allocated to RECOVER but intentionally absent
-; from the `operation` choice.
+; Code 3 is allocated to RECOVER but intentionally absent from the
+; `operation` choice.
 ;
-; A conforming implementation of this schema MUST reject operationType 3
-; until recovery payload, policy, threshold, timing, cryptographic
-; diversity, and authorization semantics are normatively defined.
-; =====================================================================
+; A conforming implementation of this schema MUST reject operationType 3.
+;
+; RECOVER will be added only after its payload, recovery policy,
+; threshold rules, timing rules, cryptographic-diversity requirements,
+; and authorization proof semantics have been normatively defined.
+; ---------------------------------------------------------------------
+
+; ---------------------------------------------------------------------
+; Proof Evaluation
+;
+; A proof counts toward a controller threshold only when:
+;
+; - its Verification Method ID is authorized by the applicable policy
+; - the referenced COSE_Key is structurally valid
+; - the algorithm is supported/permitted for the operation
+; - the signature representation is valid for that algorithm
+; - cryptographic verification against the exact SigningInput succeeds
+; - the Verification Method ID has not already been counted
+;
+; Thresholds MUST NOT be silently weakened.
+; ---------------------------------------------------------------------
+
+; ---------------------------------------------------------------------
+; Proof of Possession
+;
+; Every VerificationMethod installed by ROTATE_CONTROLLER MUST have
+; exactly one valid corresponding controller-proof unless a future
+; specification explicitly defines a safe exception.
+;
+; Authorization proofs and possession proofs are domain-separated and
+; MUST NOT be interchangeable.
+; ---------------------------------------------------------------------
+
+; ---------------------------------------------------------------------
+; Future Algorithm Handling
+;
+; A structurally valid but unsupported algorithm is:
+;
+; UNSUPPORTED_ALGORITHM
+;
+; It MUST NOT automatically make the identity malformed.
+;
+; If the unsupported algorithm is required to satisfy the active
+; controller threshold, authorization fails.
+; ---------------------------------------------------------------------
 
 ; =====================================================================
 ; End OpenIdentity Operation Wire Format v1

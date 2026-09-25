@@ -32,6 +32,15 @@ bin/
 .idea
 *.iml
 
+### Generated OpenIdentity vectors ###
 test-vectors/generated/
 
+### Java build output ###
 **/target
+
+### Node.js dependencies ###
+node_modules/
+
+### Python cache / bytecode ###
+__pycache__/
+*.py[cod]

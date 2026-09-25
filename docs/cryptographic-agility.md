@@ -2,7 +2,7 @@
 
 **Document:** `cryptographic-agility.md`\
 **Story:** OI-002 --- Define Cryptographic Agility Model\
-**Status:** Draft v0.1\
+**Status:** Complete v0.1\
 **Protocol:** OpenIdentity\
 **Wire Format:** OpenIdentity Operation v2\
 **Normative Keywords:** MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT,
@@ -152,7 +152,8 @@ Operation codes:
 -   `2` ROTATE_CONTROLLER
 -   `3` RECOVER
 -   `4` DEACTIVATE
--   `5..23` reserved for future core operations
+-   `5` SET_ASSERTION_POLICY
+-   `6..23` reserved for future core operations
 
 Unknown operation types MUST produce `UNSUPPORTED_OPERATION`.
 
@@ -512,20 +513,21 @@ protocol.
 
 OI-002 intentionally defers:
 
--   complete recovery-policy design;
 -   device/passkey authorization;
 -   pairwise application identifiers;
--   credential signing/presentation;
 -   registry-specific verification mechanics;
--   Solana implementation details;
--   algorithm-specific hardware storage; and
--   final deactivation semantics.
+-   Solana implementation details; and
+-   algorithm-specific hardware storage.
+
+Recovery-policy design is defined by OI-007. Credential issuance and
+verification are defined by OI-003. Deactivation semantics are defined by
+OI-006.
 
 ## 41. Completion criteria
 
 OI-002 is complete when:
 
--   this document and `openidentity-operation-v1.cddl` agree;
+-   this document and the current `openidentity-operation-v2.cddl` agree;
 -   Ed25519 and ML-DSA-65 COSE representations are fixed;
 -   the default 2-of-2 hybrid profile is fixed;
 -   deterministic CBOR rules are fixed;
