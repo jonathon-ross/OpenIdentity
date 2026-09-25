@@ -46,6 +46,8 @@ public final class GenerateVectors {
         generateRecoveryInvalidVectors(v02);
         generateR02(v02, a04);
         generateNormativeRecoveryFile();
+        generateSignatureEnvelopeVectors(v02);
+        generateNormativeSignatureEnvelopeFile();
         System.out.println("================================================");
         System.out.println("ALL JAVA TEST VECTORS GENERATED SUCCESSFULLY");
         System.out.println("================================================");
@@ -3261,6 +3263,466 @@ public final class GenerateVectors {
         } catch (Exception e) {
             throw new IllegalStateException(
                     "Unable to generate normative OI-007 recovery vector file",
+                    e);
+        }
+    }
+
+
+
+    /**
+     * OI-010 SE01-SE10 signature-envelope and domain-separation vectors.
+     *
+     * SE01 is a positive ordinary authorization case. SE02-SE10 are
+     * mutation/substitution security cases. The original SE01 signature is
+     * intentionally reused where the test proves that changing covered
+     * OperationBytes invalidates authorization.
+     */
+    private static void generateSignatureEnvelopeVectors(
+            HybridCreateResult v02) {
+        section("SIGNATURE ENVELOPE", "SE01-SE10");
+
+        var controller = new Ed25519Support(TestKeys.ED25519_SEED);
+        var proposed = new Ed25519Support(TestKeys.ED25519_SEED_B);
+        var recovery = new Ed25519Support(TestKeys.ED25519_SEED_C);
+
+        var controllerMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID,
+                OpenIdentityCbor.ed25519CoseKey(controller.publicKey()));
+        byte[] controllerPolicy =
+                OpenIdentityCbor.singlePolicy(controllerMethod);
+
+        var proposedMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_B,
+                OpenIdentityCbor.ed25519CoseKey(proposed.publicKey()));
+        byte[] proposedPolicy =
+                OpenIdentityCbor.singlePolicy(proposedMethod);
+
+        // Base fixture is a valid ROTATE_CONTROLLER at sequence 2.
+        byte[] operation = OpenIdentityCbor.rotateControllerOperation(
+                TestKeys.IDENTITY, 2, v02.stateHash(), proposedPolicy);
+        byte[] authInput = OpenIdentityCbor.operationSigningInput(operation);
+        byte[] authSig = controller.sign(authInput);
+        if (!controller.verify(authInput, authSig))
+            throw new IllegalStateException("SE01 authorization failed");
+        var authProof = OpenIdentityCbor.authorizationProof(
+                TestKeys.ED25519_METHOD_ID, authSig);
+
+        byte[] popInput = OpenIdentityCbor.controllerProofSigningInput(
+                operation, TestKeys.ED25519_METHOD_ID_B);
+        byte[] popSig = proposed.sign(popInput);
+        if (!proposed.verify(popInput, popSig))
+            throw new IllegalStateException("SE01 PoP failed");
+        var popProof = OpenIdentityCbor.controllerProof(
+                TestKeys.ED25519_METHOD_ID_B, popSig);
+
+        byte[] signed = OpenIdentityCbor.signedOperation(
+                operation, List.of(authProof), List.of(popProof));
+
+        List<Map<String,Object>> vectors = new ArrayList<>();
+
+        Map<String,Object> se01 = signatureEnvelopeVector(
+                "SE01", "Valid ordinary controller authorization",
+                "ACCEPT", operation);
+        put(se01, "identityHex", TestKeys.IDENTITY);
+        put(se01, "previousStateHashHex", v02.stateHash());
+        put(se01, "controllerMethodIdHex", TestKeys.ED25519_METHOD_ID);
+        put(se01, "controllerPublicKeyHex", controller.publicKey());
+        put(se01, "proposedControllerMethodIdHex",
+                TestKeys.ED25519_METHOD_ID_B);
+        put(se01, "proposedControllerPublicKeyHex", proposed.publicKey());
+        put(se01, "proposedControllerPolicyHex", proposedPolicy);
+        put(se01, "authorizationSigningInputHex", authInput);
+        put(se01, "authorizationSignatureHex", authSig);
+        put(se01, "authorizationProofHex", authProof.encoded());
+        put(se01, "controllerPopSigningInputHex", popInput);
+        put(se01, "controllerPopSignatureHex", popSig);
+        put(se01, "controllerProofHex", popProof.encoded());
+        put(se01, "signedOperationHex", signed);
+        se01.put("sequence", 2);
+        se01.put("operationType", 2);
+        vectors.add(se01);
+
+        // SE02: mutate identity while retaining SE01 authorization signature.
+        byte[] otherIdentity = Arrays.copyOf(TestKeys.IDENTITY,
+                TestKeys.IDENTITY.length);
+        otherIdentity[31] ^= 1;
+        byte[] se02op = rawOi010RotateOperation(
+                otherIdentity, 2, v02.stateHash(), proposedPolicy);
+        vectors.add(signatureMutation(
+                "SE02", "Identity mutation invalidates authorization",
+                "INVALID_SIGNATURE", se02op, authSig,
+                OpenIdentityCbor.operationSigningInput(se02op)));
+
+        // SE03: mutate sequence.
+        byte[] se03op = rawOi010RotateOperation(
+                TestKeys.IDENTITY, 3, v02.stateHash(), proposedPolicy);
+        vectors.add(signatureMutation(
+                "SE03", "Sequence mutation invalidates authorization",
+                "INVALID_SIGNATURE", se03op, authSig,
+                OpenIdentityCbor.operationSigningInput(se03op)));
+
+        // SE04: mutate predecessor hash.
+        byte[] otherHash = Arrays.copyOf(v02.stateHash(),
+                v02.stateHash().length);
+        otherHash[otherHash.length - 1] ^= 1;
+        byte[] se04op = rawOi010RotateOperation(
+                TestKeys.IDENTITY, 2, otherHash, proposedPolicy);
+        vectors.add(signatureMutation(
+                "SE04", "previousStateHash mutation invalidates authorization",
+                "INVALID_SIGNATURE", se04op, authSig,
+                OpenIdentityCbor.operationSigningInput(se04op)));
+
+        // SE05: mutate payload by installing a different valid policy.
+        var otherProposedMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_C,
+                OpenIdentityCbor.ed25519CoseKey(recovery.publicKey()));
+        byte[] otherPolicy =
+                OpenIdentityCbor.singlePolicy(otherProposedMethod);
+        byte[] se05op = rawOi010RotateOperation(
+                TestKeys.IDENTITY, 2, v02.stateHash(), otherPolicy);
+        Map<String,Object> se05 = signatureMutation(
+                "SE05", "Payload mutation invalidates authorization",
+                "INVALID_SIGNATURE", se05op, authSig,
+                OpenIdentityCbor.operationSigningInput(se05op));
+        put(se05, "mutatedControllerPolicyHex", otherPolicy);
+        vectors.add(se05);
+
+        // SE06: an ordinary authorization signature cannot satisfy PoP.
+        byte[] requiredPopInput =
+                OpenIdentityCbor.controllerProofSigningInput(
+                        operation, TestKeys.ED25519_METHOD_ID);
+        Map<String,Object> se06 = signatureEnvelopeVector(
+                "SE06",
+                "Ordinary authorization substituted as controller PoP",
+                "REJECT", operation);
+        se06.put("expectedError", "INVALID_PROOF_OF_POSSESSION");
+        put(se06, "substitutedSignatureHex", authSig);
+        put(se06, "signatureWasCreatedOverHex", authInput);
+        put(se06, "requiredSigningInputHex", requiredPopInput);
+        se06.put("substitutionFrom", "OpenIdentity Operation");
+        se06.put("substitutionTo", "OpenIdentity Controller Proof");
+        vectors.add(se06);
+
+        // SE07: a controller-PoP signature cannot satisfy ordinary auth.
+        byte[] controllerAsPopInput =
+                OpenIdentityCbor.controllerProofSigningInput(
+                        operation, TestKeys.ED25519_METHOD_ID);
+        byte[] controllerAsPopSig = controller.sign(controllerAsPopInput);
+        Map<String,Object> se07 = signatureEnvelopeVector(
+                "SE07",
+                "Controller PoP substituted as ordinary authorization",
+                "REJECT", operation);
+        se07.put("expectedError", "INVALID_SIGNATURE");
+        put(se07, "substitutedSignatureHex", controllerAsPopSig);
+        put(se07, "signatureWasCreatedOverHex", controllerAsPopInput);
+        put(se07, "requiredSigningInputHex", authInput);
+        se07.put("substitutionFrom", "OpenIdentity Controller Proof");
+        se07.put("substitutionTo", "OpenIdentity Operation");
+        vectors.add(se07);
+
+        // SE08: a recovery-domain signature cannot satisfy ordinary auth.
+        byte[] recoveryAsAuthInput =
+                OpenIdentityCbor.recoveryProofSigningInput(
+                        operation, TestKeys.ED25519_METHOD_ID);
+        byte[] recoveryAsAuthSig = controller.sign(recoveryAsAuthInput);
+        Map<String,Object> se08 = signatureEnvelopeVector(
+                "SE08",
+                "Recovery authorization substituted as ordinary authorization",
+                "REJECT", operation);
+        se08.put("expectedError", "INVALID_SIGNATURE");
+        put(se08, "substitutedSignatureHex", recoveryAsAuthSig);
+        put(se08, "signatureWasCreatedOverHex", recoveryAsAuthInput);
+        put(se08, "requiredSigningInputHex", authInput);
+        se08.put("substitutionFrom", "OpenIdentity Recovery");
+        se08.put("substitutionTo", "OpenIdentity Operation");
+        vectors.add(se08);
+
+        // SE09: same operation/domain but signingStructureVersion=2.
+        byte[] wrongVersionInput = rawOperationSigningInput(operation, 2);
+        Map<String,Object> se09 = signatureEnvelopeVector(
+                "SE09",
+                "Signing-structure version mutation invalidates authorization",
+                "REJECT", operation);
+        se09.put("expectedError", "INVALID_SIGNATURE");
+        put(se09, "authorizationSignatureHex", authSig);
+        put(se09, "signatureWasCreatedOverHex", authInput);
+        put(se09, "mutatedSigningInputHex", wrongVersionInput);
+        se09.put("originalSigningStructureVersion", 1);
+        se09.put("mutatedSigningStructureVersion", 2);
+        vectors.add(se09);
+
+        // SE10: mutate operationType from ROTATE_CONTROLLER(2) to
+        // DEACTIVATE(4), retaining the original authorization signature.
+        byte[] se10op = rawOperationWithPayload(
+                4, TestKeys.IDENTITY, 2, v02.stateHash(),
+                rawEmptyMap());
+        vectors.add(signatureMutation(
+                "SE10", "Operation type mutation invalidates authorization",
+                "INVALID_SIGNATURE", se10op, authSig,
+                OpenIdentityCbor.operationSigningInput(se10op)));
+
+        // Generator-side cryptographic assertions for all substitution cases.
+        if (controller.verify(
+                OpenIdentityCbor.operationSigningInput(se02op), authSig))
+            throw new IllegalStateException("SE02 unexpectedly verified");
+        if (controller.verify(
+                OpenIdentityCbor.operationSigningInput(se03op), authSig))
+            throw new IllegalStateException("SE03 unexpectedly verified");
+        if (controller.verify(
+                OpenIdentityCbor.operationSigningInput(se04op), authSig))
+            throw new IllegalStateException("SE04 unexpectedly verified");
+        if (controller.verify(
+                OpenIdentityCbor.operationSigningInput(se05op), authSig))
+            throw new IllegalStateException("SE05 unexpectedly verified");
+        if (controller.verify(requiredPopInput, authSig))
+            throw new IllegalStateException("SE06 unexpectedly verified");
+        if (controller.verify(authInput, controllerAsPopSig))
+            throw new IllegalStateException("SE07 unexpectedly verified");
+        if (controller.verify(authInput, recoveryAsAuthSig))
+            throw new IllegalStateException("SE08 unexpectedly verified");
+        if (controller.verify(wrongVersionInput, authSig))
+            throw new IllegalStateException("SE09 unexpectedly verified");
+        if (controller.verify(
+                OpenIdentityCbor.operationSigningInput(se10op), authSig))
+            throw new IllegalStateException("SE10 unexpectedly verified");
+
+        List<String> ids = vectors.stream()
+                .map(v -> (String)v.get("id")).toList();
+        List<String> expected = java.util.stream.IntStream.rangeClosed(1,10)
+                .mapToObj(i -> String.format("SE%02d", i)).toList();
+        if (!ids.equals(expected))
+            throw new IllegalStateException(
+                    "Unexpected signature-envelope vector IDs: " + ids);
+
+        Map<String,Object> doc = new LinkedHashMap<>();
+        doc.put("specification", "OpenIdentity Signature Envelope");
+        doc.put("version", "0.1");
+        doc.put("wireProtocolVersion", 1);
+        doc.put("signingStructureVersion", 1);
+        doc.put("ordinaryAuthorizationDomain", "OpenIdentity Operation");
+        doc.put("controllerProofDomain", "OpenIdentity Controller Proof");
+        doc.put("recoveryDomain", "OpenIdentity Recovery");
+        doc.put("vectors", vectors);
+        writeJson("signature-envelope-se01-se10-java.json", doc);
+
+        for (int i=1;i<=10;i++)
+            success(String.format("SE%02d generated", i));
+        success("SE01-SE10 generated");
+        success("signature-envelope-se01-se10-java.json");
+        blankLine();
+    }
+
+    private static Map<String,Object> signatureEnvelopeVector(
+            String id, String description, String expectedResult,
+            byte[] operation) {
+        Map<String,Object> v = new LinkedHashMap<>();
+        v.put("id", id);
+        v.put("description", description);
+        v.put("expectedResult", expectedResult);
+        put(v, "operationBytesHex", operation);
+        return v;
+    }
+
+    private static Map<String,Object> signatureMutation(
+            String id, String description, String expectedError,
+            byte[] operation, byte[] originalSignature,
+            byte[] mutatedSigningInput) {
+        Map<String,Object> v = signatureEnvelopeVector(
+                id, description, "REJECT", operation);
+        v.put("expectedError", expectedError);
+        put(v, "originalAuthorizationSignatureHex", originalSignature);
+        put(v, "mutatedSigningInputHex", mutatedSigningInput);
+        return v;
+    }
+
+    private static byte[] rawOi010RotateOperation(
+            byte[] identity, long sequence, byte[] previousStateHash,
+            byte[] controllerPolicy) {
+        var p = new DeterministicCborWriter();
+        p.writeMapHeader(1);
+        p.writeUnsigned(1);
+        p.writeEncoded(controllerPolicy);
+        return rawOperationWithPayload(
+                2, identity, sequence, previousStateHash, p.toByteArray());
+    }
+
+    private static byte[] rawOperationWithPayload(
+            int operationType, byte[] identity, long sequence,
+            byte[] previousStateHash, byte[] payload) {
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(6);
+        c.writeUnsigned(1); c.writeUnsigned(1);
+        c.writeUnsigned(2); c.writeUnsigned(operationType);
+        c.writeUnsigned(3); c.writeByteString(identity);
+        c.writeUnsigned(4); c.writeUnsigned(sequence);
+        c.writeUnsigned(5);
+        if (previousStateHash == null) c.writeNull();
+        else c.writeByteString(previousStateHash);
+        c.writeUnsigned(6); c.writeEncoded(payload);
+        return c.toByteArray();
+    }
+
+    private static byte[] rawOperationSigningInput(
+            byte[] operation, int signingStructureVersion) {
+        var c = new DeterministicCborWriter();
+        c.writeArrayHeader(3);
+        c.writeTextString("OpenIdentity Operation");
+        c.writeUnsigned(signingStructureVersion);
+        c.writeByteString(operation);
+        return c.toByteArray();
+    }
+
+    private static byte[] rawEmptyMap() {
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(0);
+        return c.toByteArray();
+    }
+
+
+
+    /**
+     * Consolidates independently verified OI-010 SE01-SE10 into the
+     * normative signature-envelope-v0.1.json artifact and hashes the exact
+     * JSON bytes written to disk.
+     */
+    @SuppressWarnings("unchecked")
+    private static void generateNormativeSignatureEnvelopeFile() {
+        section("NORMATIVE", "Consolidating OI-010 signature-envelope vectors");
+        try {
+            Path root = Path.of("..", "..").toAbsolutePath().normalize();
+            Path gen = root.resolve("test-vectors").resolve("generated");
+            Path tv = root.resolve("test-vectors");
+            ObjectMapper mapper = new ObjectMapper();
+
+            Path generatedFile =
+                    gen.resolve("signature-envelope-se01-se10-java.json");
+            Map<String,Object> generated = mapper.readValue(
+                    generatedFile.toFile(), Map.class);
+
+            if (!"OpenIdentity Signature Envelope".equals(
+                    generated.get("specification"))
+                    || !"0.1".equals(generated.get("version"))
+                    || !Integer.valueOf(1).equals(
+                    generated.get("wireProtocolVersion"))
+                    || !Integer.valueOf(1).equals(
+                    generated.get("signingStructureVersion"))
+                    || !"OpenIdentity Operation".equals(
+                    generated.get("ordinaryAuthorizationDomain"))
+                    || !"OpenIdentity Controller Proof".equals(
+                    generated.get("controllerProofDomain"))
+                    || !"OpenIdentity Recovery".equals(
+                    generated.get("recoveryDomain"))) {
+                throw new IllegalStateException(
+                        "Generated OI-010 suite metadata is invalid");
+            }
+
+            Object raw = generated.get("vectors");
+            if (!(raw instanceof List<?>)) {
+                throw new IllegalStateException(
+                        "Generated OI-010 suite missing vectors array");
+            }
+            List<Map<String,Object>> vectors =
+                    (List<Map<String,Object>>) raw;
+
+            if (vectors.size() != 10) {
+                throw new IllegalStateException(
+                        "OI-010 requires exactly 10 vectors");
+            }
+
+            List<String> expectedIds =
+                    java.util.stream.IntStream.rangeClosed(1,10)
+                            .mapToObj(i -> String.format("SE%02d", i))
+                            .toList();
+            List<String> actualIds = vectors.stream()
+                    .map(v -> (String)v.get("id"))
+                    .toList();
+            if (!actualIds.equals(expectedIds)) {
+                throw new IllegalStateException(
+                        "Unexpected OI-010 vector IDs: " + actualIds);
+            }
+
+            for (int i = 0; i < vectors.size(); i++) {
+                Map<String,Object> v = vectors.get(i);
+                String id = expectedIds.get(i);
+                String expectedResult = i == 0 ? "ACCEPT" : "REJECT";
+                if (!expectedResult.equals(v.get("expectedResult"))) {
+                    throw new IllegalStateException(
+                            id + " expectedResult must be "
+                                    + expectedResult);
+                }
+                if (i > 0) {
+                    Object err = v.get("expectedError");
+                    if (!(err instanceof String)
+                            || ((String)err).isBlank()) {
+                        throw new IllegalStateException(
+                                id + " missing expectedError");
+                    }
+                }
+            }
+
+            Map<String,Object> domains = new LinkedHashMap<>();
+            domains.put(
+                    "ordinaryAuthorization",
+                    "OpenIdentity Operation");
+            domains.put(
+                    "controllerProofOfPossession",
+                    "OpenIdentity Controller Proof");
+            domains.put(
+                    "recoveryAuthorization",
+                    "OpenIdentity Recovery");
+
+            Map<String,Object> coverage = new LinkedHashMap<>();
+            coverage.put("operationFieldsCovered", List.of(
+                    "protocolVersion",
+                    "operationType",
+                    "identity",
+                    "sequence",
+                    "previousStateHash",
+                    "payload"));
+            coverage.put(
+                    "proofCollectionsExcludedFromOperationBytes",
+                    true);
+            coverage.put(
+                    "signingStructureVersionIndependentOfProtocolVersion",
+                    true);
+
+            Map<String,Object> normative = new LinkedHashMap<>();
+            normative.put(
+                    "specification",
+                    "OpenIdentity Signature Envelope");
+            normative.put("version", "0.1");
+            normative.put("wireProtocolVersion", 1);
+            normative.put("signingStructureVersion", 1);
+            normative.put("domains", domains);
+            normative.put("coverage", coverage);
+            normative.put("vectors", vectors);
+
+            ObjectMapper output = new ObjectMapper()
+                    .enable(SerializationFeature.INDENT_OUTPUT);
+
+            Path jsonFile =
+                    tv.resolve("signature-envelope-v0.1.json");
+            output.writeValue(jsonFile.toFile(), normative);
+
+            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(jsonBytes);
+            String sha256 = Hex.encode(digest);
+
+            Path checksumFile =
+                    tv.resolve("signature-envelope-v0.1.json.sha256");
+            Files.writeString(
+                    checksumFile,
+                    sha256 + "  signature-envelope-v0.1.json\n");
+
+            success("SE01-SE10 consolidated");
+            success("signature-envelope-v0.1.json");
+            success("SHA-256 " + sha256);
+            success("signature-envelope-v0.1.json.sha256");
+            blankLine();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Unable to generate normative OI-010 signature-envelope vector file",
                     e);
         }
     }
