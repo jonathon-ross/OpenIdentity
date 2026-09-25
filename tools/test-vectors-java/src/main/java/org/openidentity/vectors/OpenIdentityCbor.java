@@ -6,6 +6,7 @@ public final class OpenIdentityCbor {
     private static final int PROTOCOL_VERSION = 1;
     private static final int CREATE_OPERATION = 1;
     private static final int ROTATE_CONTROLLER_OPERATION = 2;
+    private static final int RECOVER_OPERATION = 3;
     private static final int SET_ASSERTION_POLICY_OPERATION = 5;
     private static final int SINGLE_POLICY = 1;
     private static final int THRESHOLD_POLICY = 2;
@@ -20,6 +21,7 @@ public final class OpenIdentityCbor {
     private static final String CONTROLLER_PROOF_CONTEXT =
             "OpenIdentity Controller Proof";
     private static final String CREDENTIAL_CONTEXT = "OpenIdentity Credential";
+    private static final String RECOVERY_CONTEXT = "OpenIdentity Recovery";
 
     private OpenIdentityCbor() {
     }
@@ -180,6 +182,72 @@ public final class OpenIdentityCbor {
         return c.toByteArray();
     }
 
+    public static byte[] recoverySinglePolicy(
+            EncodedVerificationMethod method) {
+        if (method == null) {
+            throw new IllegalArgumentException(
+                    "Recovery VerificationMethod cannot be null");
+        }
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(3);
+        c.writeUnsigned(1);
+        c.writeUnsigned(1); // RecoveryPolicy version
+        c.writeUnsigned(2);
+        c.writeUnsigned(SINGLE_POLICY);
+        c.writeUnsigned(3);
+        c.writeArrayHeader(1);
+        c.writeEncoded(method.encoded());
+        return c.toByteArray();
+    }
+
+    public static byte[] recoveryThresholdPolicy(
+            int threshold,
+            List<EncodedVerificationMethod> methods) {
+        if (methods == null || methods.isEmpty()
+                || threshold < 1 || threshold > methods.size()) {
+            throw new IllegalArgumentException("Invalid recovery threshold policy");
+        }
+        var sorted = new ArrayList<>(methods);
+        sorted.sort((a, b) -> UNSIGNED_BYTES.compare(a.id(), b.id()));
+        rejectDuplicateMethodIds(sorted);
+
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(4);
+        c.writeUnsigned(1);
+        c.writeUnsigned(1); // RecoveryPolicy version
+        c.writeUnsigned(2);
+        c.writeUnsigned(THRESHOLD_POLICY);
+        c.writeUnsigned(3);
+        c.writeUnsigned(threshold);
+        c.writeUnsigned(4);
+        c.writeArrayHeader(sorted.size());
+        for (var method : sorted) c.writeEncoded(method.encoded());
+        return c.toByteArray();
+    }
+
+    /**
+     * v0.1 recovery commitment:
+     * 0x12 || 0x20 || SHA-256(RecoveryPolicyBytes).
+     */
+    public static byte[] recoveryCommitment(byte[] recoveryPolicyBytes) {
+        if (recoveryPolicyBytes == null || recoveryPolicyBytes.length == 0) {
+            throw new IllegalArgumentException(
+                    "RecoveryPolicy bytes cannot be null or empty");
+        }
+        try {
+            byte[] digest = java.security.MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(recoveryPolicyBytes);
+            byte[] out = new byte[34];
+            out[0] = 0x12;
+            out[1] = 0x20;
+            System.arraycopy(digest, 0, out, 2, digest.length);
+            return out;
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
     public static byte[] createOperation(
             byte[] identity,
             byte[] controllerPolicy) {
@@ -257,6 +325,62 @@ public final class OpenIdentityCbor {
         c.writeUnsigned(PROTOCOL_VERSION);
         c.writeUnsigned(2);
         c.writeUnsigned(ROTATE_CONTROLLER_OPERATION);
+        c.writeUnsigned(3);
+        c.writeByteString(identity);
+        c.writeUnsigned(4);
+        c.writeUnsigned(sequence);
+        c.writeUnsigned(5);
+        c.writeByteString(previousStateHash);
+        c.writeUnsigned(6);
+        c.writeEncoded(payload);
+        return c.toByteArray();
+    }
+
+    public static byte[] recoverPayload(
+            byte[] newControllerPolicy,
+            byte[] currentRecoveryPolicy,
+            byte[] newRecoveryCommitment) {
+        if (newControllerPolicy == null)
+            throw new IllegalArgumentException("New controller policy cannot be null");
+        if (currentRecoveryPolicy == null || currentRecoveryPolicy.length == 0)
+            throw new IllegalArgumentException("Current RecoveryPolicy cannot be null or empty");
+        validateRecoveryCommitment(newRecoveryCommitment);
+
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(3);
+        c.writeUnsigned(1);
+        c.writeEncoded(newControllerPolicy);
+        c.writeUnsigned(2);
+        c.writeEncoded(currentRecoveryPolicy);
+        c.writeUnsigned(3);
+        c.writeByteString(newRecoveryCommitment);
+        return c.toByteArray();
+    }
+
+    public static byte[] recoverOperation(
+            byte[] identity,
+            long sequence,
+            byte[] previousStateHash,
+            byte[] newControllerPolicy,
+            byte[] currentRecoveryPolicy,
+            byte[] newRecoveryCommitment) {
+        validateIdentity(identity);
+        if (sequence < 2)
+            throw new IllegalArgumentException("RECOVER sequence must be >= 2");
+        if (previousStateHash == null || previousStateHash.length < 1
+                || previousStateHash.length > 128)
+            throw new IllegalArgumentException(
+                    "Previous state hash must contain 1..128 bytes");
+
+        byte[] payload = recoverPayload(
+                newControllerPolicy, currentRecoveryPolicy, newRecoveryCommitment);
+
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(6);
+        c.writeUnsigned(1);
+        c.writeUnsigned(PROTOCOL_VERSION);
+        c.writeUnsigned(2);
+        c.writeUnsigned(RECOVER_OPERATION);
         c.writeUnsigned(3);
         c.writeByteString(identity);
         c.writeUnsigned(4);
@@ -356,6 +480,22 @@ public final class OpenIdentityCbor {
         return c.toByteArray();
     }
 
+    public static byte[] recoveryProofSigningInput(
+            byte[] operationBytes,
+            byte[] methodId) {
+        if (operationBytes == null)
+            throw new IllegalArgumentException("Operation bytes cannot be null");
+        validateMethodId(methodId);
+
+        var c = new DeterministicCborWriter();
+        c.writeArrayHeader(4);
+        c.writeTextString(RECOVERY_CONTEXT);
+        c.writeUnsigned(SIGNING_STRUCTURE_VERSION);
+        c.writeByteString(operationBytes);
+        c.writeByteString(methodId);
+        return c.toByteArray();
+    }
+
     public static EncodedProof authorizationProof(
             byte[] methodId,
             byte[] signature) {
@@ -363,6 +503,12 @@ public final class OpenIdentityCbor {
     }
 
     public static EncodedProof controllerProof(
+            byte[] methodId,
+            byte[] signature) {
+        return proof(methodId, signature);
+    }
+
+    public static EncodedProof recoveryProof(
             byte[] methodId,
             byte[] signature) {
         return proof(methodId, signature);
@@ -413,45 +559,62 @@ public final class OpenIdentityCbor {
             byte[] operation,
             List<EncodedProof> authorizationProofs,
             List<EncodedProof> controllerProofs) {
+        return signedOperation(
+                operation, authorizationProofs, controllerProofs, List.of());
+    }
 
-        if (operation == null) {
-            throw new IllegalArgumentException(
-                    "Operation cannot be null");
-        }
+    /**
+     * Full operation envelope. Proof collections are omitted when empty.
+     * RECOVER uses no ordinary authorization proofs, controller PoP in
+     * field 3, and recovery authorization proofs in field 4.
+     */
+    public static byte[] signedOperation(
+            byte[] operation,
+            List<EncodedProof> authorizationProofs,
+            List<EncodedProof> controllerProofs,
+            List<EncodedProof> recoveryProofs) {
+        if (operation == null)
+            throw new IllegalArgumentException("Operation cannot be null");
 
-        List<EncodedProof> auth = canonicalProofs(
-                authorizationProofs,
-                "authorization proof");
-
+        List<EncodedProof> auth =
+                authorizationProofs == null || authorizationProofs.isEmpty()
+                        ? List.of()
+                        : canonicalProofs(authorizationProofs, "authorization proof");
         List<EncodedProof> pop =
                 controllerProofs == null || controllerProofs.isEmpty()
                         ? List.of()
-                        : canonicalProofs(
-                        controllerProofs,
-                        "controller proof");
+                        : canonicalProofs(controllerProofs, "controller proof");
+        List<EncodedProof> recovery =
+                recoveryProofs == null || recoveryProofs.isEmpty()
+                        ? List.of()
+                        : canonicalProofs(recoveryProofs, "recovery proof");
 
+        int fields = 1 + (auth.isEmpty() ? 0 : 1)
+                + (pop.isEmpty() ? 0 : 1)
+                + (recovery.isEmpty() ? 0 : 1);
         var c = new DeterministicCborWriter();
-        c.writeMapHeader(pop.isEmpty() ? 2 : 3);
-
+        c.writeMapHeader(fields);
         c.writeUnsigned(1);
         c.writeEncoded(operation);
 
-        c.writeUnsigned(2);
-        c.writeArrayHeader(auth.size());
-        for (var proof : auth) {
-            c.writeEncoded(proof.encoded());
+        if (!auth.isEmpty()) {
+            c.writeUnsigned(2);
+            c.writeArrayHeader(auth.size());
+            for (var proof : auth) c.writeEncoded(proof.encoded());
         }
-
         if (!pop.isEmpty()) {
             c.writeUnsigned(3);
             c.writeArrayHeader(pop.size());
-            for (var proof : pop) {
-                c.writeEncoded(proof.encoded());
-            }
+            for (var proof : pop) c.writeEncoded(proof.encoded());
         }
-
+        if (!recovery.isEmpty()) {
+            c.writeUnsigned(4);
+            c.writeArrayHeader(recovery.size());
+            for (var proof : recovery) c.writeEncoded(proof.encoded());
+        }
         return c.toByteArray();
     }
+
 
     public static byte[] activeIdentityState(
             byte[] identity,
@@ -531,8 +694,59 @@ public final class OpenIdentityCbor {
     }
 
     /**
+     * Canonical IdentityState v1/v2 encoder for recovery/state-transition
+     * vectors. Status 1=ACTIVE, 2=DEACTIVATED.
+     */
+    public static byte[] identityState(
+            int stateVersion,
+            byte[] identity,
+            long sequence,
+            int status,
+            byte[] controllerPolicy,
+            byte[] recoveryCommitment,
+            byte[] assertionPolicy) {
+        if (stateVersion != 1 && stateVersion != 2)
+            throw new IllegalArgumentException("Unsupported IdentityState version");
+        validateIdentity(identity);
+        if (sequence < 1)
+            throw new IllegalArgumentException("State sequence must be >= 1");
+        if (status != 1 && status != 2)
+            throw new IllegalArgumentException("Unsupported identity status");
+        if (controllerPolicy == null)
+            throw new IllegalArgumentException("Controller policy cannot be null");
+        if (recoveryCommitment != null) validateRecoveryCommitment(recoveryCommitment);
+        if (stateVersion == 1 && assertionPolicy != null)
+            throw new IllegalArgumentException(
+                    "IdentityState v1 cannot contain AssertionPolicy");
+
+        int fields = 5 + (recoveryCommitment == null ? 0 : 1)
+                + (assertionPolicy == null ? 0 : 1);
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(fields);
+        c.writeUnsigned(1);
+        c.writeUnsigned(stateVersion);
+        c.writeUnsigned(2);
+        c.writeByteString(identity);
+        c.writeUnsigned(3);
+        c.writeUnsigned(sequence);
+        c.writeUnsigned(4);
+        c.writeUnsigned(status);
+        c.writeUnsigned(5);
+        c.writeEncoded(controllerPolicy);
+        if (recoveryCommitment != null) {
+            c.writeUnsigned(6);
+            c.writeByteString(recoveryCommitment);
+        }
+        if (assertionPolicy != null) {
+            c.writeUnsigned(7);
+            c.writeEncoded(assertionPolicy);
+        }
+        return c.toByteArray();
+    }
+
+    /**
      * Canonical OI-003 credential v1.
-     *
+     * <p>
      * Claim values accepted by this reference encoder:
      * Long/Integer/Short/Byte, String, byte[], Boolean, null,
      * List<?> and Map<String,?>.
@@ -565,17 +779,26 @@ public final class OpenIdentityCbor {
 
         var c = new DeterministicCborWriter();
         c.writeMapHeader(validUntil == null ? 8 : 9);
-        c.writeUnsigned(1); c.writeUnsigned(CREDENTIAL_VERSION);
-        c.writeUnsigned(2); c.writeByteString(credentialId);
-        c.writeUnsigned(3); c.writeByteString(issuerIdentity);
-        c.writeUnsigned(4); c.writeByteString(issuanceStateHash);
-        c.writeUnsigned(5); c.writeUnsigned(validFrom);
+        c.writeUnsigned(1);
+        c.writeUnsigned(CREDENTIAL_VERSION);
+        c.writeUnsigned(2);
+        c.writeByteString(credentialId);
+        c.writeUnsigned(3);
+        c.writeByteString(issuerIdentity);
+        c.writeUnsigned(4);
+        c.writeByteString(issuanceStateHash);
+        c.writeUnsigned(5);
+        c.writeUnsigned(validFrom);
         if (validUntil != null) {
-            c.writeUnsigned(6); c.writeUnsigned(validUntil);
+            c.writeUnsigned(6);
+            c.writeUnsigned(validUntil);
         }
-        c.writeUnsigned(7); c.writeTextString(credentialProfile);
-        c.writeUnsigned(8); c.writeByteString(credentialSubject);
-        c.writeUnsigned(9); writeClaimMap(c, claims);
+        c.writeUnsigned(7);
+        c.writeTextString(credentialProfile);
+        c.writeUnsigned(8);
+        c.writeByteString(credentialSubject);
+        c.writeUnsigned(9);
+        writeClaimMap(c, claims);
         return c.toByteArray();
     }
 
@@ -602,8 +825,10 @@ public final class OpenIdentityCbor {
         List<EncodedProof> canonical = canonicalProofs(proofs, "credential proof");
         var c = new DeterministicCborWriter();
         c.writeMapHeader(2);
-        c.writeUnsigned(1); c.writeEncoded(credential);
-        c.writeUnsigned(2); c.writeArrayHeader(canonical.size());
+        c.writeUnsigned(1);
+        c.writeEncoded(credential);
+        c.writeUnsigned(2);
+        c.writeArrayHeader(canonical.size());
         for (var proof : canonical) c.writeEncoded(proof.encoded());
         return c.toByteArray();
     }
@@ -634,7 +859,7 @@ public final class OpenIdentityCbor {
             // RFC 8949 simple values: false = 0xf4, true = 0xf5.
             // DeterministicCborWriter has no boolean convenience method,
             // so emit the canonical one-byte encoding directly.
-            c.writeEncoded(new byte[] {(byte) (b ? 0xf5 : 0xf4)});
+            c.writeEncoded(new byte[]{(byte) (b ? 0xf5 : 0xf4)});
         } else if (value instanceof Byte || value instanceof Short
                 || value instanceof Integer || value instanceof Long) {
             long n = ((Number) value).longValue();
@@ -647,7 +872,7 @@ public final class OpenIdentityCbor {
             c.writeArrayHeader(list.size());
             for (Object item : list) writeClaimValue(c, item);
         } else if (value instanceof Map<?, ?> raw) {
-            Map<String,Object> nested = new LinkedHashMap<>();
+            Map<String, Object> nested = new LinkedHashMap<>();
             for (var e : raw.entrySet()) {
                 if (!(e.getKey() instanceof String key))
                     throw new IllegalArgumentException("Nested claim map keys must be text strings");
@@ -707,6 +932,14 @@ public final class OpenIdentityCbor {
                 throw new IllegalArgumentException(
                         "Duplicate Verification Method ID");
             }
+        }
+    }
+
+    private static void validateRecoveryCommitment(byte[] commitment) {
+        if (commitment == null || commitment.length != 34
+                || commitment[0] != 0x12 || commitment[1] != 0x20) {
+            throw new IllegalArgumentException(
+                    "v0.1 recovery commitment must be a 34-byte SHA2-256 Multihash");
         }
     }
 

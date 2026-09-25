@@ -42,6 +42,10 @@ public final class GenerateVectors {
         generateW3cCredentialProjectionVectors();
         generateW3cCredentialProjectionInvalidVectors();
         generateNormativeW3cCredentialProjectionFile();
+        generateR01(v02);
+        generateRecoveryInvalidVectors(v02);
+        generateR02(v02, a04);
+        generateNormativeRecoveryFile();
         System.out.println("================================================");
         System.out.println("ALL JAVA TEST VECTORS GENERATED SUCCESSFULLY");
         System.out.println("================================================");
@@ -2368,6 +2372,900 @@ public final class GenerateVectors {
     }
 
 
+    /**
+     * R01 -- first OI-007 RECOVER vector.
+     *
+     * Source state:
+     *   IdentityState v1, ACTIVE, sequence 1
+     *   V02 hybrid ControllerPolicy
+     *   committed THRESHOLD 2-of-2 recovery authority using B keys
+     *
+     * Recovery:
+     *   recovery authority = Ed25519 B + ML-DSA-65 B, threshold 2-of-2
+     *   replacement controller = SINGLE Ed25519 C
+     *   next recovery authority = SINGLE Ed25519 A
+     *
+     * Result:
+     *   same identity, sequence 2, ACTIVE
+     *   replacement ControllerPolicy installed
+     *   recoveryCommitment rotated
+     */
+    private static void generateR01(HybridCreateResult v02) {
+        section("R01", "THRESHOLD 2-of-2 RECOVER with recovery commitment rotation");
+
+        // Current hidden recovery authority: B Ed25519 + B ML-DSA-65.
+        var recoveryEd = new Ed25519Support(TestKeys.ED25519_SEED_B);
+        var recoveryMl = new MlDsa65Support(TestKeys.ML_DSA_SEED_B);
+
+        var recoveryEdMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_B,
+                OpenIdentityCbor.ed25519CoseKey(recoveryEd.publicKey()));
+        var recoveryMlMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ML_DSA_METHOD_ID_B,
+                OpenIdentityCbor.mlDsa65CoseKey(recoveryMl.publicKey()));
+
+        // Reverse input order deliberately; RecoveryPolicy encoder must canonicalize.
+        byte[] currentRecoveryPolicy = OpenIdentityCbor.recoveryThresholdPolicy(
+                2, List.of(recoveryMlMethod, recoveryEdMethod));
+        byte[] currentRecoveryCommitment =
+                OpenIdentityCbor.recoveryCommitment(currentRecoveryPolicy);
+
+        // Construct the authoritative source state carrying only the commitment.
+        byte[] previousState = OpenIdentityCbor.identityState(
+                1,
+                TestKeys.IDENTITY,
+                1,
+                1,
+                v02.controllerPolicy(),
+                currentRecoveryCommitment,
+                null);
+        byte[] previousStateHash = StateHash.sha256Multihash(previousState);
+
+        // Replacement controller: SINGLE Ed25519 C.
+        var newController = new Ed25519Support(TestKeys.ED25519_SEED_C);
+        var newControllerMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_C,
+                OpenIdentityCbor.ed25519CoseKey(newController.publicKey()));
+        byte[] newControllerPolicy =
+                OpenIdentityCbor.singlePolicy(newControllerMethod);
+
+        // Next hidden recovery authority: SINGLE Ed25519 A.
+        var nextRecovery = new Ed25519Support(TestKeys.ED25519_SEED);
+        var nextRecoveryMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID,
+                OpenIdentityCbor.ed25519CoseKey(nextRecovery.publicKey()));
+        byte[] nextRecoveryPolicy =
+                OpenIdentityCbor.recoverySinglePolicy(nextRecoveryMethod);
+        byte[] newRecoveryCommitment =
+                OpenIdentityCbor.recoveryCommitment(nextRecoveryPolicy);
+
+        if (Arrays.equals(currentRecoveryCommitment, newRecoveryCommitment))
+            throw new IllegalStateException(
+                    "R01 new recovery commitment must differ from current commitment");
+
+        byte[] operation = OpenIdentityCbor.recoverOperation(
+                TestKeys.IDENTITY,
+                2,
+                previousStateHash,
+                newControllerPolicy,
+                currentRecoveryPolicy,
+                newRecoveryCommitment);
+
+        // Recovery authorization uses its own method-bound signing domain.
+        byte[] recoveryEdInput = OpenIdentityCbor.recoveryProofSigningInput(
+                operation, TestKeys.ED25519_METHOD_ID_B);
+        byte[] recoveryMlInput = OpenIdentityCbor.recoveryProofSigningInput(
+                operation, TestKeys.ML_DSA_METHOD_ID_B);
+
+        byte[] recoveryEdSig = recoveryEd.sign(recoveryEdInput);
+        byte[] recoveryMlSig = recoveryMl.sign(recoveryMlInput);
+
+        if (!recoveryEd.verify(recoveryEdInput, recoveryEdSig)
+                || !recoveryMl.verify(recoveryMlInput, recoveryMlSig))
+            throw new IllegalStateException("R01 recovery authorization failed");
+
+        var recoveryEdProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ED25519_METHOD_ID_B, recoveryEdSig);
+        var recoveryMlProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ML_DSA_METHOD_ID_B, recoveryMlSig);
+
+        // The replacement controller separately proves possession.
+        byte[] newControllerPopInput =
+                OpenIdentityCbor.controllerProofSigningInput(
+                        operation, TestKeys.ED25519_METHOD_ID_C);
+        byte[] newControllerPopSig =
+                newController.sign(newControllerPopInput);
+
+        if (!newController.verify(newControllerPopInput, newControllerPopSig))
+            throw new IllegalStateException(
+                    "R01 replacement-controller proof of possession failed");
+
+        var newControllerPop = OpenIdentityCbor.controllerProof(
+                TestKeys.ED25519_METHOD_ID_C, newControllerPopSig);
+
+        // RECOVER: field 2 absent, field 3 controller PoP, field 4 recovery proofs.
+        // Reverse recovery proof input order to exercise canonical ordering.
+        byte[] signed = OpenIdentityCbor.signedOperation(
+                operation,
+                List.of(),
+                List.of(newControllerPop),
+                List.of(recoveryMlProof, recoveryEdProof));
+
+        byte[] resultState = OpenIdentityCbor.identityState(
+                1,
+                TestKeys.IDENTITY,
+                2,
+                1,
+                newControllerPolicy,
+                newRecoveryCommitment,
+                null);
+        byte[] resultHash = StateHash.sha256Multihash(resultState);
+
+        if (Arrays.equals(previousStateHash, resultHash))
+            throw new IllegalStateException(
+                    "R01 resulting StateHash unexpectedly equals predecessor");
+
+        requireLength("R01 current recovery commitment",
+                currentRecoveryCommitment, 34);
+        requireLength("R01 new recovery commitment",
+                newRecoveryCommitment, 34);
+        requireLength("R01 previous StateHash", previousStateHash, 34);
+        requireLength("R01 resulting StateHash", resultHash, 34);
+        requireLength("R01 Ed25519 recovery signature", recoveryEdSig, 64);
+        requireLength("R01 ML-DSA-65 recovery signature", recoveryMlSig, 3309);
+        requireLength("R01 new-controller PoP signature",
+                newControllerPopSig, 64);
+
+        Map<String, Object> v = new LinkedHashMap<>();
+        v.put("id", "R01");
+        v.put("description",
+                "THRESHOLD 2-of-2 recovery installs SINGLE Ed25519 controller and rotates recovery commitment");
+        v.put("wireProtocolVersion", 1);
+        v.put("sourceIdentityStateVersion", 1);
+        v.put("resultingIdentityStateVersion", 1);
+        v.put("sourceStatus", "ACTIVE");
+        v.put("resultingStatus", "ACTIVE");
+        v.put("sequence", 2);
+
+        put(v, "identityHex", TestKeys.IDENTITY);
+        put(v, "previousIdentityStateHex", previousState);
+        put(v, "previousStateHashHex", previousStateHash);
+        put(v, "previousControllerPolicyHex", v02.controllerPolicy());
+
+        put(v, "currentRecoveryEd25519MethodIdHex",
+                TestKeys.ED25519_METHOD_ID_B);
+        put(v, "currentRecoveryMlDsa65MethodIdHex",
+                TestKeys.ML_DSA_METHOD_ID_B);
+        put(v, "currentRecoveryEd25519PublicKeyHex", recoveryEd.publicKey());
+        put(v, "currentRecoveryMlDsa65PublicKeyHex", recoveryMl.publicKey());
+        put(v, "currentRecoveryPolicyHex", currentRecoveryPolicy);
+        put(v, "currentRecoveryCommitmentHex", currentRecoveryCommitment);
+        v.put("recoveryPolicyType", "THRESHOLD");
+        v.put("recoveryThreshold", 2);
+        v.put("recoveryMethodCount", 2);
+
+        put(v, "newControllerMethodIdHex", TestKeys.ED25519_METHOD_ID_C);
+        put(v, "newControllerPublicKeyHex", newController.publicKey());
+        put(v, "newControllerPolicyHex", newControllerPolicy);
+
+        // The next policy is included as vector evidence so an independent
+        // verifier can recompute the new commitment. It is not part of
+        // OperationBytes and is not stored in resulting IdentityState.
+        put(v, "nextRecoveryPolicyHex", nextRecoveryPolicy);
+        put(v, "newRecoveryCommitmentHex", newRecoveryCommitment);
+
+        put(v, "operationBytesHex", operation);
+
+        put(v, "recoveryEd25519SigningInputHex", recoveryEdInput);
+        put(v, "recoveryMlDsa65SigningInputHex", recoveryMlInput);
+        put(v, "recoveryEd25519SignatureHex", recoveryEdSig);
+        put(v, "recoveryMlDsa65SignatureHex", recoveryMlSig);
+        put(v, "recoveryEd25519ProofHex", recoveryEdProof.encoded());
+        put(v, "recoveryMlDsa65ProofHex", recoveryMlProof.encoded());
+
+        put(v, "newControllerPopSigningInputHex", newControllerPopInput);
+        put(v, "newControllerPopSignatureHex", newControllerPopSig);
+        put(v, "newControllerProofHex", newControllerPop.encoded());
+
+        put(v, "signedOperationHex", signed);
+        put(v, "resultingIdentityStateHex", resultState);
+        put(v, "resultingStateHashHex", resultHash);
+
+        v.put("ordinaryAuthorizationProofCount", 0);
+        v.put("controllerProofCount", 1);
+        v.put("recoveryProofCount", 2);
+        v.put("inputRecoveryProofOrder",
+                List.of("ML-DSA-65", "Ed25519"));
+        v.put("canonicalRecoveryProofOrder",
+                List.of("Ed25519", "ML-DSA-65"));
+        v.put("recoveryCommitmentRotated", true);
+        v.put("identityPreserved", true);
+
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("specification", "OpenIdentity Recovery");
+        d.put("version", "0.1");
+        d.put("wireProtocolVersion", 1);
+        d.put("vector", v);
+
+        writeJson("recovery-r01-java.json", d);
+
+        success("Current RecoveryPolicy commitment generated");
+        success("RecoveryPolicy THRESHOLD 2-of-2 authorization verified");
+        success("Ordinary ControllerPolicy authorization omitted");
+        success("Replacement controller proof-of-possession verified");
+        success("Recovery proof input canonically ordered");
+        success("Recovery commitment rotated");
+        success("Identity preserved and sequence incremented");
+        success("Resulting ACTIVE IdentityState and StateHash generated");
+        success("recovery-r01-java.json");
+        blankLine();
+    }
+
+
+    /**
+     * OI-007 recovery invalid/security vectors RI01-RI10.
+     *
+     * These deliberately construct invalid semantic cases. Raw encoders are
+     * used where the canonical OpenIdentityCbor API correctly refuses the
+     * malformed object.
+     */
+    private static void generateRecoveryInvalidVectors(HybridCreateResult v02) {
+        section("RECOVERY INVALID", "RI01-RI10");
+
+        var recoveryEd = new Ed25519Support(TestKeys.ED25519_SEED_B);
+        var recoveryMl = new MlDsa65Support(TestKeys.ML_DSA_SEED_B);
+        var newController = new Ed25519Support(TestKeys.ED25519_SEED_C);
+        var unauthorized = new Ed25519Support(TestKeys.ED25519_SEED);
+
+        var recoveryEdMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_B,
+                OpenIdentityCbor.ed25519CoseKey(recoveryEd.publicKey()));
+        var recoveryMlMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ML_DSA_METHOD_ID_B,
+                OpenIdentityCbor.mlDsa65CoseKey(recoveryMl.publicKey()));
+
+        byte[] recoveryPolicy = OpenIdentityCbor.recoveryThresholdPolicy(
+                2, List.of(recoveryMlMethod, recoveryEdMethod));
+        byte[] recoveryCommitment =
+                OpenIdentityCbor.recoveryCommitment(recoveryPolicy);
+
+        byte[] sourceState = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 1, 1,
+                v02.controllerPolicy(), recoveryCommitment, null);
+        byte[] sourceHash = StateHash.sha256Multihash(sourceState);
+
+        var newControllerMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_C,
+                OpenIdentityCbor.ed25519CoseKey(newController.publicKey()));
+        byte[] newControllerPolicy =
+                OpenIdentityCbor.singlePolicy(newControllerMethod);
+
+        var nextRecoveryMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID,
+                OpenIdentityCbor.ed25519CoseKey(unauthorized.publicKey()));
+        byte[] nextRecoveryPolicy =
+                OpenIdentityCbor.recoverySinglePolicy(nextRecoveryMethod);
+        byte[] nextCommitment =
+                OpenIdentityCbor.recoveryCommitment(nextRecoveryPolicy);
+
+        byte[] validOperation = OpenIdentityCbor.recoverOperation(
+                TestKeys.IDENTITY, 2, sourceHash,
+                newControllerPolicy, recoveryPolicy, nextCommitment);
+
+        byte[] edRecoveryInput = OpenIdentityCbor.recoveryProofSigningInput(
+                validOperation, TestKeys.ED25519_METHOD_ID_B);
+        byte[] mlRecoveryInput = OpenIdentityCbor.recoveryProofSigningInput(
+                validOperation, TestKeys.ML_DSA_METHOD_ID_B);
+        var edRecoveryProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ED25519_METHOD_ID_B,
+                recoveryEd.sign(edRecoveryInput));
+        var mlRecoveryProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ML_DSA_METHOD_ID_B,
+                recoveryMl.sign(mlRecoveryInput));
+
+        byte[] popInput = OpenIdentityCbor.controllerProofSigningInput(
+                validOperation, TestKeys.ED25519_METHOD_ID_C);
+        var newControllerPop = OpenIdentityCbor.controllerProof(
+                TestKeys.ED25519_METHOD_ID_C,
+                newController.sign(popInput));
+
+        List<Map<String,Object>> vectors = new ArrayList<>();
+
+        // RI01 — source state has no recovery commitment.
+        byte[] noRecoveryState = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 1, 1,
+                v02.controllerPolicy(), null, null);
+        byte[] noRecoveryHash = StateHash.sha256Multihash(noRecoveryState);
+        byte[] ri01op = OpenIdentityCbor.recoverOperation(
+                TestKeys.IDENTITY, 2, noRecoveryHash,
+                newControllerPolicy, recoveryPolicy, nextCommitment);
+        vectors.add(recoveryInvalid(
+                "RI01", "RECOVER targets state with no recoveryCommitment",
+                "RECOVERY_NOT_CONFIGURED", noRecoveryState, noRecoveryHash,
+                ri01op, null));
+
+        // RI02 — reveal a different valid RecoveryPolicy than the committed one.
+        byte[] wrongPolicy = OpenIdentityCbor.recoverySinglePolicy(
+                recoveryEdMethod);
+        byte[] ri02op = OpenIdentityCbor.recoverOperation(
+                TestKeys.IDENTITY, 2, sourceHash,
+                newControllerPolicy, wrongPolicy, nextCommitment);
+        vectors.add(recoveryInvalid(
+                "RI02", "Revealed RecoveryPolicy does not match current commitment",
+                "INVALID_RECOVERY_POLICY", sourceState, sourceHash,
+                ri02op, null));
+
+        // RI03 — malformed threshold 3-of-2, constructed raw.
+        byte[] badThresholdPolicy = rawRecoveryThresholdPolicy(
+                3, List.of(recoveryEdMethod, recoveryMlMethod));
+        byte[] ri03op = rawRecoverOperationFull(
+                TestKeys.IDENTITY, 2, sourceHash,
+                newControllerPolicy, badThresholdPolicy, nextCommitment);
+        vectors.add(recoveryInvalid(
+                "RI03", "RecoveryPolicy threshold exceeds method count",
+                "INVALID_RECOVERY_THRESHOLD", sourceState, sourceHash,
+                ri03op, null));
+
+        // RI04 — committed 2-of-2 policy but only one recovery proof.
+        byte[] ri04signed = rawRecoverySignedOperation(
+                validOperation,
+                List.of(newControllerPop),
+                List.of(edRecoveryProof));
+        vectors.add(recoveryInvalid(
+                "RI04", "Recovery threshold 2-of-2 receives only one proof",
+                "RECOVERY_THRESHOLD_NOT_SATISFIED", sourceState, sourceHash,
+                validOperation, ri04signed));
+
+        // RI05 — duplicate recovery method proof ID.
+        byte[] ri05signed = rawRecoverySignedOperation(
+                validOperation,
+                List.of(newControllerPop),
+                List.of(edRecoveryProof, edRecoveryProof, mlRecoveryProof));
+        vectors.add(recoveryInvalid(
+                "RI05", "Recovery proof collection contains duplicate method ID",
+                "DUPLICATE_RECOVERY_PROOF", sourceState, sourceHash,
+                validOperation, ri05signed));
+
+        // RI06 — extra valid signature from a method absent from RecoveryPolicy.
+        byte[] unauthorizedInput = OpenIdentityCbor.recoveryProofSigningInput(
+                validOperation, TestKeys.ED25519_METHOD_ID);
+        var unauthorizedProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ED25519_METHOD_ID,
+                unauthorized.sign(unauthorizedInput));
+        byte[] ri06signed = rawRecoverySignedOperation(
+                validOperation,
+                List.of(newControllerPop),
+                List.of(edRecoveryProof, mlRecoveryProof, unauthorizedProof));
+        Map<String,Object> ri06 = recoveryInvalid(
+                "RI06", "Recovery proof uses method absent from committed RecoveryPolicy",
+                "UNAUTHORIZED_RECOVERY_METHOD", sourceState, sourceHash,
+                validOperation, ri06signed);
+        put(ri06, "unauthorizedRecoveryMethodIdHex",
+                TestKeys.ED25519_METHOD_ID);
+        vectors.add(ri06);
+
+        // RI07 — corrupt an otherwise authorized Ed25519 recovery signature.
+        byte[] badRecoverySig = recoveryEd.sign(edRecoveryInput);
+        badRecoverySig[0] ^= 1;
+        var badRecoveryProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ED25519_METHOD_ID_B, badRecoverySig);
+        byte[] ri07signed = rawRecoverySignedOperation(
+                validOperation,
+                List.of(newControllerPop),
+                List.of(badRecoveryProof, mlRecoveryProof));
+        vectors.add(recoveryInvalid(
+                "RI07", "Authorized recovery proof contains corrupted signature",
+                "INVALID_RECOVERY_SIGNATURE", sourceState, sourceHash,
+                validOperation, ri07signed));
+
+        // RI08 — recovery authorization succeeds, but replacement controller PoP is absent.
+        byte[] ri08signed = rawRecoverySignedOperation(
+                validOperation,
+                List.of(),
+                List.of(edRecoveryProof, mlRecoveryProof));
+        vectors.add(recoveryInvalid(
+                "RI08", "Replacement controller is missing proof of possession",
+                "MISSING_PROOF_OF_POSSESSION", sourceState, sourceHash,
+                validOperation, ri08signed));
+
+        // RI09 — operation proposes the exact current recovery commitment again.
+        byte[] ri09op = OpenIdentityCbor.recoverOperation(
+                TestKeys.IDENTITY, 2, sourceHash,
+                newControllerPolicy, recoveryPolicy, recoveryCommitment);
+        byte[] ri09EdIn = OpenIdentityCbor.recoveryProofSigningInput(
+                ri09op, TestKeys.ED25519_METHOD_ID_B);
+        byte[] ri09MlIn = OpenIdentityCbor.recoveryProofSigningInput(
+                ri09op, TestKeys.ML_DSA_METHOD_ID_B);
+        var ri09Ed = OpenIdentityCbor.recoveryProof(
+                TestKeys.ED25519_METHOD_ID_B, recoveryEd.sign(ri09EdIn));
+        var ri09Ml = OpenIdentityCbor.recoveryProof(
+                TestKeys.ML_DSA_METHOD_ID_B, recoveryMl.sign(ri09MlIn));
+        byte[] ri09PopIn = OpenIdentityCbor.controllerProofSigningInput(
+                ri09op, TestKeys.ED25519_METHOD_ID_C);
+        var ri09Pop = OpenIdentityCbor.controllerProof(
+                TestKeys.ED25519_METHOD_ID_C, newController.sign(ri09PopIn));
+        byte[] ri09signed = rawRecoverySignedOperation(
+                ri09op, List.of(ri09Pop), List.of(ri09Ed, ri09Ml));
+        vectors.add(recoveryInvalid(
+                "RI09", "RECOVER reuses current recoveryCommitment",
+                "INVALID_RECOVERY_COMMITMENT", sourceState, sourceHash,
+                ri09op, ri09signed));
+
+        // RI10 — signatures are cryptographically valid in the ordinary
+        // operation domain, but invalid in the required recovery domain.
+        byte[] wrongDomain = OpenIdentityCbor.operationSigningInput(validOperation);
+        var wrongEd = OpenIdentityCbor.recoveryProof(
+                TestKeys.ED25519_METHOD_ID_B, recoveryEd.sign(wrongDomain));
+        var wrongMl = OpenIdentityCbor.recoveryProof(
+                TestKeys.ML_DSA_METHOD_ID_B, recoveryMl.sign(wrongDomain));
+        byte[] ri10signed = rawRecoverySignedOperation(
+                validOperation,
+                List.of(newControllerPop),
+                List.of(wrongEd, wrongMl));
+        Map<String,Object> ri10 = recoveryInvalid(
+                "RI10", "Recovery proofs use ordinary operation signing domain",
+                "INVALID_RECOVERY_SIGNATURE", sourceState, sourceHash,
+                validOperation, ri10signed);
+        put(ri10, "wrongSigningInputHex", wrongDomain);
+        put(ri10, "requiredEd25519RecoverySigningInputHex", edRecoveryInput);
+        put(ri10, "requiredMlDsa65RecoverySigningInputHex", mlRecoveryInput);
+        vectors.add(ri10);
+
+        List<String> ids = vectors.stream()
+                .map(v -> (String)v.get("id")).toList();
+        List<String> expected = java.util.stream.IntStream.rangeClosed(1,10)
+                .mapToObj(i -> String.format("RI%02d", i)).toList();
+        if (!ids.equals(expected))
+            throw new IllegalStateException("Unexpected recovery invalid IDs: " + ids);
+
+        Map<String,Object> doc = new LinkedHashMap<>();
+        doc.put("specification", "OpenIdentity Recovery");
+        doc.put("version", "0.1");
+        doc.put("type", "invalid-conformance-vectors");
+        doc.put("wireProtocolVersion", 1);
+        doc.put("vectors", vectors);
+        writeJson("recovery-invalid-java.json", doc);
+
+        for (int i=1;i<=10;i++) success(String.format("RI%02d generated", i));
+        success("RI01-RI10 generated");
+        success("recovery-invalid-java.json");
+        blankLine();
+    }
+
+    private static Map<String,Object> recoveryInvalid(
+            String id, String description, String expectedError,
+            byte[] previousState, byte[] previousStateHash,
+            byte[] operation, byte[] signedOperation) {
+        Map<String,Object> v = new LinkedHashMap<>();
+        v.put("id", id);
+        v.put("description", description);
+        v.put("expectedError", expectedError);
+        put(v, "identityHex", TestKeys.IDENTITY);
+        put(v, "previousIdentityStateHex", previousState);
+        put(v, "previousStateHashHex", previousStateHash);
+        put(v, "operationBytesHex", operation);
+        if (signedOperation != null)
+            put(v, "signedOperationHex", signedOperation);
+        return v;
+    }
+
+    private static byte[] rawRecoveryThresholdPolicy(
+            int threshold,
+            List<OpenIdentityCbor.EncodedVerificationMethod> methods) {
+        var sorted = new ArrayList<>(methods);
+        sorted.sort((a,b) -> compareUnsignedBytes(a.id(), b.id()));
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(4);
+        c.writeUnsigned(1); c.writeUnsigned(1);
+        c.writeUnsigned(2); c.writeUnsigned(2);
+        c.writeUnsigned(3); c.writeUnsigned(threshold);
+        c.writeUnsigned(4); c.writeArrayHeader(sorted.size());
+        for (var m : sorted) c.writeEncoded(m.encoded());
+        return c.toByteArray();
+    }
+
+    private static byte[] rawRecoverOperationFull(
+            byte[] identity, long sequence, byte[] previousStateHash,
+            byte[] newControllerPolicy, byte[] recoveryPolicy,
+            byte[] newRecoveryCommitment) {
+        var p = new DeterministicCborWriter();
+        p.writeMapHeader(3);
+        p.writeUnsigned(1); p.writeEncoded(newControllerPolicy);
+        p.writeUnsigned(2); p.writeEncoded(recoveryPolicy);
+        p.writeUnsigned(3); p.writeByteString(newRecoveryCommitment);
+
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(6);
+        c.writeUnsigned(1); c.writeUnsigned(1);
+        c.writeUnsigned(2); c.writeUnsigned(3);
+        c.writeUnsigned(3); c.writeByteString(identity);
+        c.writeUnsigned(4); c.writeUnsigned(sequence);
+        c.writeUnsigned(5); c.writeByteString(previousStateHash);
+        c.writeUnsigned(6); c.writeEncoded(p.toByteArray());
+        return c.toByteArray();
+    }
+
+    /**
+     * Raw RECOVER envelope used to construct invalid proof-set vectors.
+     * Field 2 is deliberately absent. Fields 3/4 are emitted only when nonempty.
+     */
+    private static byte[] rawRecoverySignedOperation(
+            byte[] operation,
+            List<OpenIdentityCbor.EncodedProof> controllerProofs,
+            List<OpenIdentityCbor.EncodedProof> recoveryProofs) {
+        int fields = 1
+                + (controllerProofs.isEmpty() ? 0 : 1)
+                + (recoveryProofs.isEmpty() ? 0 : 1);
+        var c = new DeterministicCborWriter();
+        c.writeMapHeader(fields);
+        c.writeUnsigned(1); c.writeEncoded(operation);
+        if (!controllerProofs.isEmpty()) {
+            c.writeUnsigned(3);
+            c.writeArrayHeader(controllerProofs.size());
+            for (var p : controllerProofs) c.writeEncoded(p.encoded());
+        }
+        if (!recoveryProofs.isEmpty()) {
+            c.writeUnsigned(4);
+            c.writeArrayHeader(recoveryProofs.size());
+            for (var p : recoveryProofs) c.writeEncoded(p.encoded());
+        }
+        return c.toByteArray();
+    }
+
+
+    /**
+     * R02 -- recover a DEACTIVATED IdentityState v2 and preserve AssertionPolicy.
+     *
+     * This vector joins the OI-006 lifecycle rule with OI-007 recovery:
+     * ordinary controller authority cannot reactivate a deactivated identity,
+     * but valid independent RecoveryPolicy authority can.
+     */
+    private static void generateR02(
+            HybridCreateResult v02,
+            AssertionStateResult a04) {
+        section("R02", "DEACTIVATED v2 -> RECOVER -> ACTIVE v2 with AssertionPolicy preserved");
+
+        // Current recovery authority: THRESHOLD 2-of-2 using B keys.
+        var recoveryEd = new Ed25519Support(TestKeys.ED25519_SEED_B);
+        var recoveryMl = new MlDsa65Support(TestKeys.ML_DSA_SEED_B);
+        var recoveryEdMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_B,
+                OpenIdentityCbor.ed25519CoseKey(recoveryEd.publicKey()));
+        var recoveryMlMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ML_DSA_METHOD_ID_B,
+                OpenIdentityCbor.mlDsa65CoseKey(recoveryMl.publicKey()));
+        byte[] recoveryPolicy = OpenIdentityCbor.recoveryThresholdPolicy(
+                2, List.of(recoveryMlMethod, recoveryEdMethod));
+        byte[] currentRecoveryCommitment =
+                OpenIdentityCbor.recoveryCommitment(recoveryPolicy);
+
+        // A04 is IdentityState v2 sequence 5 with hybrid AssertionPolicy.
+        // Model the subsequent OI-006 DEACTIVATE result at sequence 6.
+        byte[] deactivatedState = OpenIdentityCbor.identityState(
+                2,
+                TestKeys.IDENTITY,
+                6,
+                2, // DEACTIVATED
+                v02.controllerPolicy(),
+                currentRecoveryCommitment,
+                a04.assertionPolicy());
+        byte[] deactivatedStateHash =
+                StateHash.sha256Multihash(deactivatedState);
+
+        // Replacement controller: SINGLE Ed25519 C.
+        var newController = new Ed25519Support(TestKeys.ED25519_SEED_C);
+        var newControllerMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_C,
+                OpenIdentityCbor.ed25519CoseKey(newController.publicKey()));
+        byte[] newControllerPolicy =
+                OpenIdentityCbor.singlePolicy(newControllerMethod);
+
+        // Rotate recovery authority to SINGLE Ed25519 A.
+        var nextRecovery = new Ed25519Support(TestKeys.ED25519_SEED);
+        var nextRecoveryMethod = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID,
+                OpenIdentityCbor.ed25519CoseKey(nextRecovery.publicKey()));
+        byte[] nextRecoveryPolicy =
+                OpenIdentityCbor.recoverySinglePolicy(nextRecoveryMethod);
+        byte[] newRecoveryCommitment =
+                OpenIdentityCbor.recoveryCommitment(nextRecoveryPolicy);
+
+        if (Arrays.equals(currentRecoveryCommitment, newRecoveryCommitment))
+            throw new IllegalStateException(
+                    "R02 recovery commitment did not rotate");
+
+        byte[] operation = OpenIdentityCbor.recoverOperation(
+                TestKeys.IDENTITY,
+                7,
+                deactivatedStateHash,
+                newControllerPolicy,
+                recoveryPolicy,
+                newRecoveryCommitment);
+
+        // Independent recovery authorization.
+        byte[] edRecoveryInput =
+                OpenIdentityCbor.recoveryProofSigningInput(
+                        operation, TestKeys.ED25519_METHOD_ID_B);
+        byte[] mlRecoveryInput =
+                OpenIdentityCbor.recoveryProofSigningInput(
+                        operation, TestKeys.ML_DSA_METHOD_ID_B);
+        byte[] edRecoverySig = recoveryEd.sign(edRecoveryInput);
+        byte[] mlRecoverySig = recoveryMl.sign(mlRecoveryInput);
+
+        if (!recoveryEd.verify(edRecoveryInput, edRecoverySig)
+                || !recoveryMl.verify(mlRecoveryInput, mlRecoverySig))
+            throw new IllegalStateException(
+                    "R02 recovery authorization failed");
+
+        var edRecoveryProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ED25519_METHOD_ID_B, edRecoverySig);
+        var mlRecoveryProof = OpenIdentityCbor.recoveryProof(
+                TestKeys.ML_DSA_METHOD_ID_B, mlRecoverySig);
+
+        // Replacement controller proves possession.
+        byte[] popInput = OpenIdentityCbor.controllerProofSigningInput(
+                operation, TestKeys.ED25519_METHOD_ID_C);
+        byte[] popSig = newController.sign(popInput);
+        if (!newController.verify(popInput, popSig))
+            throw new IllegalStateException(
+                    "R02 replacement-controller PoP failed");
+        var pop = OpenIdentityCbor.controllerProof(
+                TestKeys.ED25519_METHOD_ID_C, popSig);
+
+        // No ordinary authorization proofs. Reverse recovery proof input order.
+        byte[] signed = OpenIdentityCbor.signedOperation(
+                operation,
+                List.of(),
+                List.of(pop),
+                List.of(mlRecoveryProof, edRecoveryProof));
+
+        // RECOVER reactivates, preserves v2 and exact AssertionPolicy.
+        byte[] resultState = OpenIdentityCbor.identityState(
+                2,
+                TestKeys.IDENTITY,
+                7,
+                1, // ACTIVE
+                newControllerPolicy,
+                newRecoveryCommitment,
+                a04.assertionPolicy());
+        byte[] resultHash = StateHash.sha256Multihash(resultState);
+
+        if (Arrays.equals(deactivatedStateHash, resultHash))
+            throw new IllegalStateException(
+                    "R02 resulting StateHash unexpectedly equals predecessor");
+
+        requireLength("R02 predecessor StateHash", deactivatedStateHash, 34);
+        requireLength("R02 resulting StateHash", resultHash, 34);
+        requireLength("R02 current recovery commitment",
+                currentRecoveryCommitment, 34);
+        requireLength("R02 new recovery commitment",
+                newRecoveryCommitment, 34);
+        requireLength("R02 Ed25519 recovery signature", edRecoverySig, 64);
+        requireLength("R02 ML-DSA-65 recovery signature", mlRecoverySig, 3309);
+        requireLength("R02 replacement-controller PoP signature", popSig, 64);
+
+        Map<String,Object> v = new LinkedHashMap<>();
+        v.put("id", "R02");
+        v.put("description",
+                "RECOVER reactivates DEACTIVATED IdentityState v2 while preserving AssertionPolicy");
+        v.put("sourceAssertionVector", "A04");
+        v.put("wireProtocolVersion", 1);
+        v.put("sourceIdentityStateVersion", 2);
+        v.put("resultingIdentityStateVersion", 2);
+        v.put("sourceSequence", 6);
+        v.put("sequence", 7);
+        v.put("sourceStatus", "DEACTIVATED");
+        v.put("resultingStatus", "ACTIVE");
+
+        put(v, "identityHex", TestKeys.IDENTITY);
+        put(v, "previousIdentityStateHex", deactivatedState);
+        put(v, "previousStateHashHex", deactivatedStateHash);
+        put(v, "previousControllerPolicyHex", v02.controllerPolicy());
+        put(v, "preservedAssertionPolicyHex", a04.assertionPolicy());
+
+        put(v, "currentRecoveryEd25519MethodIdHex",
+                TestKeys.ED25519_METHOD_ID_B);
+        put(v, "currentRecoveryMlDsa65MethodIdHex",
+                TestKeys.ML_DSA_METHOD_ID_B);
+        put(v, "currentRecoveryEd25519PublicKeyHex", recoveryEd.publicKey());
+        put(v, "currentRecoveryMlDsa65PublicKeyHex", recoveryMl.publicKey());
+        put(v, "currentRecoveryPolicyHex", recoveryPolicy);
+        put(v, "currentRecoveryCommitmentHex", currentRecoveryCommitment);
+        v.put("recoveryPolicyType", "THRESHOLD");
+        v.put("recoveryThreshold", 2);
+
+        put(v, "newControllerMethodIdHex", TestKeys.ED25519_METHOD_ID_C);
+        put(v, "newControllerPublicKeyHex", newController.publicKey());
+        put(v, "newControllerPolicyHex", newControllerPolicy);
+
+        put(v, "nextRecoveryPolicyHex", nextRecoveryPolicy);
+        put(v, "newRecoveryCommitmentHex", newRecoveryCommitment);
+        put(v, "operationBytesHex", operation);
+
+        put(v, "recoveryEd25519SigningInputHex", edRecoveryInput);
+        put(v, "recoveryMlDsa65SigningInputHex", mlRecoveryInput);
+        put(v, "recoveryEd25519SignatureHex", edRecoverySig);
+        put(v, "recoveryMlDsa65SignatureHex", mlRecoverySig);
+        put(v, "recoveryEd25519ProofHex", edRecoveryProof.encoded());
+        put(v, "recoveryMlDsa65ProofHex", mlRecoveryProof.encoded());
+
+        put(v, "newControllerPopSigningInputHex", popInput);
+        put(v, "newControllerPopSignatureHex", popSig);
+        put(v, "newControllerProofHex", pop.encoded());
+
+        put(v, "signedOperationHex", signed);
+        put(v, "resultingIdentityStateHex", resultState);
+        put(v, "resultingStateHashHex", resultHash);
+
+        v.put("ordinaryAuthorizationProofCount", 0);
+        v.put("controllerProofCount", 1);
+        v.put("recoveryProofCount", 2);
+        v.put("identityPreserved", true);
+        v.put("assertionPolicyPreserved", true);
+        v.put("stateVersionPreserved", true);
+        v.put("reactivatedByRecovery", true);
+        v.put("recoveryCommitmentRotated", true);
+
+        Map<String,Object> d = new LinkedHashMap<>();
+        d.put("specification", "OpenIdentity Recovery");
+        d.put("version", "0.1");
+        d.put("wireProtocolVersion", 1);
+        d.put("vector", v);
+        writeJson("recovery-r02-java.json", d);
+
+        success("DEACTIVATED IdentityState v2 used as authoritative predecessor");
+        success("RecoveryPolicy THRESHOLD 2-of-2 authorization verified");
+        success("Ordinary ControllerPolicy authorization omitted");
+        success("Replacement controller proof-of-possession verified");
+        success("DEACTIVATED identity reactivated to ACTIVE");
+        success("IdentityState version v2 preserved");
+        success("AssertionPolicy preserved exactly");
+        success("Recovery commitment rotated");
+        success("Identity preserved and sequence incremented");
+        success("Resulting ACTIVE v2 IdentityState and StateHash generated");
+        success("recovery-r02-java.json");
+        blankLine();
+    }
+
+
+    /**
+     * Consolidates OI-007 R01-R02 and RI01-RI10 into the normative
+     * recovery-v0.1.json artifact and hashes the exact JSON bytes written.
+     */
+    @SuppressWarnings("unchecked")
+    private static void generateNormativeRecoveryFile() {
+        section("NORMATIVE", "Consolidating OI-007 recovery vectors");
+        try {
+            Path root = Path.of("..", "..").toAbsolutePath().normalize();
+            Path gen = root.resolve("test-vectors").resolve("generated");
+            Path tv = root.resolve("test-vectors");
+            ObjectMapper mapper = new ObjectMapper();
+
+            List<Map<String, Object>> valid = new ArrayList<>();
+            for (String name : List.of(
+                    "recovery-r01-java.json",
+                    "recovery-r02-java.json")) {
+                Map<String, Object> d = mapper.readValue(
+                        gen.resolve(name).toFile(), Map.class);
+
+                if (!"OpenIdentity Recovery".equals(d.get("specification"))
+                        || !"0.1".equals(d.get("version"))
+                        || !Integer.valueOf(1).equals(
+                        d.get("wireProtocolVersion"))) {
+                    throw new IllegalStateException(
+                            name + " has unexpected recovery suite metadata");
+                }
+
+                Object raw = d.get("vector");
+                if (!(raw instanceof Map<?, ?>)) {
+                    throw new IllegalStateException(
+                            name + " missing vector object");
+                }
+                valid.add((Map<String, Object>) raw);
+            }
+
+            List<String> validIds = valid.stream()
+                    .map(v -> (String) v.get("id"))
+                    .toList();
+            if (!validIds.equals(List.of("R01", "R02"))) {
+                throw new IllegalStateException(
+                        "Unexpected OI-007 valid vector IDs: " + validIds);
+            }
+
+            Map<String, Object> invalidDoc = mapper.readValue(
+                    gen.resolve("recovery-invalid-java.json").toFile(),
+                    Map.class);
+
+            if (!"OpenIdentity Recovery".equals(
+                    invalidDoc.get("specification"))
+                    || !"0.1".equals(invalidDoc.get("version"))
+                    || !"invalid-conformance-vectors".equals(
+                    invalidDoc.get("type"))
+                    || !Integer.valueOf(1).equals(
+                    invalidDoc.get("wireProtocolVersion"))) {
+                throw new IllegalStateException(
+                        "recovery-invalid-java.json has unexpected suite metadata");
+            }
+
+            Object rawInvalid = invalidDoc.get("vectors");
+            if (!(rawInvalid instanceof List<?>)) {
+                throw new IllegalStateException(
+                        "recovery-invalid-java.json missing vectors array");
+            }
+
+            List<Map<String, Object>> invalid =
+                    (List<Map<String, Object>>) rawInvalid;
+
+            List<String> expectedInvalid =
+                    java.util.stream.IntStream.rangeClosed(1, 10)
+                            .mapToObj(i -> String.format("RI%02d", i))
+                            .toList();
+            List<String> actualInvalid = invalid.stream()
+                    .map(v -> (String) v.get("id"))
+                    .toList();
+
+            if (!actualInvalid.equals(expectedInvalid)) {
+                throw new IllegalStateException(
+                        "Unexpected OI-007 invalid vector IDs: "
+                                + actualInvalid);
+            }
+
+            Map<String, Object> recoveryCommitment = new LinkedHashMap<>();
+            recoveryCommitment.put("multihashAlgorithm", "sha2-256");
+            recoveryCommitment.put("multihashCode", 18);
+            recoveryCommitment.put("digestLength", 32);
+            recoveryCommitment.put("multihashLength", 34);
+            recoveryCommitment.put(
+                    "committedObject",
+                    "deterministic CBOR RecoveryPolicyBytes");
+
+            Map<String, Object> normative = new LinkedHashMap<>();
+            normative.put("specification", "OpenIdentity Recovery");
+            normative.put("version", "0.1");
+            normative.put("wireProtocolVersion", 1);
+            normative.put("recoveryPolicyVersion", 1);
+            normative.put(
+                    "recoverySigningDomain",
+                    "OpenIdentity Recovery");
+            normative.put(
+                    "controllerProofSigningDomain",
+                    "OpenIdentity Controller Proof");
+            normative.put("recoveryCommitment", recoveryCommitment);
+            normative.put("validVectors", valid);
+            normative.put("invalidVectors", invalid);
+
+            ObjectMapper output = new ObjectMapper()
+                    .enable(SerializationFeature.INDENT_OUTPUT);
+
+            Path jsonFile = tv.resolve("recovery-v0.1.json");
+            output.writeValue(jsonFile.toFile(), normative);
+
+            // Hash the exact bytes Jackson wrote to disk.
+            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(jsonBytes);
+            String sha256 = Hex.encode(digest);
+
+            Path checksumFile =
+                    tv.resolve("recovery-v0.1.json.sha256");
+            Files.writeString(
+                    checksumFile,
+                    sha256 + "  recovery-v0.1.json\n");
+
+            success("R01-R02 consolidated");
+            success("RI01-RI10 consolidated");
+            success("recovery-v0.1.json");
+            success("SHA-256 " + sha256);
+            success("recovery-v0.1.json.sha256");
+            blankLine();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Unable to generate normative OI-007 recovery vector file",
+                    e);
+        }
+    }
+
+
     private static void generateAllInvalidVectors(HybridCreateResult v02) {
         generateInvalidVectors(v02);
         generateInvalidVectorsI06ToI20(v02);
@@ -2570,7 +3468,7 @@ public final class GenerateVectors {
                 rawCreateOperation(TestKeys.IDENTITY, 1, null, unsupportedPolicy)));
         vs.add(invalidOperationOnly("I19", "Unknown signed map field", "UNSUPPORTED_PROTOCOL_FEATURE",
                 rawCreateWithUnknownField(TestKeys.IDENTITY, oldPolicy)));
-        vs.add(invalidOperationOnly("I20", "RECOVER is allocated but unsupported", "UNSUPPORTED_OPERATION",
+        vs.add(invalidOperationOnly("I20", "OI-002 v0.1 reserved RECOVER before OI-007 definition", "UNSUPPORTED_OPERATION",
                 rawRecoverOperation(TestKeys.IDENTITY, 2, v02.stateHash())));
 
         Map<String, Object> d = new LinkedHashMap<>();

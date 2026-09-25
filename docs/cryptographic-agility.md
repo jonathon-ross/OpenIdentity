@@ -282,16 +282,50 @@ lacks valid proof of possession.
 
 ## 29. RECOVER
 
-Operation code 3 is reserved for RECOVER. Recovery authorities,
-thresholds, delays, and proof semantics are intentionally deferred.
-Implementations MUST NOT infer recovery authorization from ordinary
-controller-policy rules.
+Operation code 3 is RECOVER as defined by OI-007.
+
+RECOVER is authorized exclusively by the RecoveryPolicy committed to by
+the current authoritative IdentityState. ControllerPolicy and
+AssertionPolicy MUST NOT implicitly authorize RECOVER.
+
+The current RecoveryPolicy is revealed by the RECOVER payload and its
+deterministic CBOR encoding MUST match the current `recoveryCommitment`.
+Recovery authorization proofs use the dedicated `OpenIdentity Recovery`
+signing domain and MUST satisfy the revealed RecoveryPolicy.
+
+Every VerificationMethod in the replacement ControllerPolicy MUST
+separately prove possession using the existing controller-proof signing
+domain.
+
+Successful RECOVER preserves the permanent identity and IdentityState
+schema version, increments sequence, chains from the current StateHash,
+sets status to ACTIVE, installs the replacement ControllerPolicy,
+replaces `recoveryCommitment`, and preserves AssertionPolicy unchanged
+when the state is v2.
+
+RECOVER MAY apply to ACTIVE or DEACTIVATED state. Ordinary controller
+authorization is not required and MUST NOT be substituted for recovery
+authorization.
+
+OI-007 v0.1 defines no protocol-level recovery delay. Recovery UX,
+guardians, MPC, secret sharing, inheritance, and registry-specific
+workflows remain outside the core wire protocol.
 
 ## 30. DEACTIVATE
 
-Operation code 4 is reserved for DEACTIVATE. Until its semantics are
-finalized, normal controller authorization SHALL be required by default.
-Permanence, delay, and recoverability are outside OI-002.
+Operation code 4 is DEACTIVATE as defined by OI-006.
+
+DEACTIVATE is authorized by the current ControllerPolicy and transitions
+an ACTIVE identity to DEACTIVATED while preserving the permanent
+identity, ControllerPolicy, recoveryCommitment, IdentityState schema
+version, and AssertionPolicy when present.
+
+Ordinary controller-authorized state-changing operations MUST NOT be
+applied while the current authoritative state is DEACTIVATED.
+
+RECOVER is the only OI-007 mechanism that MAY transition a DEACTIVATED
+identity back to ACTIVE, and it requires independent RecoveryPolicy
+authorization.
 
 ## 31. Algorithm-specific signature requirements
 
@@ -340,6 +374,14 @@ Implementations SHOULD expose stable typed errors including:
 -   `INVALID_PROOF_OF_POSSESSION`
 -   `IDENTITY_ALREADY_EXISTS`
 -   `IDENTITY_DEACTIVATED`
+-   `RECOVERY_NOT_CONFIGURED`
+-   `INVALID_RECOVERY_POLICY`
+-   `INVALID_RECOVERY_THRESHOLD`
+-   `RECOVERY_THRESHOLD_NOT_SATISFIED`
+-   `DUPLICATE_RECOVERY_PROOF`
+-   `UNAUTHORIZED_RECOVERY_METHOD`
+-   `INVALID_RECOVERY_SIGNATURE`
+-   `INVALID_RECOVERY_COMMITMENT`
 
 `IDENTITY_ALREADY_EXISTS` is a state-transition applicability error defined
 by OI-004. It MUST be returned when an otherwise valid CREATE targets an
@@ -354,6 +396,29 @@ state. CREATE against the same deactivated identity continues to use
 `IDENTITY_ALREADY_EXISTS`. RECOVER applicability is defined separately by
 OI-007. `IDENTITY_DEACTIVATED` is not a structural CDDL error and does not
 alter the frozen OI-002 v0.1 cryptographic-agility vectors.
+
+OI-007 defines the recovery-specific errors as follows:
+
+- `RECOVERY_NOT_CONFIGURED` — current authoritative state has no
+  `recoveryCommitment`.
+- `INVALID_RECOVERY_POLICY` — the revealed RecoveryPolicy does not match the
+  committed recovery authority.
+- `INVALID_RECOVERY_THRESHOLD` — RecoveryPolicy threshold semantics are
+  invalid.
+- `RECOVERY_THRESHOLD_NOT_SATISFIED` — valid distinct recovery proofs do not
+  meet the committed policy threshold.
+- `DUPLICATE_RECOVERY_PROOF` — the recovery proof collection repeats a
+  RecoveryMethod ID.
+- `UNAUTHORIZED_RECOVERY_METHOD` — a recovery proof claims a method absent
+  from the committed RecoveryPolicy.
+- `INVALID_RECOVERY_SIGNATURE` — an authorized recovery proof fails
+  cryptographic verification over the required recovery signing domain.
+- `INVALID_RECOVERY_COMMITMENT` — the proposed next recovery commitment is
+  malformed, unsupported, or equal to the current commitment where OI-007
+  requires recovery-authority rotation.
+
+These recovery errors are OI-007 protocol/state-transition errors. Adding them
+does not modify the frozen OI-002 v0.1 cryptographic-agility vector bytes.
 
 Human-readable messages MAY vary.
 
@@ -382,10 +447,17 @@ identifiers MUST remain absent from the root DID.
 
 ## 38. Relationship to recovery
 
-Recovery is intentionally independent from normal controller authority.
-No algorithm used for normal controller authority SHOULD be the sole
-mechanism capable of recovering the identity. Detailed recovery design
-is deferred.
+Recovery is independent from ordinary ControllerPolicy and
+AssertionPolicy authority.
+
+OI-007 defines RecoveryPolicy, recoveryCommitment, RECOVER, recovery
+authorization proofs, recovery signing-domain separation,
+replacement-controller proof of possession, recovery-authority
+rotation, and recovery from ACTIVE or DEACTIVATED state.
+
+Recovery UX and higher-level mechanisms such as guardians, MPC, secret
+sharing, inheritance, and recovery services remain outside the core
+protocol.
 
 ## 39. OI-002 protocol invariants
 

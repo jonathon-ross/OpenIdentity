@@ -20,25 +20,24 @@ start = signed-operation
 ; =====================================================================
 ;
 ; 1 = operation
-; 2 = authorization proofs
-; 3 = controller proof-of-possession proofs (optional)
+; 2 = ordinary ControllerPolicy authorization proofs (operation-dependent)
+; 3 = controller proof-of-possession proofs (operation-dependent)
+; 4 = recovery authorization proofs (RECOVER only)
 ;
-; No proof collection is included when calculating OperationBytes.
+; Proof collections are excluded from OperationBytes.
 ;
-; CREATE normally omits field 3.
-; ROTATE_CONTROLLER requires field 3 semantically and MUST provide
-; exactly one valid controller proof for every VerificationMethod in
-; the proposed new controller policy.
-;
-; SET_ASSERTION_POLICY with a non-nil proposed policy also requires
-; field 3 and exactly one valid proof of possession for every proposed
-; VerificationMethod. Removing the policy with nil does not.
+; CREATE: field 2 required.
+; ROTATE_CONTROLLER: fields 2 and 3 required.
+; DEACTIVATE: field 2 required.
+; SET_ASSERTION_POLICY: field 2 required; field 3 required for non-nil policy.
+; RECOVER: field 2 MUST be absent; fields 3 and 4 required.
 ; =====================================================================
 
 signed-operation = {
     1 => operation,
-    2 => [+ authorization-proof],
-    ? 3 => [+ controller-proof]
+    ? 2 => [+ authorization-proof],
+    ? 3 => [+ controller-proof],
+    ? 4 => [+ recovery-proof]
 }
 
 ; =====================================================================
@@ -46,12 +45,13 @@ signed-operation = {
 ; =====================================================================
 ;
 ; Each valid operation type is structurally bound to its payload.
-; RECOVER is allocated but intentionally absent until defined.
+; RECOVER is defined by OI-007.
 ; =====================================================================
 
 operation =
       create-operation
     / rotate-controller-operation
+    / recover-operation
     / deactivate-operation
     / set-assertion-policy-operation
 
@@ -61,7 +61,7 @@ operation =
 ;
 ; 1 = CREATE
 ; 2 = ROTATE_CONTROLLER
-; 3 = RECOVER (allocated, NOT valid in this schema)
+; 3 = RECOVER
 ; 4 = DEACTIVATE
 ; 5 = SET_ASSERTION_POLICY
 ;
@@ -138,6 +138,44 @@ rotate-controller-payload = {
 }
 
 ; =====================================================================
+; RECOVER
+; =====================================================================
+;
+; RECOVER is authorized exclusively by the RecoveryPolicy committed to by
+; the current authoritative IdentityState. Ordinary ControllerPolicy
+; authorization MUST NOT be required.
+;
+; Payload:
+;   1 = complete new ControllerPolicy
+;   2 = revealed current RecoveryPolicy
+;   3 = new recoveryCommitment
+;
+; Semantics:
+; - identity matches current state
+; - sequence = current sequence + 1
+; - previousStateHash = StateHash(current state)
+; - revealed RecoveryPolicy hashes to current recoveryCommitment
+; - field 4 recovery proofs satisfy the revealed RecoveryPolicy
+; - field 3 contains exactly one valid controller PoP for every method in
+;   the new ControllerPolicy
+; =====================================================================
+
+recover-operation = {
+    1 => protocol-version,
+    2 => recover-operation-type,
+    3 => identity-id,
+    4 => subsequent-sequence,
+    5 => previous-state-hash,
+    6 => recover-payload
+}
+
+recover-payload = {
+    1 => controller-policy,
+    2 => recovery-policy,
+    3 => recovery-commitment
+}
+
+; =====================================================================
 ; DEACTIVATE
 ; =====================================================================
 
@@ -192,18 +230,6 @@ set-assertion-policy-payload = {
 protocol-version = 1
 
 ; =====================================================================
-; Shared Cryptographic Primitives
-; =====================================================================
-;
-; identity-id, StateHash semantics, verification-method-id,
-; openidentity-cose-key, signature, and policy encodings are reusable by
-; other OpenIdentity specifications, including OI-003.
-;
-; Reuse of encodings does NOT transfer authorization semantics between
-; ControllerPolicy and AssertionPolicy.
-; =====================================================================
-
-; =====================================================================
 ; Root Identity Identifier
 ; =====================================================================
 ;
@@ -242,10 +268,44 @@ previous-state-hash = bstr .size (1..128)
 ; Recovery Commitment
 ; =====================================================================
 ;
-; Opaque until the recovery specification defines its format.
+; Multihash over deterministic RecoveryPolicyBytes.
+; v0.1 producers MUST emit:
+;   0x12 || 0x20 || SHA-256(RecoveryPolicyBytes)
+; The v0.1 value is therefore exactly 34 bytes. The structural envelope is
+; wider for future supported Multihashes.
 ; =====================================================================
 
 recovery-commitment = bstr .size (1..128)
+
+; =====================================================================
+; Recovery Policy
+; =====================================================================
+;
+; RecoveryPolicy is a distinct authorization purpose. Its methods MUST NOT
+; implicitly gain controller or assertion authority.
+;
+; SINGLE:    { 1: version=1, 2: type=1, 3: [method] }
+; THRESHOLD: { 1: version=1, 2: type=2, 3: threshold, 4: [methods...] }
+; =====================================================================
+
+recovery-policy =
+      recovery-single-policy
+    / recovery-threshold-policy
+
+recovery-policy-version = 1
+
+recovery-single-policy = {
+    1 => recovery-policy-version,
+    2 => single-policy-type,
+    3 => [ verification-method ]
+}
+
+recovery-threshold-policy = {
+    1 => recovery-policy-version,
+    2 => threshold-policy-type,
+    3 => threshold,
+    4 => [+ verification-method]
+}
 
 ; =====================================================================
 ; Controller Policy
@@ -257,15 +317,8 @@ controller-policy =
 
 ; AssertionPolicy deliberately reuses the same policy and
 ; VerificationMethod structures. Authorization purpose is distinct:
-; ControllerPolicy authorizes IdentityState changes; AssertionPolicy
-; authorizes cryptographic assertions made on behalf of the identity at
-; this exact IdentityState.
-;
-; Assertion authority is intentionally format-agnostic. OI-003 credentials
-; are one consumer of this authority; future OpenIdentity assertion formats
-; MAY reuse the same state-level authorization relationship.
-;
-; Membership in either policy MUST NOT imply membership in the other.
+; ControllerPolicy controls state; AssertionPolicy authorizes OI-003
+; assertions. Membership in either MUST NOT imply membership in the other.
 assertion-policy =
       single-policy
     / threshold-policy
@@ -524,6 +577,22 @@ controller-proof-signing-structure = [
     verification-method-id
 ]
 
+; =====================================================================
+; Recovery Authorization Proof
+; =====================================================================
+
+recovery-proof = {
+    1 => verification-method-id,
+    2 => signature
+}
+
+recovery-proof-signing-structure = [
+    "OpenIdentity Recovery",
+    signing-structure-version,
+    operation-bytes,
+    verification-method-id
+]
+
 signing-structure-version = 1
 
 ; =====================================================================
@@ -541,14 +610,15 @@ operation-bytes = bstr
 ; Canonical Ordering Requirements
 ; =====================================================================
 ;
-; VerificationMethods within every ControllerPolicy and AssertionPolicy
-; MUST be sorted by Verification Method ID using unsigned bytewise
+; VerificationMethods within every ControllerPolicy, AssertionPolicy, and
+; RecoveryPolicy MUST be sorted by Verification Method ID using unsigned bytewise
 ; lexicographic ordering.
 ;
 ; The same VerificationMethod MAY appear in both policies only when
 ; explicitly present in both. Membership never transfers implicitly.
 ;
-; Authorization proofs and controller proofs MUST use the same ordering.
+; Authorization proofs, controller proofs, and recovery proofs MUST use the
+; same Verification Method ID ordering.
 ;
 ; Duplicate Verification Method IDs MUST be rejected within each
 ; relevant collection.
@@ -614,6 +684,23 @@ operation-bytes = bstr
 ; =====================================================================
 
 ; =====================================================================
+; RECOVER State Transition
+; =====================================================================
+;
+; A valid RECOVER MAY apply to ACTIVE or DEACTIVATED state and:
+; - preserves permanent identity and IdentityState schema version
+; - increments sequence and chains from current StateHash
+; - validates revealed RecoveryPolicy against current recoveryCommitment
+; - satisfies that policy with recovery proofs
+; - installs the complete new ControllerPolicy after new-controller PoP
+; - replaces recoveryCommitment with the new commitment
+; - sets status to ACTIVE
+; - preserves AssertionPolicy unchanged when stateVersion = 2
+;
+; The revealed current RecoveryPolicy is not stored in resulting state.
+; =====================================================================
+
+; =====================================================================
 ; DEACTIVATE State Transition
 ; =====================================================================
 ;
@@ -674,9 +761,8 @@ operation-bytes = bstr
 ; Assertion Authority and Historical State
 ; =====================================================================
 ;
-; AssertionPolicy is the sole canonical source of cryptographic assertion
-; authority for an OpenIdentity identity at a particular IdentityState.
-; It projects to the W3C assertionMethod verification relationship.
+; AssertionPolicy is the sole canonical source of OI-003 assertion
+; authority and projects to W3C assertionMethod.
 ;
 ; ControllerPolicy membership MUST NOT imply assertion authority.
 ; AssertionPolicy membership MUST NOT imply controller authority.
@@ -687,25 +773,23 @@ operation-bytes = bstr
 ; profile exposes that identifier using DID Resolution versionId.
 ;
 ; Current projections expose only current assertion authority.
-; Consumers requiring historical authorization MUST evaluate AssertionPolicy
-; from the exact historical authoritative state bound by StateHash/versionId.
-; They MUST NOT substitute the current IdentityState.
-;
-; Removal or replacement changes current authority but does not rewrite
-; historical IdentityStates. Acceptance, status, and revocation of earlier
-; assertions are defined by the consuming assertion protocol.
+; Historical credential verification MUST evaluate AssertionPolicy from
+; the exact historical authoritative state bound by StateHash/versionId.
 ; =====================================================================
 
 ; =====================================================================
-; RECOVER Reservation
+; Recovery Authority Separation
 ; =====================================================================
 ;
-; Operation code 3 is allocated to RECOVER but intentionally absent
-; from the `operation` choice.
+; RecoveryPolicy authorizes RECOVER only. ControllerPolicy and
+; AssertionPolicy MUST NOT implicitly authorize RECOVER, and RecoveryPolicy
+; membership MUST NOT imply either controller or assertion authority.
 ;
-; A conforming implementation of this schema MUST reject operationType 3
-; until recovery payload, policy, threshold, timing, cryptographic
-; diversity, and authorization semantics are normatively defined.
+; Recovery proofs, ordinary authorization proofs, and controller proofs use
+; distinct signing domains and are not interchangeable.
+;
+; Delays, social-recovery UX, MPC, secret sharing, guardians, inheritance,
+; and registry-specific workflows are outside this wire-format version.
 ; =====================================================================
 
 ; =====================================================================
