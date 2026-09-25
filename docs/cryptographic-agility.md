@@ -147,10 +147,30 @@ Unknown operation types MUST produce `UNSUPPORTED_OPERATION`.
 
 ## 19. Sequence and previous state
 
-CREATE SHALL use sequence 1 and `previousStateHash = nil`. Subsequent
-normal operations SHALL use `currentSequence + 1` and a binary
-self-describing Multihash of the previous authoritative identity state.
-v0.1 SHALL support SHA2-256 Multihash.
+Sequence and replay state-machine semantics are defined by OI-008.
+
+CREATE SHALL use sequence 1 and `previousStateHash = nil`.
+
+Every subsequent authoritative state-changing operation SHALL use:
+
+``` text
+sequence = currentSequence + 1
+previousStateHash = StateHash(current authoritative IdentityState)
+```
+
+Protocol v0.1 represents sequence as an unsigned 64-bit integer in the
+range `1..2^64-1`. Sequence MUST NOT decrease, reset, skip, or wrap.
+
+Sequence validation and exact predecessor StateHash binding are both
+required. A stale, replayed, skipped, future, or conflicting operation
+MUST NOT become authoritative merely because its signatures remain
+cryptographically valid.
+
+An invalid next sequence SHALL produce `INVALID_SEQUENCE`. An operation
+that does not reference the exact current authoritative predecessor
+StateHash SHALL produce `INVALID_PREVIOUS_STATE_HASH`.
+
+OpenIdentity v0.1 SHALL support SHA2-256 Multihash for StateHash.
 
 ## 20. OperationBytes
 
