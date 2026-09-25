@@ -339,12 +339,21 @@ Implementations SHOULD expose stable typed errors including:
 -   `MISSING_PROOF_OF_POSSESSION`
 -   `INVALID_PROOF_OF_POSSESSION`
 -   `IDENTITY_ALREADY_EXISTS`
+-   `IDENTITY_DEACTIVATED`
 
 `IDENTITY_ALREADY_EXISTS` is a state-transition applicability error defined
 by OI-004. It MUST be returned when an otherwise valid CREATE targets an
 Identity ID for which authoritative state already exists. It is not a
 structural CDDL error and does not alter the frozen OI-002 v0.1
 cryptographic-agility vectors.
+
+`IDENTITY_DEACTIVATED` is a state-transition applicability error defined by
+OI-006. It MUST be returned when the current authoritative IdentityState is
+DEACTIVATED and an ordinary state-changing operation is not permitted in that
+state. CREATE against the same deactivated identity continues to use
+`IDENTITY_ALREADY_EXISTS`. RECOVER applicability is defined separately by
+OI-007. `IDENTITY_DEACTIVATED` is not a structural CDDL error and does not
+alter the frozen OI-002 v0.1 cryptographic-agility vectors.
 
 Human-readable messages MAY vary.
 
