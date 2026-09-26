@@ -264,7 +264,7 @@ test-vectors/state-hash-v0.1.json.sha256
 The frozen SHA-256 of `state-hash-v0.1.json` is:
 
 ```text
-877244dfb1edbbdf69eb0f633e1c932e27db7940bfb6c3107b11a1184284dbca
+6de35a98941f6aff846cd662ccd796473f8f22c5c891ce3589e9a593588bf937
 ```
 
 ## 23. Normative OI-011 conformance suite
@@ -295,7 +295,7 @@ test-vectors/state-hash-v0.1.json.sha256
 
 Frozen SHA-256:
 
-877244dfb1edbbdf69eb0f633e1c932e27db7940bfb6c3107b11a1184284dbca
+6de35a98941f6aff846cd662ccd796473f8f22c5c891ce3589e9a593588bf937
 
 ## 24. Security considerations
 
