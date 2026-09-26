@@ -267,9 +267,12 @@ The frozen SHA-256 of `state-hash-v0.1.json` is:
 877244dfb1edbbdf69eb0f633e1c932e27db7940bfb6c3107b11a1184284dbca
 ```
 
-## 23. Dedicated OI-011 conformance suite
+## 23. Normative OI-011 conformance suite
 
-OI-011 SHOULD publish SH01-SH10:
+OI-011 publishes the normative SH01-SH10 StateHash
+conformance suite in:
+
+test-vectors/state-hash-v0.1.json
 
 ```text
 SH01 IdentityState v1 produces expected StateHash
@@ -284,7 +287,15 @@ SH09 raw SHA-256 digest alone is not StateHash
 SH10 hash of a non-StateBytes representation is not authoritative StateHash
 ```
 
-The suite SHOULD reuse existing deterministic keys, policies, and state fixtures and MUST be independently reconstructed and verified.
+The suite was independently reconstructed and verified.
+
+The normative checksum is published in:
+
+test-vectors/state-hash-v0.1.json.sha256
+
+Frozen SHA-256:
+
+877244dfb1edbbdf69eb0f633e1c932e27db7940bfb6c3107b11a1184284dbca
 
 ## 24. Security considerations
 
