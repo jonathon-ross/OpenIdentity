@@ -4,7 +4,9 @@ OpenIdentity is a decentralized identity protocol designed to keep a permanent r
 
 This repository contains the OpenIdentity Protocol v0.1 specifications, normative schemas, conformance vectors, independent verification tooling, and W3C interoperability projections.
 
-> **Release status:** Protocol v0.1 release candidate. Normative work through OI-011 is complete. OI-012 is the publication/release gate. A repository license must still be selected before the v0.1 release is tagged.
+> **Release status:** Protocol v0.1 release candidate. Normative work
+> through OI-011 is complete. OI-012 is the publication/release gate.
+> The repository is licensed under the Apache License, Version 2.0.
 
 ## Current wire format
 
@@ -163,7 +165,14 @@ Read `AGENTS.md` before protocol-sensitive changes. Changes to canonical bytes, 
 
 ## License
 
-A repository license has not yet been selected. Do not assume an open-source license until a `LICENSE` file is added. License selection is part of OI-012.
+OpenIdentity is licensed under the Apache License, Version 2.0.
+
+See:
+
+- `LICENSE` for the license terms;
+- `NOTICE` for attribution information;
+- `LICENSING.md` for repository licensing guidance; and
+- `TRADEMARKS.md` for OpenIdentity branding guidance.
 
 ## Release
 
