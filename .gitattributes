@@ -1,0 +1,18 @@
+# Keep ordinary repository text deterministic across Windows, macOS, and Linux.
+* text=auto eol=lf
+
+# Normative OpenIdentity conformance artifacts are byte-sensitive.
+# Never apply line-ending conversion or text normalization.
+test-vectors/** -text
+
+# Published JSON-LD/context artifacts participate in integrity verification.
+contexts/*.jsonld -text
+public/**/*.jsonld -text
+public/**/context -text
+
+# Integrity manifests themselves are deterministic LF text.
+*.sha256 text eol=lf
+
+# Preserve native Windows line endings for command scripts if introduced.
+*.cmd text eol=crlf
+*.bat text eol=crlf
