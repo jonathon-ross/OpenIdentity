@@ -2,7 +2,7 @@
 
 **Document:** `credential.md`\
 **Story:** OI-003 --- Define OpenIdentity Credentials\
-**Status:** Draft v0.1\
+**Status:** Complete v0.1\
 **Protocol:** OpenIdentity\
 **Credential Wire Format:** OpenIdentity Credential v1\
 **Identity State:** OpenIdentity IdentityState v2\

@@ -15,9 +15,7 @@ DEACTIVATE changes an existing authoritative OpenIdentity from ACTIVE to
 DEACTIVATED without deleting its identity or historical state.
 
 Deactivation is final for ordinary controller authority. A normal
-controller operation MUST NOT reactivate a deactivated identity. Whether
-an independent recovery authority can restore a deactivated identity is
-reserved exclusively for OI-007 RECOVER.
+controller operation MUST NOT reactivate a deactivated identity. OI-007 RECOVER may reactivate a DEACTIVATED identity using independent RecoveryPolicy authority.
 
 ## 2. Normative foundation
 

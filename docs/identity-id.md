@@ -2,7 +2,7 @@
 
 **Document:** `identity-id.md`
 **Story:** OI-001 — Define Identity ID
-**Status:** OI-001 Complete - Protocol Draft v0.1
+**Status:** Complete v0.1
 **Protocol:** OpenIdentity
 **Normative Keywords:** MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, MAY
 

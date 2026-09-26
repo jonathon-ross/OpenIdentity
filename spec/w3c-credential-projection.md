@@ -2,7 +2,7 @@
 
 **Document:** `w3c-credential-projection.md`\
 **Protocol:** OpenIdentity\
-**Status:** Draft v0.1\
+**Status:** Frozen v0.1\
 **Depends on:** OI-001, OI-002, OI-003, OpenIdentity W3C Identity
 Projection\
 **Projection Target:** W3C Verifiable Credentials Data Model 2.x

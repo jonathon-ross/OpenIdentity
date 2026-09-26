@@ -342,7 +342,7 @@ a generator-supplied convenience field.
 
 ## 16. Public artifacts
 
-Before WP01/WP02 become normative, the repository SHALL publish the
+WP01/WP02 are normative. The repository published the
 immutable Basic v1 JSON-LD context corresponding to this profile and its
 SHA-256 integrity file.
 
