@@ -1248,10 +1248,8 @@ public final class GenerateVectors {
             ObjectMapper output = new ObjectMapper()
                     .enable(SerializationFeature.INDENT_OUTPUT);
             Path jsonFile = tv.resolve("assertion-authority-v0.1.json");
-            output.writeValue(jsonFile.toFile(), normative);
-
-            // Hash the exact bytes Jackson wrote to disk.
-            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] jsonBytes = deterministicJsonBytes(output, normative);
+            Files.write(jsonFile, jsonBytes);
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(jsonBytes);
             String sha256 = Hex.encode(digest);
@@ -1826,10 +1824,8 @@ public final class GenerateVectors {
             ObjectMapper output = new ObjectMapper()
                     .enable(SerializationFeature.INDENT_OUTPUT);
             Path jsonFile = tv.resolve("credential-v0.1.json");
-            output.writeValue(jsonFile.toFile(), normative);
-
-            // Hash the exact bytes Jackson wrote to disk.
-            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] jsonBytes = deterministicJsonBytes(output, normative);
+            Files.write(jsonFile, jsonBytes);
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(jsonBytes);
             String sha256 = Hex.encode(digest);
@@ -2349,9 +2345,8 @@ public final class GenerateVectors {
 
             Path jsonFile =
                     tv.resolve("w3c-credential-projection-v0.1.json");
-            output.writeValue(jsonFile.toFile(), normative);
-
-            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] jsonBytes = deterministicJsonBytes(output, normative);
+            Files.write(jsonFile, jsonBytes);
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(jsonBytes);
             String sha256 = Hex.encode(digest);
@@ -3242,10 +3237,8 @@ public final class GenerateVectors {
                     .enable(SerializationFeature.INDENT_OUTPUT);
 
             Path jsonFile = tv.resolve("recovery-v0.1.json");
-            output.writeValue(jsonFile.toFile(), normative);
-
-            // Hash the exact bytes Jackson wrote to disk.
-            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] jsonBytes = deterministicJsonBytes(output, normative);
+            Files.write(jsonFile, jsonBytes);
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(jsonBytes);
             String sha256 = Hex.encode(digest);
@@ -3704,9 +3697,8 @@ public final class GenerateVectors {
 
             Path jsonFile =
                     tv.resolve("signature-envelope-v0.1.json");
-            output.writeValue(jsonFile.toFile(), normative);
-
-            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] jsonBytes = deterministicJsonBytes(output, normative);
+            Files.write(jsonFile, jsonBytes);
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(jsonBytes);
             String sha256 = Hex.encode(digest);
@@ -4584,6 +4576,15 @@ public final class GenerateVectors {
 
     private static void same(String n, byte[] a, byte[] b) {
         if (!Arrays.equals(a, b)) throw new IllegalStateException(n + " differs from V02");
+    }
+
+    private static byte[] deterministicJsonBytes(
+            ObjectMapper mapper,
+            Object value) throws IOException {
+        String json = mapper.writeValueAsString(value)
+                .replace("\r\n", "\n")
+                .replace("\r", "\n");
+        return json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static void writeJson(String filename, Map<String, Object> document) {
