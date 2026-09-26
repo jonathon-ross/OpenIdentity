@@ -11,6 +11,7 @@ Python for integrity verification rather than requiring sha256sum.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import os
 import re
@@ -18,7 +19,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = sys.executable
@@ -68,17 +68,23 @@ CHECKSUM_FILES = [
     "public/test/credentials/basic/v1/context.sha256",
 ]
 
-VERIFIERS = [
-    "tools/test-vectors/verify_identity_vectors.py",
-    "tools/test-vectors/verify_cryptographic_agility.py",
-    "tools/test-vectors/verify_assertion_authority.py",
-    "tools/test-vectors/verify_credential.py",
-    "tools/test-vectors/verify_w3c_projection.py",
-    "tools/test-vectors/verify_w3c_credential_projection.py",
-    "tools/test-vectors/verify_recovery.py",
-    "tools/test-vectors/verify_signature_envelope.py",
-    "tools/test-vectors/verify_state_hash.py",
+# Each verifier keeps its native CLI contract. Most locate their default
+# artifacts themselves; OI-002 intentionally requires its normative vector
+# file as a positional argument.
+VERIFIER_COMMANDS = [
+    ("tools/test-vectors/verify_identity_vectors.py", []),
+    ("tools/test-vectors/verify_cryptographic_agility.py",
+     ["test-vectors/cryptographic-agility-v0.1.json"]),
+    ("tools/test-vectors/verify_assertion_authority.py", []),
+    ("tools/test-vectors/verify_credential.py", []),
+    ("tools/test-vectors/verify_w3c_projection.py", []),
+    ("tools/test-vectors/verify_w3c_credential_projection.py", []),
+    ("tools/test-vectors/verify_recovery.py", []),
+    ("tools/test-vectors/verify_signature_envelope.py", []),
+    ("tools/test-vectors/verify_state_hash.py", []),
 ]
+
+VERIFIERS = [script for script, _ in VERIFIER_COMMANDS]
 
 # These are immutable/published inputs whose exact bytes must survive the Java
 # generator. Include specs/verifiers covered by the W3C projection manifest too.
@@ -260,8 +266,11 @@ def run(cmd, cwd=ROOT, label=None) -> None:
 
 def run_verifiers(round_name: str) -> None:
     section(round_name)
-    for rel in VERIFIERS:
-        run([PYTHON, ROOT / rel], label=rel)
+    for rel, args in VERIFIER_COMMANDS:
+        cmd = [PYTHON, ROOT / rel]
+        cmd.extend(ROOT / arg for arg in args)
+        label = " ".join([rel] + args)
+        run(cmd, label=label)
 
 
 def frozen_snapshot():
@@ -290,17 +299,137 @@ def compare_snapshot(before) -> None:
     ok(f"all {len(before)} frozen artifacts unchanged after Java generation")
 
 
-def run_java_generator() -> None:
+def _maven_prefix_from_path(candidate: Path, description: str):
+    """Build a platform-correct command prefix for an explicit Maven launcher."""
+    candidate = candidate.expanduser().resolve()
+    if not candidate.is_file():
+        return None
+
+    if os.name == "nt" and candidate.suffix.lower() in (".cmd", ".bat"):
+        comspec = os.environ.get("COMSPEC") or shutil.which("cmd.exe")
+        if not comspec:
+            fail(f"{description} found, but cmd.exe/COMSPEC is unavailable")
+        return [comspec, "/d", "/s", "/c", str(candidate)], description
+
+    if os.name != "nt" and not os.access(candidate, os.X_OK):
+        shell = shutil.which("sh")
+        if shell:
+            return [shell, str(candidate)], description + " via sh"
+        fail(f"{description} is not executable and sh is unavailable: {candidate}")
+
+    return [str(candidate)], description
+
+
+def resolve_maven(java_dir: Path, explicit_maven: str | None = None):
+    """Return (command_prefix, description) for Maven on Windows/macOS/Linux.
+
+    Resolution order:
+      1. --maven command-line override
+      2. OPENIDENTITY_MAVEN environment variable
+      3. Maven Wrapper in tools/test-vectors-java
+      4. Maven Wrapper at repository root
+      5. MAVEN_HOME / M2_HOME
+      6. PATH lookup
+      7. Windows native command-processor lookup
+    """
+    windows = os.name == "nt"
+
+    # Explicit override is the most deterministic option and is useful inside
+    # Python virtual environments whose PATH differs from the parent shell.
+    override = explicit_maven or os.environ.get("OPENIDENTITY_MAVEN")
+    if override:
+        found = _maven_prefix_from_path(
+            Path(override),
+            "explicit Maven launcher"
+        )
+        if found:
+            return found
+        fail(f"Explicit Maven launcher does not exist: {override}")
+
+    wrapper_names = ["mvnw.cmd"] if windows else ["mvnw"]
+    for base in (java_dir, ROOT):
+        for name in wrapper_names:
+            wrapper = base / name
+            found = _maven_prefix_from_path(
+                wrapper,
+                f"Maven Wrapper ({wrapper.relative_to(ROOT)})"
+            )
+            if found:
+                return found
+
+    # Respect the two conventional Maven installation environment variables.
+    for env_name in ("MAVEN_HOME", "M2_HOME"):
+        home = os.environ.get(env_name)
+        if not home:
+            continue
+        bin_dir = Path(home) / "bin"
+        names = ("mvn.cmd", "mvn.bat", "mvn") if windows else ("mvn",)
+        for name in names:
+            found = _maven_prefix_from_path(
+                bin_dir / name,
+                f"system Maven from {env_name}"
+            )
+            if found:
+                return found
+
+    candidates = ("mvn.cmd", "mvn.bat", "mvn") if windows else ("mvn",)
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if resolved:
+            found = _maven_prefix_from_path(
+                Path(resolved),
+                f"system Maven ({resolved})"
+            )
+            if found:
+                return found
+
+    if windows:
+        # Ask the native command processor as a final PATH-based fallback.
+        comspec = os.environ.get("COMSPEC") or shutil.which("cmd.exe")
+        if comspec:
+            probe = subprocess.run(
+                [comspec, "/d", "/s", "/c", "where mvn && mvn -version"],
+                cwd=str(java_dir),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            if probe.returncode == 0:
+                return [comspec, "/d", "/s", "/c", "mvn"], (
+                    "system Maven via Windows command processor"
+                )
+
+    fail(
+        "Maven not found from this Python environment. "
+        "Use --maven <path-to-mvn> or set OPENIDENTITY_MAVEN, "
+        "MAVEN_HOME, or M2_HOME. A repository Maven Wrapper is also supported."
+    )
+
+
+def run_java_generator(explicit_maven: str | None = None) -> None:
     section("6. JAVA REFERENCE GENERATOR")
-    mvn = shutil.which("mvn") or shutil.which("mvn.cmd")
-    if not mvn:
-        fail("Maven not found on PATH (expected mvn or mvn.cmd)")
     java_dir = ROOT / "tools" / "test-vectors-java"
-    run([mvn, "clean", "compile"], cwd=java_dir, label="mvn clean compile")
+    mvn_prefix, mvn_description = resolve_maven(java_dir, explicit_maven)
+    ok(f"Maven launcher: {mvn_description}")
+
+    # Record toolchain versions in the release-gate output.
+    run(mvn_prefix + ["-version"], cwd=java_dir, label="mvn -version")
+
     run(
-        [mvn, "exec:java", "-Dexec.mainClass=org.openidentity.vectors.GenerateVectors"],
+        mvn_prefix + ["clean", "compile"],
         cwd=java_dir,
-        label="mvn exec:java -Dexec.mainClass=org.openidentity.vectors.GenerateVectors",
+        label="mvn clean compile",
+    )
+    run(
+        mvn_prefix + [
+            "exec:java",
+            "-Dexec.mainClass=org.openidentity.vectors.GenerateVectors",
+        ],
+        cwd=java_dir,
+        label=(
+            "mvn exec:java "
+            "-Dexec.mainClass=org.openidentity.vectors.GenerateVectors"
+        ),
     )
 
 
@@ -327,6 +456,19 @@ def check_git_clean_if_available() -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Verify OpenIdentity Protocol v0.1 release readiness"
+    )
+    parser.add_argument(
+        "--maven",
+        metavar="PATH",
+        help=(
+            "explicit path to Maven launcher (mvn, mvn.cmd, or mvn.bat); "
+            "useful when a virtual environment cannot resolve system Maven"
+        ),
+    )
+    args = parser.parse_args()
+
     print()
     print("OPENIDENTITY PROTOCOL v0.1 RELEASE GATE")
     print(f"Repository: {ROOT}")
@@ -340,7 +482,7 @@ def main() -> int:
     run_verifiers("5. INDEPENDENT CONFORMANCE — PRE-GENERATION")
 
     before = frozen_snapshot()
-    run_java_generator()
+    run_java_generator(args.maven)
     compare_snapshot(before)
 
     run_verifiers("7. INDEPENDENT CONFORMANCE — POST-GENERATION")
