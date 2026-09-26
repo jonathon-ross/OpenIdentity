@@ -4147,7 +4147,9 @@ public final class GenerateVectors {
             String json = output.writeValueAsString(normative)
                     .replace("\r\n", "\n")
                     .replace("\r", "\n");
-            byte[] jsonBytes = (json + "\n")
+            // The frozen normative JSON ends exactly at the closing
+            // brace (no trailing newline). Preserve that byte contract.
+            byte[] jsonBytes = json
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
             Files.write(jsonFile, jsonBytes);
             byte[] digest = MessageDigest.getInstance("SHA-256")
