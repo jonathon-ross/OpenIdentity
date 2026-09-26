@@ -6,7 +6,7 @@ A permanent OpenIdentity root identifier is independent of controller keys, cryp
 
 This repository is the **OpenIdentity protocol repository**. It defines the protocol, normative schemas, conformance vectors, interoperability projections, and release-verification tooling.
 
-> **Release status:** OpenIdentity Protocol v0.1.0 release candidate. The complete release gate passes from a clean checkout.
+> **Release status:** OpenIdentity Protocol v0.1.1 is the current frozen release. The complete release gate passes from a clean checkout.
 
 ## Repository scope
 
