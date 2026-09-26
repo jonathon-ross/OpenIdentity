@@ -4139,9 +4139,17 @@ public final class GenerateVectors {
                     .enable(SerializationFeature.INDENT_OUTPUT);
 
             Path jsonFile = tv.resolve("state-hash-v0.1.json");
-            output.writeValue(jsonFile.toFile(), normative);
 
-            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            // Jackson's file generator uses the platform line separator for
+            // pretty-printed JSON. Normative artifacts must be byte-identical
+            // on Windows, macOS, and Linux, so serialize in memory and
+            // normalize JSON line endings to LF before writing exact bytes.
+            String json = output.writeValueAsString(normative)
+                    .replace("\r\n", "\n")
+                    .replace("\r", "\n");
+            byte[] jsonBytes = (json + "\n")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            Files.write(jsonFile, jsonBytes);
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(jsonBytes);
             String sha256 = Hex.encode(digest);
