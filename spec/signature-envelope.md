@@ -2,7 +2,7 @@
 
 **Document:** `signature-envelope.md`  
 **Story:** OI-010 — Define signature envelope  
-**Status:** Draft v0.1  
+**Status:** Complete v0.1  
 **Protocol:** OpenIdentity  
 **Depends on:** OI-002, OI-005, OI-007, OI-009  
 **Normative Keywords:** MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, MAY
@@ -508,36 +508,45 @@ including:
 
 OI-010 consolidates those rules into one signature-envelope specification.
 
-## 25. Dedicated OI-010 conformance suite
+## 25. Normative OI-010 conformance suite
 
-OI-010 SHOULD publish a compact dedicated envelope/domain-separation suite.
+OI-010 publishes the normative SE01-SE10 envelope/domain-separation
+conformance suite in:
 
-The planned cases are:
+```text
+test-vectors/signature-envelope-v0.1.json
+```
+
+The suite contains:
 
 ```text
 SE01 valid ordinary controller authorization
-
 SE02 identity mutation invalidates authorization
-
 SE03 sequence mutation invalidates authorization
-
 SE04 previousStateHash mutation invalidates authorization
-
 SE05 payload mutation invalidates authorization
-
 SE06 ordinary authorization substituted as controller PoP is rejected
-
 SE07 controller PoP substituted as ordinary authorization is rejected
-
 SE08 recovery authorization substituted as ordinary authorization is rejected
-
 SE09 signingStructureVersion mutation invalidates proof
-
 SE10 operationType mutation invalidates authorization
 ```
 
-The suite SHOULD reuse existing deterministic keys and operation fixtures where
-possible and MUST independently verify expected acceptance/rejection.
+The suite reuses deterministic OpenIdentity test keys and operation fixtures.
+SE01-SE10 were independently reconstructed and verified by the Python
+conformance verifier.
+
+The normative bundle checksum is published in:
+
+```text
+test-vectors/signature-envelope-v0.1.json.sha256
+```
+
+The frozen SHA-256 of `signature-envelope-v0.1.json` is:
+
+```text
+ac1f4867402e3d5d12b5b68ef27fb52c3442332e2a6432fb445e0616658469da
+```
 
 ## 26. Security considerations
 
