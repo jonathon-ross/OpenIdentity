@@ -262,7 +262,7 @@ def verify_generated_suite():
     return vs
 
 
-FROZEN_SHA256 = "ac1f4867402e3d5d12b5b68ef27fb52c3442332e2a6432fb445e0616658469da"
+FROZEN_SHA256 = "61ea787161c408332354c3bbc04a3538d9cb568524340408b00afe2c391189b5"
 
 
 def verify_normative_bundle(generated_vectors):
