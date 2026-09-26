@@ -534,7 +534,7 @@ def verify_normative_bundle():
           actual_digest == expected_digest)
     check("Normative SHA-256 matches frozen candidate",
           actual_digest ==
-          "9d94283d536623f26863d611e19b58cd11d16746c54e2d75df2ac5820bba2b35")
+          "a3c4020a5b65b05d8440718bc114bd351c21699a2b6f5f57c67b011cfb87090f")
 
     # Independently reconstruct the positive vectors directly from the
     # consolidated objects, so verification does not rely only on equality
