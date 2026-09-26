@@ -2,7 +2,7 @@
 
 **Document:** `state-hash.md`  
 **Story:** OI-011 — Define StateHash  
-**Status:** Draft v0.1  
+**Status:** Complete v0.1  
 **Protocol:** OpenIdentity  
 **Depends on:** OI-003, OI-008, OI-009
 
@@ -255,7 +255,17 @@ OI-011 introduces no raw-digest alternative and no second StateHash representati
 
 Existing OpenIdentity vectors already exercise initial state hashing, controller rotation, predecessor chaining, AssertionPolicy transitions, credential historical-state binding, DEACTIVATE, recovery from ACTIVE and DEACTIVATED states, recoveryCommitment rotation, and independent Java/Python StateHash reconstruction.
 
-OI-011 consolidates those rules into one specification.
+The normative bundle checksum is published in:
+
+```text
+test-vectors/state-hash-v0.1.json.sha256
+```
+
+The frozen SHA-256 of `state-hash-v0.1.json` is:
+
+```text
+877244dfb1edbbdf69eb0f633e1c932e27db7940bfb6c3107b11a1184284dbca
+```
 
 ## 23. Dedicated OI-011 conformance suite
 

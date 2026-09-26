@@ -48,6 +48,8 @@ public final class GenerateVectors {
         generateNormativeRecoveryFile();
         generateSignatureEnvelopeVectors(v02);
         generateNormativeSignatureEnvelopeFile();
+        generateStateHashVectors(v02, a04);
+        generateNormativeStateHashFile();
         System.out.println("================================================");
         System.out.println("ALL JAVA TEST VECTORS GENERATED SUCCESSFULLY");
         System.out.println("================================================");
@@ -3723,6 +3725,441 @@ public final class GenerateVectors {
         } catch (Exception e) {
             throw new IllegalStateException(
                     "Unable to generate normative OI-010 signature-envelope vector file",
+                    e);
+        }
+    }
+
+
+
+    /**
+     * OI-011 SH01-SH10 StateHash conformance/security vectors.
+     */
+    private static void generateStateHashVectors(
+            HybridCreateResult v02,
+            AssertionStateResult a04) {
+        section("STATE HASH", "SH01-SH10");
+
+        var edA = new Ed25519Support(TestKeys.ED25519_SEED);
+        var mlA = new MlDsa65Support(TestKeys.ML_DSA_SEED);
+        var edB = new Ed25519Support(TestKeys.ED25519_SEED_B);
+        var mlB = new MlDsa65Support(TestKeys.ML_DSA_SEED_B);
+
+        var edMethodA = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID,
+                OpenIdentityCbor.ed25519CoseKey(edA.publicKey()));
+        var mlMethodA = OpenIdentityCbor.verificationMethod(
+                TestKeys.ML_DSA_METHOD_ID,
+                OpenIdentityCbor.mlDsa65CoseKey(mlA.publicKey()));
+        byte[] policyA = OpenIdentityCbor.thresholdPolicy(
+                2, List.of(edMethodA, mlMethodA));
+
+        var edMethodB = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_B,
+                OpenIdentityCbor.ed25519CoseKey(edB.publicKey()));
+        var mlMethodB = OpenIdentityCbor.verificationMethod(
+                TestKeys.ML_DSA_METHOD_ID_B,
+                OpenIdentityCbor.mlDsa65CoseKey(mlB.publicKey()));
+        byte[] policyB = OpenIdentityCbor.thresholdPolicy(
+                2, List.of(edMethodB, mlMethodB));
+
+        byte[] recoveryPolicy = OpenIdentityCbor.recoverySinglePolicy(
+                edMethodB);
+        byte[] recoveryCommitment =
+                OpenIdentityCbor.recoveryCommitment(recoveryPolicy);
+
+        List<Map<String,Object>> vectors = new ArrayList<>();
+
+        // SH01 — canonical v1 baseline.
+        byte[] sh01State = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 1, 1,
+                policyA, null, null);
+        byte[] sh01Hash = StateHash.sha256Multihash(sh01State);
+        vectors.add(stateHashVector(
+                "SH01",
+                "IdentityState v1 produces expected SHA2-256 Multihash StateHash",
+                sh01State, sh01Hash));
+
+        // SH02 — canonical v2 baseline with AssertionPolicy.
+        byte[] sh02State = OpenIdentityCbor.identityState(
+                2, TestKeys.IDENTITY, 5, 1,
+                policyA, null, a04.assertionPolicy());
+        byte[] sh02Hash = StateHash.sha256Multihash(sh02State);
+        Map<String,Object> sh02 = stateHashVector(
+                "SH02",
+                "IdentityState v2 with AssertionPolicy produces expected StateHash",
+                sh02State, sh02Hash);
+        put(sh02, "assertionPolicyHex", a04.assertionPolicy());
+        vectors.add(sh02);
+
+        // SH03 — sequence mutation.
+        byte[] sh03State = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 2, 1,
+                policyA, null, null);
+        Map<String,Object> sh03 = stateHashMutation(
+                "SH03", "Sequence mutation changes StateHash",
+                sh01State, sh01Hash, sh03State);
+        sh03.put("baselineSequence", 1);
+        sh03.put("mutatedSequence", 2);
+        vectors.add(sh03);
+
+        // SH04 — status mutation.
+        byte[] sh04State = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 1, 2,
+                policyA, null, null);
+        Map<String,Object> sh04 = stateHashMutation(
+                "SH04", "Status mutation ACTIVE to DEACTIVATED changes StateHash",
+                sh01State, sh01Hash, sh04State);
+        sh04.put("baselineStatus", "ACTIVE");
+        sh04.put("mutatedStatus", "DEACTIVATED");
+        vectors.add(sh04);
+
+        // SH05 — ControllerPolicy mutation.
+        byte[] sh05State = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 1, 1,
+                policyB, null, null);
+        Map<String,Object> sh05 = stateHashMutation(
+                "SH05", "ControllerPolicy mutation changes StateHash",
+                sh01State, sh01Hash, sh05State);
+        put(sh05, "baselineControllerPolicyHex", policyA);
+        put(sh05, "mutatedControllerPolicyHex", policyB);
+        vectors.add(sh05);
+
+        // SH06 — recoveryCommitment mutation/presence.
+        byte[] sh06State = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 1, 1,
+                policyA, recoveryCommitment, null);
+        Map<String,Object> sh06 = stateHashMutation(
+                "SH06", "recoveryCommitment mutation changes StateHash",
+                sh01State, sh01Hash, sh06State);
+        put(sh06, "recoveryPolicyHex", recoveryPolicy);
+        put(sh06, "mutatedRecoveryCommitmentHex", recoveryCommitment);
+        vectors.add(sh06);
+
+        // SH07 — AssertionPolicy mutation within v2.
+        var assertionC = new Ed25519Support(TestKeys.ED25519_SEED_C);
+        var assertionMethodC = OpenIdentityCbor.verificationMethod(
+                TestKeys.ED25519_METHOD_ID_C,
+                OpenIdentityCbor.ed25519CoseKey(assertionC.publicKey()));
+        byte[] assertionPolicyC =
+                OpenIdentityCbor.singlePolicy(assertionMethodC);
+        byte[] sh07State = OpenIdentityCbor.identityState(
+                2, TestKeys.IDENTITY, 5, 1,
+                policyA, null, assertionPolicyC);
+        Map<String,Object> sh07 = stateHashMutation(
+                "SH07", "AssertionPolicy mutation changes StateHash",
+                sh02State, sh02Hash, sh07State);
+        put(sh07, "baselineAssertionPolicyHex", a04.assertionPolicy());
+        put(sh07, "mutatedAssertionPolicyHex", assertionPolicyC);
+        vectors.add(sh07);
+
+        // SH08 — reversed method construction canonicalizes identically.
+        byte[] reversedPolicy = OpenIdentityCbor.thresholdPolicy(
+                2, List.of(mlMethodA, edMethodA));
+        byte[] sh08State = OpenIdentityCbor.identityState(
+                1, TestKeys.IDENTITY, 1, 1,
+                reversedPolicy, null, null);
+        byte[] sh08Hash = StateHash.sha256Multihash(sh08State);
+        if (!Arrays.equals(policyA, reversedPolicy)
+                || !Arrays.equals(sh01State, sh08State)
+                || !Arrays.equals(sh01Hash, sh08Hash)) {
+            throw new IllegalStateException(
+                    "SH08 canonicalization invariance failed");
+        }
+        Map<String,Object> sh08 = stateHashVector(
+                "SH08",
+                "Reversed VerificationMethod input order produces identical canonical StateBytes and StateHash",
+                sh08State, sh08Hash);
+        put(sh08, "baselineStateBytesHex", sh01State);
+        put(sh08, "baselineStateHashHex", sh01Hash);
+        sh08.put("inputMethodOrder",
+                List.of("ML-DSA-65", "Ed25519"));
+        sh08.put("canonicalStateBytesMatch", true);
+        sh08.put("canonicalStateHashMatch", true);
+        vectors.add(sh08);
+
+        // SH09 — raw SHA-256 digest is not the 34-byte StateHash.
+        byte[] rawDigest;
+        try {
+            rawDigest = MessageDigest.getInstance("SHA-256")
+                    .digest(sh01State);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        if (rawDigest.length != 32
+                || Arrays.equals(rawDigest, sh01Hash)) {
+            throw new IllegalStateException(
+                    "SH09 raw digest distinction failed");
+        }
+        Map<String,Object> sh09 = stateHashVector(
+                "SH09",
+                "Raw SHA-256 digest alone is not StateHash",
+                sh01State, sh01Hash);
+        put(sh09, "rawSha256DigestHex", rawDigest);
+        sh09.put("rawDigestLength", rawDigest.length);
+        sh09.put("stateHashLength", sh01Hash.length);
+        sh09.put("rawDigestIsStateHash", false);
+        vectors.add(sh09);
+
+        // SH10 — hashing a non-StateBytes representation is not authoritative.
+        // Use the exact canonical OperationBytes from V02 as the alternate
+        // binary representation: valid protocol bytes, but not IdentityState.
+        byte[] alternateBytes = v02.operation();
+        byte[] alternateHash = StateHash.sha256Multihash(alternateBytes);
+        if (Arrays.equals(alternateHash, sh01Hash)) {
+            throw new IllegalStateException(
+                    "SH10 alternate representation unexpectedly matched");
+        }
+        Map<String,Object> sh10 = stateHashVector(
+                "SH10",
+                "Hash of non-StateBytes representation is not authoritative StateHash",
+                sh01State, sh01Hash);
+        sh10.put("alternateRepresentation", "OperationBytes");
+        put(sh10, "alternateBytesHex", alternateBytes);
+        put(sh10, "alternateMultihashHex", alternateHash);
+        sh10.put("alternateHashIsAuthoritativeStateHash", false);
+        vectors.add(sh10);
+
+        for (Map<String,Object> v : vectors) {
+            byte[] state = Hex.decode((String)v.get("stateBytesHex"));
+            byte[] hash = Hex.decode((String)v.get("stateHashHex"));
+            if (hash.length != 34
+                    || hash[0] != 0x12
+                    || hash[1] != 0x20
+                    || !Arrays.equals(
+                    StateHash.sha256Multihash(state), hash)) {
+                throw new IllegalStateException(
+                        v.get("id") + " StateHash self-check failed");
+            }
+        }
+
+        List<String> ids = vectors.stream()
+                .map(v -> (String)v.get("id")).toList();
+        List<String> expected =
+                java.util.stream.IntStream.rangeClosed(1,10)
+                        .mapToObj(i -> String.format("SH%02d", i))
+                        .toList();
+        if (!ids.equals(expected))
+            throw new IllegalStateException(
+                    "Unexpected StateHash vector IDs: " + ids);
+
+        Map<String,Object> profile = new LinkedHashMap<>();
+        profile.put("hashAlgorithm", "SHA-256");
+        profile.put("multihashCode", 18);
+        profile.put("digestLength", 32);
+        profile.put("stateHashLength", 34);
+        profile.put(
+                "formula",
+                "0x12 || 0x20 || SHA-256(StateBytes)");
+
+        Map<String,Object> doc = new LinkedHashMap<>();
+        doc.put("specification", "OpenIdentity StateHash");
+        doc.put("version", "0.1");
+        doc.put("identityStateVersions", List.of(1,2));
+        doc.put("profile", profile);
+        doc.put("vectors", vectors);
+        writeJson("state-hash-sh01-sh10-java.json", doc);
+
+        for (int i=1;i<=10;i++)
+            success(String.format("SH%02d generated", i));
+        success("SH01-SH10 generated");
+        success("state-hash-sh01-sh10-java.json");
+        blankLine();
+    }
+
+    private static Map<String,Object> stateHashVector(
+            String id, String description,
+            byte[] stateBytes, byte[] stateHash) {
+        Map<String,Object> v = new LinkedHashMap<>();
+        v.put("id", id);
+        v.put("description", description);
+        put(v, "stateBytesHex", stateBytes);
+        put(v, "stateHashHex", stateHash);
+        v.put("stateHashLength", stateHash.length);
+        return v;
+    }
+
+    private static Map<String,Object> stateHashMutation(
+            String id, String description,
+            byte[] baselineState, byte[] baselineHash,
+            byte[] mutatedState) {
+        byte[] mutatedHash = StateHash.sha256Multihash(mutatedState);
+        if (Arrays.equals(baselineState, mutatedState)
+                || Arrays.equals(baselineHash, mutatedHash)) {
+            throw new IllegalStateException(
+                    id + " mutation did not change state/hash");
+        }
+        Map<String,Object> v = stateHashVector(
+                id, description, mutatedState, mutatedHash);
+        put(v, "baselineStateBytesHex", baselineState);
+        put(v, "baselineStateHashHex", baselineHash);
+        v.put("stateBytesChanged", true);
+        v.put("stateHashChanged", true);
+        return v;
+    }
+
+
+
+    /**
+     * Consolidates independently verified OI-011 SH01-SH10 into the
+     * normative state-hash-v0.1.json artifact and hashes the exact JSON
+     * bytes written to disk.
+     */
+    @SuppressWarnings("unchecked")
+    private static void generateNormativeStateHashFile() {
+        section("NORMATIVE", "Consolidating OI-011 StateHash vectors");
+        try {
+            Path root = Path.of("..", "..").toAbsolutePath().normalize();
+            Path gen = root.resolve("test-vectors").resolve("generated");
+            Path tv = root.resolve("test-vectors");
+            ObjectMapper mapper = new ObjectMapper();
+
+            Path generatedFile =
+                    gen.resolve("state-hash-sh01-sh10-java.json");
+            Map<String,Object> generated = mapper.readValue(
+                    generatedFile.toFile(), Map.class);
+
+            if (!"OpenIdentity StateHash".equals(
+                    generated.get("specification"))
+                    || !"0.1".equals(generated.get("version"))) {
+                throw new IllegalStateException(
+                        "Generated OI-011 suite metadata is invalid");
+            }
+
+            Object versionsRaw = generated.get("identityStateVersions");
+            if (!(versionsRaw instanceof List<?> versions)
+                    || !versions.equals(List.of(1, 2))) {
+                throw new IllegalStateException(
+                        "OI-011 IdentityState versions must be [1, 2]");
+            }
+
+            Object profileRaw = generated.get("profile");
+            if (!(profileRaw instanceof Map<?,?>)) {
+                throw new IllegalStateException(
+                        "OI-011 suite missing profile");
+            }
+            Map<String,Object> profile =
+                    (Map<String,Object>) profileRaw;
+
+            if (!"SHA-256".equals(profile.get("hashAlgorithm"))
+                    || !Integer.valueOf(18).equals(
+                    profile.get("multihashCode"))
+                    || !Integer.valueOf(32).equals(
+                    profile.get("digestLength"))
+                    || !Integer.valueOf(34).equals(
+                    profile.get("stateHashLength"))
+                    || !"0x12 || 0x20 || SHA-256(StateBytes)".equals(
+                    profile.get("formula"))) {
+                throw new IllegalStateException(
+                        "OI-011 StateHash profile is invalid");
+            }
+
+            Object raw = generated.get("vectors");
+            if (!(raw instanceof List<?>)) {
+                throw new IllegalStateException(
+                        "Generated OI-011 suite missing vectors");
+            }
+            List<Map<String,Object>> vectors =
+                    (List<Map<String,Object>>) raw;
+
+            if (vectors.size() != 10) {
+                throw new IllegalStateException(
+                        "OI-011 requires exactly 10 vectors");
+            }
+
+            List<String> expectedIds =
+                    java.util.stream.IntStream.rangeClosed(1,10)
+                            .mapToObj(i -> String.format("SH%02d", i))
+                            .toList();
+            List<String> actualIds = vectors.stream()
+                    .map(v -> (String)v.get("id"))
+                    .toList();
+            if (!actualIds.equals(expectedIds)) {
+                throw new IllegalStateException(
+                        "Unexpected OI-011 vector IDs: " + actualIds);
+            }
+
+            // Every vector carries canonical StateBytes and the exact v0.1
+            // 34-byte SHA2-256 Multihash over those bytes.
+            for (Map<String,Object> v : vectors) {
+                String id = (String)v.get("id");
+                Object stateHex = v.get("stateBytesHex");
+                Object hashHex = v.get("stateHashHex");
+                if (!(stateHex instanceof String)
+                        || !(hashHex instanceof String)) {
+                    throw new IllegalStateException(
+                            id + " missing state/hash bytes");
+                }
+
+                byte[] state = Hex.decode((String)stateHex);
+                byte[] hash = Hex.decode((String)hashHex);
+                byte[] expectedHash =
+                        StateHash.sha256Multihash(state);
+
+                if (hash.length != 34
+                        || hash[0] != 0x12
+                        || hash[1] != 0x20
+                        || !Arrays.equals(hash, expectedHash)
+                        || !Integer.valueOf(34).equals(
+                        v.get("stateHashLength"))) {
+                    throw new IllegalStateException(
+                            id + " has invalid v0.1 StateHash");
+                }
+            }
+
+            // Security/invariance markers must survive consolidation.
+            if (!Boolean.TRUE.equals(
+                    vectors.get(7).get("canonicalStateBytesMatch"))
+                    || !Boolean.TRUE.equals(
+                    vectors.get(7).get("canonicalStateHashMatch"))
+                    || !Boolean.FALSE.equals(
+                    vectors.get(8).get("rawDigestIsStateHash"))
+                    || !Boolean.FALSE.equals(
+                    vectors.get(9).get(
+                            "alternateHashIsAuthoritativeStateHash"))) {
+                throw new IllegalStateException(
+                        "OI-011 SH08-SH10 invariants are invalid");
+            }
+
+            Map<String,Object> semantics = new LinkedHashMap<>();
+            semantics.put("input", "canonical StateBytes");
+            semantics.put("completeIdentityStateCommitted", true);
+            semantics.put("exactBinaryMultihashComparison", true);
+            semantics.put("rawSha256DigestIsNotStateHash", true);
+            semantics.put("nonStateBytesHashIsNotAuthoritative", true);
+
+            Map<String,Object> normative = new LinkedHashMap<>();
+            normative.put("specification", "OpenIdentity StateHash");
+            normative.put("version", "0.1");
+            normative.put("identityStateVersions", List.of(1, 2));
+            normative.put("profile", profile);
+            normative.put("semantics", semantics);
+            normative.put("vectors", vectors);
+
+            ObjectMapper output = new ObjectMapper()
+                    .enable(SerializationFeature.INDENT_OUTPUT);
+
+            Path jsonFile = tv.resolve("state-hash-v0.1.json");
+            output.writeValue(jsonFile.toFile(), normative);
+
+            byte[] jsonBytes = Files.readAllBytes(jsonFile);
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(jsonBytes);
+            String sha256 = Hex.encode(digest);
+
+            Path checksumFile =
+                    tv.resolve("state-hash-v0.1.json.sha256");
+            Files.writeString(
+                    checksumFile,
+                    sha256 + "  state-hash-v0.1.json\n");
+
+            success("SH01-SH10 consolidated");
+            success("state-hash-v0.1.json");
+            success("SHA-256 " + sha256);
+            success("state-hash-v0.1.json.sha256");
+            blankLine();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Unable to generate normative OI-011 StateHash vector file",
                     e);
         }
     }
