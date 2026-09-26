@@ -4540,7 +4540,8 @@ public final class GenerateVectors {
             norm.put("invalid", invalid);
 
             ObjectMapper output = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
-            output.writeValue(tv.resolve("cryptographic-agility-v0.1.json").toFile(), norm);
+            Path jsonFile = tv.resolve("cryptographic-agility-v0.1.json");
+            Files.write(jsonFile, deterministicJsonBytes(output, norm));
             success("V01-V04 consolidated");
             success("I01-I20 consolidated");
             success("cryptographic-agility-v0.1.json");
