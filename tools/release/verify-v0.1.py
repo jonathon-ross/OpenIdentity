@@ -184,6 +184,20 @@ def resolve_manifest_target(manifest_rel: str, target: str) -> Path:
 
 def verify_checksums() -> None:
     section("2. NORMATIVE AND PUBLIC SHA-256 INTEGRITY")
+
+    # Regression guard for the v0.1.1 IdentityId checksum erratum. The
+    # normative artifact is unchanged; this prevents the stale pre-erratum
+    # digest from being reintroduced into a future release branch.
+    identity_vector = ROOT / "test-vectors/identity-id-v0.1.json"
+    identity_manifest = ROOT / "test-vectors/identity-id-v0.1.sha256"
+    corrected_identity_digest = (
+        "625a795a02f2ffed3fb88c8187937a68f0b97ef5cfe61f76c632f1ef5a2abd92"
+    )
+    if sha256(identity_vector) != corrected_identity_digest:
+        fail("identity-id-v0.1.json no longer matches the published v0.1.1 artifact")
+    if corrected_identity_digest not in identity_manifest.read_text(encoding="utf-8"):
+        fail("identity-id-v0.1.sha256 reintroduced the stale v0.1.1 checksum")
+
     for manifest_rel in CHECKSUM_FILES:
         manifest = ROOT / manifest_rel
         entries = 0
