@@ -360,11 +360,11 @@ Apache-2.0 permits implementations and commercial use subject to its terms. Open
 
 ## Release
 
-OpenIdentity Protocol v0.1.0 is released from an exact Git commit only after:
+OpenIdentity Protocol v0.1.1 is the current released protocol version. Protocol releases are created from an exact Git commit only after:
 
 1. the complete release gate passes;
 2. the Git worktree is clean;
 3. normative integrity artifacts verify; and
 4. the release/tag points to the inspected commit.
 
-Product development proceeds independently from the frozen protocol release.
+Product development proceeds independently from the frozen protocol release. Implementations SHOULD declare the exact released protocol version they target; new implementations should target v0.1.1 unless intentionally testing historical compatibility.
