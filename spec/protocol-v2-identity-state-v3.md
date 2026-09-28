@@ -39,7 +39,7 @@ ControllerPolicy changes root identity state. RecoveryPolicy authorizes RECOVER 
 
 Authority for one purpose MUST NOT imply authority for another purpose. Explicit reuse of a VerificationMethod across different policies is permitted, but each purpose uses a distinct signing domain.
 
-Within one VerificationPolicy, VerificationMethod IDs MUST be unique and effective public-key material MUST also be unique. The same effective public key under multiple method IDs MUST NOT count as independent threshold members.
+Within one VerificationPolicy, VerificationMethod IDs MUST be unique and duplicate effective cryptographic keys are forbidden. Two methods contain the same effective key when the deterministic-CBOR encodings of their fully validated COSE_Key values are byte-identical. The same exact cryptographic key under multiple method IDs MUST NOT count as independent threshold members. This rule does not claim to detect common organizational or hardware control of distinct keys.
 
 ## 4. Proof collections
 
@@ -204,4 +204,4 @@ Historical v1/v2 StateHashes are unchanged.
 
 Positive vectors MUST cover CREATE variants, v1/v2->v3 upgrade, planned/security rotations, removals, resets, RECOVER assertion dispositions, recovery from DEACTIVATED, and registered delegation across preserved/invalidated generations.
 
-Invalid vectors MUST cover cross-domain PoP substitution, missing/duplicate/unauthorized PoPs, invalid disposition combinations, generation decrease/jump/overflow, PV1-on-v3 downgrade attempts, duplicate effective keys inside one policy, RECOVER attempts to preserve authentication/delegation authority, and delegation backdating attempts after policy rotation.
+Invalid vectors MUST cover cross-domain PoP substitution, missing/duplicate/unauthorized PoPs, invalid disposition combinations, generation decrease/jump/overflow, PV1-on-v3 downgrade attempts, duplicate effective keys inside one policy, RECOVER attempts to preserve authentication/delegation authority, structurally forbidden proof collections, and malformed RECOVER assertion-disposition shapes. Delegation backdating and registration vectors are deferred to OI-014.
