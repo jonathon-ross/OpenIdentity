@@ -19,28 +19,81 @@ start = signed-operation-v3
 ; Signed Operation
 ; =====================================================================
 ;
-; 1 = operation
-; 2 = ordinary ControllerPolicy authorization proofs (operation-dependent)
-; 3 = controller proof-of-possession proofs (operation-dependent)
-; 4 = recovery authorization proofs (RECOVER only)
+; Proof collections are excluded from OperationBytes. The envelope is an
+; operation-specific union so proof collections that cannot apply to an
+; operation are structurally forbidden.
 ;
-; Proof collections are excluded from OperationBytes.
-;
-; CREATE: field 2 required.
-; ROTATE_CONTROLLER: fields 2 and 3 required.
-; DEACTIVATE: field 2 required.
-; SET_ASSERTION_POLICY: field 2 required; field 3 required for non-nil policy.
-; RECOVER: field 2 MUST be absent; fields 3 and 4 required.
+; Field 2 = current/proposed ControllerPolicy authorization
+; Field 3 = replacement ControllerPolicy proof of possession
+; Field 4 = RecoveryPolicy authorization
+; Field 5 = AuthenticationPolicy proof of possession
+; Field 6 = AssertionPolicy proof of possession
+; Field 7 = DelegationPolicy proof of possession
 ; =====================================================================
 
-signed-operation-v3 = {
-    1 => operation-v3,
-    ? 2 => [+ authorization-proof],
-    ? 3 => [+ controller-proof],
-    ? 4 => [+ recovery-proof],
+signed-operation-v3 =
+      signed-create
+    / signed-rotate-controller
+    / signed-recover
+    / signed-deactivate
+    / signed-set-assertion-policy
+    / signed-set-authentication-policy
+    / signed-set-delegation-policy
+    / signed-reset-authentication
+    / signed-reset-delegations
+
+signed-create = {
+    1 => create-operation,
+    2 => [+ authorization-proof],
     ? 5 => [+ authentication-proof],
     ? 6 => [+ assertion-proof],
     ? 7 => [+ delegation-proof]
+}
+
+signed-rotate-controller = {
+    1 => rotate-controller-operation,
+    2 => [+ authorization-proof],
+    3 => [+ controller-proof]
+}
+
+signed-recover = {
+    1 => recover-operation,
+    3 => [+ controller-proof],
+    4 => [+ recovery-proof],
+    ? 6 => [+ assertion-proof]
+}
+
+signed-deactivate = {
+    1 => deactivate-operation,
+    2 => [+ authorization-proof]
+}
+
+signed-set-assertion-policy = {
+    1 => set-assertion-policy-operation,
+    2 => [+ authorization-proof],
+    ? 6 => [+ assertion-proof]
+}
+
+signed-set-authentication-policy = {
+    1 => set-authentication-policy-operation,
+    2 => [+ authorization-proof],
+    ? 5 => [+ authentication-proof]
+}
+
+signed-set-delegation-policy = {
+    1 => set-delegation-policy-operation,
+    2 => [+ authorization-proof],
+    ? 7 => [+ delegation-proof]
+}
+
+signed-reset-authentication = {
+    1 => reset-authentication-operation,
+    2 => [+ authorization-proof]
+}
+
+signed-reset-delegations = {
+    1 => reset-delegations-operation,
+    2 => [+ authorization-proof]
 }
 
 ; =====================================================================
@@ -90,7 +143,7 @@ reset-delegations-operation-type = 9
 ; =====================================================================
 ;
 ; Structurally enforced:
-;   protocolVersion   = 1
+;   protocolVersion   = 2
 ;   operationType     = 1
 ;   sequence          = 1
 ;   previousStateHash = nil
@@ -183,18 +236,33 @@ recover-operation = {
     6 => recover-payload
 }
 
-recover-payload = {
+recover-payload =
+      recover-preserve-assertion-payload
+    / recover-remove-assertion-payload
+    / recover-replace-assertion-payload
+
+recover-preserve-assertion-payload = {
     1 => controller-policy,
     2 => recovery-policy,
     3 => recovery-commitment,
-    4 => assertion-recovery-disposition,
-    ? 5 => assertion-policy
+    4 => 1
 }
 
-assertion-recovery-disposition = 1 / 2 / 3
-; 1 = PRESERVE
-; 2 = REMOVE
-; 3 = REPLACE
+recover-remove-assertion-payload = {
+    1 => controller-policy,
+    2 => recovery-policy,
+    3 => recovery-commitment,
+    4 => 2
+}
+
+recover-replace-assertion-payload = {
+    1 => controller-policy,
+    2 => recovery-policy,
+    3 => recovery-commitment,
+    4 => 3,
+    5 => assertion-policy
+}
+
 
 ; =====================================================================
 ; DEACTIVATE
@@ -221,11 +289,10 @@ deactivate-payload = {}
 ; Payload field 1 is a complete replacement AssertionPolicy, or nil to
 ; remove assertion authority.
 ;
-; Applying this operation to IdentityState v1 explicitly upgrades the
-; resulting state to IdentityState v2. Applying it to v2 keeps v2.
+; ProtocolVersion 2 successful application always produces IdentityState v3.
 ;
 ; A non-nil proposed policy requires proof of possession for every
-; proposed VerificationMethod in signed-operation field 3.
+; proposed VerificationMethod in signed-operation field 6.
 ; =====================================================================
 
 set-assertion-policy-operation = {
@@ -647,7 +714,7 @@ deactivated-status = 2
 ; State Hash
 ; =====================================================================
 ;
-; OpenIdentity state hash calculation for both v1 and v2:
+; OpenIdentity state hash calculation for v1, v2, and v3:
 ;
 ;   StateBytes =
 ;       deterministicCBOR(identity-state)
@@ -740,18 +807,22 @@ operation-bytes = bstr
 ; Canonical Ordering Requirements
 ; =====================================================================
 ;
-; VerificationMethods within every ControllerPolicy, AssertionPolicy, and
-; RecoveryPolicy MUST be sorted by Verification Method ID using unsigned bytewise
+; VerificationMethods within every ControllerPolicy, AssertionPolicy,
+; AuthenticationPolicy, DelegationPolicy, and RecoveryPolicy MUST be sorted by Verification Method ID using unsigned bytewise
 ; lexicographic ordering.
 ;
 ; The same VerificationMethod MAY appear in both policies only when
 ; explicitly present in both. Membership never transfers implicitly.
 ;
-; Authorization proofs, controller proofs, and recovery proofs MUST use the
-; same Verification Method ID ordering.
+; Authorization proofs and every purpose-specific proof collection MUST use
+; Verification Method ID ordering matching the applicable policy.
 ;
-; Duplicate Verification Method IDs MUST be rejected within each
-; relevant collection.
+; Duplicate Verification Method IDs MUST be rejected within each relevant
+; collection. ProtocolVersion 2 additionally rejects duplicate effective
+; cryptographic keys within one VerificationPolicy. Effective key equality is
+; determined by byte equality of deterministic-CBOR encoding of the fully
+; validated COSE_Key. This prevents the same exact cryptographic key from
+; satisfying multiple threshold positions under different method IDs.
 ; =====================================================================
 
 ; =====================================================================
@@ -783,114 +854,65 @@ operation-bytes = bstr
 ; =====================================================================
 
 ; =====================================================================
-; CREATE State Transition
+; ProtocolVersion 2 State-Transition Summary
 ; =====================================================================
 ;
-; A valid CREATE remains unchanged and produces IdentityState v1:
+; Every successful protocolVersion 2 state-changing operation produces
+; IdentityState v3. Applying protocolVersion 1 to IdentityState v3 is invalid.
 ;
-; {
-;   1: 1,                    stateVersion
-;   2: identity,
-;   3: 1,                    sequence
-;   4: 1,                    ACTIVE
-;   5: controllerPolicy,
-;   6: recoveryCommitment?   if supplied by CREATE
-; }
-;
-; The resulting deterministic CBOR bytes are StateBytes.
-; =====================================================================
-
-; =====================================================================
-; ROTATE_CONTROLLER State Transition
-; =====================================================================
-;
-; A valid ROTATE_CONTROLLER:
-;
-; - MUST use previousStateHash equal to the StateHash of the current
-;   authoritative IdentityState
-; - MUST use sequence = current state sequence + 1
-; - MUST be authorized by the CURRENT controller policy
-; - MUST include, in signed-operation field 3, valid proof of possession
-;   for every proposed new VerificationMethod
-;
-; Applying it produces a new ACTIVE IdentityState containing the new
-; controller policy and incremented sequence.
-; =====================================================================
-
-; =====================================================================
-; RECOVER State Transition
-; =====================================================================
-;
-; A valid RECOVER MAY apply to ACTIVE or DEACTIVATED state and:
-; - preserves permanent identity and IdentityState schema version
-; - increments sequence and chains from current StateHash
-; - validates revealed RecoveryPolicy against current recoveryCommitment
-; - satisfies that policy with recovery proofs
-; - installs the complete new ControllerPolicy after new-controller PoP
-; - replaces recoveryCommitment with the new commitment
-; - sets status to ACTIVE
-; - preserves AssertionPolicy unchanged when stateVersion = 2
-;
-; The revealed current RecoveryPolicy is not stored in resulting state.
-; =====================================================================
-
-; =====================================================================
-; DEACTIVATE State Transition
-; =====================================================================
-;
-; A valid DEACTIVATE uses the current StateHash as previousStateHash
-; and produces an IdentityState whose status is DEACTIVATED.
-;
-; Final permanence and recovery semantics are defined separately.
-; =====================================================================
-
-; =====================================================================
-; SET_ASSERTION_POLICY State Transition
-; =====================================================================
-;
-; Preconditions:
-; - identity matches current authoritative state
-; - sequence = current sequence + 1
-; - previousStateHash = StateHash(current IdentityState)
-; - CURRENT ControllerPolicy authorizes the operation
-;
-; For non-nil policies:
-; - policy MUST be structurally and semantically valid
-; - VerificationMethods MUST be canonically ordered
-; - duplicate method IDs MUST be rejected
-; - signed-operation field 3 MUST contain exactly one valid proof of
-;   possession for every proposed VerificationMethod
-;
-; v1 + SET_ASSERTION_POLICY => v2.
-; v2 + SET_ASSERTION_POLICY => v2.
-; A non-nil value atomically replaces AssertionPolicy.
-; nil removes AssertionPolicy and means no assertion authority.
-; AssertionPolicy MUST NOT authorize changes to itself.
-;
-; Existing identity, status, ControllerPolicy, and recovery commitment
-; are preserved; sequence increments.
-; =====================================================================
-
-; =====================================================================
-; v2 Preservation and Downgrade Rules
-; =====================================================================
+; CREATE:
+; - produces ACTIVE IdentityState v3 at sequence 1
+; - initializes AuthenticationAuthority.generation = 0
+; - initializes DelegationAuthority.generation = 0
+; - field 2 authorizes CREATE under the proposed ControllerPolicy
+; - redundant field-3 Controller PoP is structurally forbidden
+; - each installed derived policy requires complete purpose-specific PoP
 ;
 ; ROTATE_CONTROLLER:
-; - v1 -> v1
-; - v2 -> v2
-; - when v2, AssertionPolicy MUST be preserved unchanged
+; - requires ACTIVE current state
+; - increments sequence and chains from current StateHash
+; - current ControllerPolicy authorizes the operation
+; - field 3 proves possession of every proposed controller method
+; - preserves recoveryCommitment, AssertionPolicy, AuthenticationAuthority,
+;   DelegationAuthority, and status
+;
+; RECOVER:
+; - MAY apply to ACTIVE or DEACTIVATED current state
+; - increments sequence and chains from current StateHash
+; - is authorized exclusively by the committed RecoveryPolicy
+; - installs replacement ControllerPolicy after complete field-3 PoP
+; - rotates recoveryCommitment and sets status ACTIVE
+; - handles an existing AssertionPolicy by explicit PRESERVE/REMOVE/REPLACE
+; - REPLACE requires complete field-6 Assertion PoP
+; - clears AuthenticationPolicy and increments authentication generation
+; - clears DelegationPolicy and increments delegation generation
 ;
 ; DEACTIVATE:
-; - v1 -> v1
-; - v2 -> v2
-; - when v2, AssertionPolicy remains part of canonical historical state
+; - requires ACTIVE current state
+; - increments sequence and sets status DEACTIVATED
+; - preserves all authority structures and generations
 ;
-; v2 -> v1 is forbidden.
+; SET_ASSERTION_POLICY:
+; - requires ACTIVE current state and current ControllerPolicy authorization
+; - non-nil replacement requires complete field-6 Assertion PoP
+; - preserves all unrelated state and increments sequence
 ;
-; Unsupported future IdentityState versions MUST be rejected rather than
-; interpreted as v1/v2 while ignoring unknown fields.
-; =====================================================================
-
+; SET_AUTHENTICATION_POLICY / SET_DELEGATION_POLICY:
+; - require ACTIVE current state and current ControllerPolicy authorization
+; - non-nil installation/replacement requires complete purpose-specific PoP
+; - generation transitions follow the disposition semantics in the v3 spec
+;
+; RESET_AUTHENTICATION / RESET_DELEGATIONS:
+; - require ACTIVE current state and current ControllerPolicy authorization
+; - increment only the applicable generation and identity sequence
+;
+; Upgrade:
+; - v1 + successful protocolVersion 2 operation => v3
+; - v2 + successful protocolVersion 2 operation => v3
+; - v3 + successful protocolVersion 2 operation => v3
+; - v3 + protocolVersion 1 operation => invalid
+; - v3 -> v1/v2 downgrade is forbidden
+;
 ; =====================================================================
 ; Assertion Authority and Historical State
 ; =====================================================================
