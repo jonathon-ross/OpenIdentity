@@ -186,8 +186,15 @@ recover-operation = {
 recover-payload = {
     1 => controller-policy,
     2 => recovery-policy,
-    3 => recovery-commitment
+    3 => recovery-commitment,
+    4 => assertion-recovery-disposition,
+    ? 5 => assertion-policy
 }
+
+assertion-recovery-disposition = 1 / 2 / 3
+; 1 = PRESERVE
+; 2 = REMOVE
+; 3 = REPLACE
 
 ; =====================================================================
 ; DEACTIVATE
@@ -307,8 +314,9 @@ delegation-proof-signing-structure = [
 ; Protocol Version
 ; =====================================================================
 ;
-; The signed operation envelope remains protocol version 1.
-; IdentityState schema versioning is independent.
+; ProtocolVersion 2 is the explicit IdentityState-v3 upgrade boundary.
+; Successful protocolVersion 2 state-changing operations produce stateVersion 3.
+; ProtocolVersion 1 operations MUST NOT be applied to IdentityState v3.
 ;
 protocol-version = 2
 
@@ -921,3 +929,23 @@ operation-bytes = bstr
 ; =====================================================================
 ; End OpenIdentity Operation Wire Format v3
 ; =====================================================================
+
+
+; =====================================================================
+; ProtocolVersion 2 semantic requirements not expressible in CDDL
+; =====================================================================
+;
+; - CREATE uses proposed ControllerPolicy authorization in field 2 and MUST NOT
+;   require redundant field-3 controller PoPs.
+; - Derived policies installed by CREATE require complete purpose-specific PoP.
+; - ProtocolVersion 2 success against state v1/v2 upgrades the result to v3.
+; - ProtocolVersion 1 MUST NOT operate on IdentityState v3.
+; - Within one VerificationPolicy, effective public-key material MUST be unique
+;   in addition to VerificationMethod ID uniqueness.
+; - Authority generation is preserved or incremented by exactly one according
+;   to operation semantics; it never decreases, jumps, or wraps.
+; - RECOVER always clears AuthenticationPolicy and DelegationPolicy and
+;   increments both generations.
+; - Delegation grants become authoritative only through network registration
+;   under the current DelegationPolicy; registration does not mutate root
+;   IdentityState.
