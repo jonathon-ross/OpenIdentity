@@ -4,9 +4,9 @@
 
 ## Positive vectors
 
-- V301 minimal CREATE v3
-- V302 CREATE with AuthenticationPolicy
-- V303 CREATE with all derived authorities
+- V301 minimal CREATE v3 — generator implemented; draft fixture generated and independently reconstructed
+- V302 CREATE with AuthenticationPolicy — generator implemented; controller authorization + AuthenticationPolicy PoP independently reconstructed
+- V303 CREATE with all derived authorities — generator implemented; authentication/assertion/delegation purpose-specific PoPs independently reconstructed
 - V304 protocolVersion 2 operation upgrades v2 to v3
 - V305 AuthenticationPolicy planned rotation / PRESERVE_EXISTING
 - V306 AuthenticationPolicy security rotation / INVALIDATE_EXISTING
