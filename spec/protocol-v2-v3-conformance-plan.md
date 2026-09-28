@@ -22,8 +22,8 @@
 - V316 RECOVER / REPLACE AssertionPolicy with complete Assertion PoP
 - V317 RECOVER from DEACTIVATED
 - V318 protocolVersion 2 RECOVER upgrades v2 to v3 with generations = 1
-- V319 registered delegation remains usable across PRESERVE_EXISTING rotation
-- V320 registered delegation is invalid after generation reset
+- V319 DelegationPolicy PRESERVE_EXISTING leaves delegation generation unchanged
+- V320 RESET_DELEGATIONS increments delegation generation exactly once
 
 ## Invalid/security vectors
 
@@ -55,10 +55,14 @@
 - VI326 Delegation PoP substituted for Assertion PoP
 - VI327 Authentication PoP substituted for Delegation PoP
 - VI328 duplicate effective public key under different method IDs in one policy
-- VI329 unregistered/offline DelegationGrant presented as authoritative
-- VI330 old DelegationPolicy attempts grant registration after PRESERVE rotation
-- VI331 old-generation registered grant presented after INVALIDATE/reset
-- VI332 CREATE incorrectly requires or supplies redundant Controller PoP
+- VI329 CREATE supplies structurally forbidden redundant Controller PoP
+- VI330 RESET_AUTHENTICATION carries a forbidden purpose-specific PoP collection
+- VI331 RECOVER carries forbidden ordinary ControllerPolicy authorization
+- VI332 RECOVER payload disposition/AssertionPolicy shape mismatch
+
+DelegationGrant registration, backdating, individual status, and generation-aware
+grant-validity vectors are deferred to OI-014, where the canonical DelegationGrant
+and registration wire formats will be defined.
 
 ## Required invariants
 
