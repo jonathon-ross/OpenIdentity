@@ -426,7 +426,9 @@ def main() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {OUTPUT.relative_to(ROOT)}")
-    print("V301 VERIFIED")\n    print("V302 VERIFIED")\n    print("V303 VERIFIED")
+    print("V301 VERIFIED")
+    print("V302 VERIFIED")
+    print("V303 VERIFIED")
     print("V304 VERIFIED")
 
 
