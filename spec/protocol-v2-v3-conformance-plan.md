@@ -17,11 +17,11 @@
 - V311 DelegationPolicy security rotation / INVALIDATE_EXISTING — generator + independent verifier implemented; generation +1
 - V312 remove DelegationPolicy — generator + independent verifier implemented; policy absent and generation +1
 - V313 RESET_DELEGATIONS — generator + independent verifier implemented; policy preserved byte-for-byte and generation +1
-- V314 RECOVER / PRESERVE AssertionPolicy
-- V315 RECOVER / REMOVE AssertionPolicy
-- V316 RECOVER / REPLACE AssertionPolicy with complete Assertion PoP
-- V317 RECOVER from DEACTIVATED
-- V318 protocolVersion 2 RECOVER upgrades v2 to v3 with generations = 1
+- V314 RECOVER / PRESERVE AssertionPolicy — generator + independent verifier implemented; derived authorities removed and generations +1
+- V315 RECOVER / REMOVE AssertionPolicy — generator + independent verifier implemented; derived authorities removed and generations +1
+- V316 RECOVER / REPLACE AssertionPolicy with complete Assertion PoP — generator + independent verifier implemented
+- V317 RECOVER from DEACTIVATED — generator + independent verifier implemented; resulting state ACTIVE
+- V318 protocolVersion 2 RECOVER upgrades v2 to v3 with generations = 1 — generator + independent verifier implemented
 - V319 DelegationPolicy PRESERVE_EXISTING leaves delegation generation unchanged
 - V320 RESET_DELEGATIONS increments delegation generation exactly once
 
@@ -42,12 +42,12 @@
 - VI313 generation jump greater than one — initial independent rejection check implemented
 - VI314 generation decrease
 - VI315 generation overflow
-- VI316 RECOVER attempts to preserve AuthenticationPolicy
-- VI317 RECOVER attempts to preserve DelegationPolicy
-- VI318 RECOVER missing assertion disposition
-- VI319 RECOVER REMOVE while AssertionPolicy absent
-- VI320 RECOVER REPLACE while AssertionPolicy absent
-- VI321 RECOVER REPLACE missing Assertion PoP
+- VI316 RECOVER attempts to preserve AuthenticationPolicy — independent rejection check implemented
+- VI317 RECOVER attempts to preserve DelegationPolicy — independent rejection check implemented
+- VI318 RECOVER missing assertion disposition — independent rejection check implemented
+- VI319 RECOVER REMOVE while AssertionPolicy absent — independent rejection check implemented
+- VI320 RECOVER REPLACE while AssertionPolicy absent — independent rejection check implemented
+- VI321 RECOVER REPLACE missing Assertion PoP — independent rejection check implemented
 - VI322 stateVersion 3 downgrade attempt
 - VI323 protocolVersion 1 operation applied to stateVersion 3
 - VI324 malformed protocolVersion 2 proof collection
@@ -57,8 +57,8 @@
 - VI328 duplicate effective public key under different method IDs in one policy
 - VI329 CREATE supplies structurally forbidden redundant Controller PoP
 - VI330 RESET_AUTHENTICATION carries a forbidden purpose-specific PoP collection — independent structural rejection check implemented
-- VI331 RECOVER carries forbidden ordinary ControllerPolicy authorization
-- VI332 RECOVER payload disposition/AssertionPolicy shape mismatch
+- VI331 RECOVER carries forbidden ordinary ControllerPolicy authorization — structural rejection check implemented
+- VI332 RECOVER payload disposition/AssertionPolicy shape mismatch — independent rejection check implemented
 
 DelegationGrant registration, backdating, individual status, and generation-aware
 grant-validity vectors are deferred to OI-014, where the canonical DelegationGrant
