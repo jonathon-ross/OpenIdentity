@@ -10,8 +10,8 @@
 - V304 protocolVersion 2 operation upgrades v2 to v3 — generator implemented; exact historical v2 StateHash is carried into previousStateHash
 - V305 AuthenticationPolicy planned rotation / PRESERVE_EXISTING — generator + independent verifier implemented; generation preserved
 - V306 AuthenticationPolicy security rotation / INVALIDATE_EXISTING — generator + independent verifier implemented; generation increments exactly once
-- V307 remove AuthenticationPolicy
-- V308 RESET_AUTHENTICATION
+- V307 remove AuthenticationPolicy — generator + independent verifier implemented; policy absent and generation +1
+- V308 RESET_AUTHENTICATION — generator + independent verifier implemented; policy preserved byte-for-byte and generation +1
 - V309 initial DelegationPolicy installation
 - V310 DelegationPolicy planned rotation / PRESERVE_EXISTING
 - V311 DelegationPolicy security rotation / INVALIDATE_EXISTING
@@ -37,7 +37,7 @@
 - VI308 unauthorized Delegation method
 - VI309 A->B rotation missing required disposition — initial independent rejection check implemented
 - VI310 initial policy installation supplies forbidden disposition — initial independent rejection check implemented
-- VI311 policy removal attempts PRESERVE_EXISTING
+- VI311 policy removal attempts PRESERVE_EXISTING — independent rejection check implemented
 - VI312 exact A->A replacement — initial independent rejection check implemented
 - VI313 generation jump greater than one — initial independent rejection check implemented
 - VI314 generation decrease
@@ -56,7 +56,7 @@
 - VI327 Authentication PoP substituted for Delegation PoP
 - VI328 duplicate effective public key under different method IDs in one policy
 - VI329 CREATE supplies structurally forbidden redundant Controller PoP
-- VI330 RESET_AUTHENTICATION carries a forbidden purpose-specific PoP collection
+- VI330 RESET_AUTHENTICATION carries a forbidden purpose-specific PoP collection — independent structural rejection check implemented
 - VI331 RECOVER carries forbidden ordinary ControllerPolicy authorization
 - VI332 RECOVER payload disposition/AssertionPolicy shape mismatch
 
