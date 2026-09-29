@@ -1119,6 +1119,19 @@ def build_remaining_invalid_vectors():
              previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
              predecessorStatus="DEACTIVATED",operationType=optype)
 
+    # Identity sequence is uint64 and cannot wrap beyond its terminal value.
+    _,_,cid,cm=_ed25519("OpenIdentity protocol-v2 v3 VI337 controller Ed25519 seed",0)
+    cp=_single_policy(cm)
+    previous={1:3,2:identity,3:18446744073709551615,4:1,5:cp,8:{1:0},9:{1:0}}
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    # The logical next sequence is intentionally recorded outside OperationBytes
+    # because 2^64 is not representable by the protocol's uint64 sequence field.
+    item("VI337","SEQUENCE_OVERFLOW","sequence-overflow",
+         previousStateBytesHex=psb.hex(),previousStateHashHex=psh.hex(),
+         predecessorSequence="18446744073709551615",
+         requiredNextSequence="18446744073709551616",
+         attemptedOperationType=4)
+
     return out
 
 
