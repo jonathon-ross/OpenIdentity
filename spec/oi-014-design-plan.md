@@ -13,7 +13,7 @@ Resolve before assigning wire labels:
 - delegate principal type model;
 - direct-grant maximum lifetime;
 - subdelegation enablement;
-- registration/status ordering model;
+- registration/status ordering model — **RESOLVED:** per-GrantId uint64 revision + previous RecordHash;
 - revocation authorization;
 - GrantId hash profile;
 - public/private registration privacy model;
@@ -79,7 +79,7 @@ Profiles must narrow/map OI-014 authority and must not redefine GrantId, generat
 
 ## Immediate decision order
 
-1. Registration/status ordering model.
+1. Registration/status ordering model — **RESOLVED:** per-GrantId revision chain; REGISTER = revision 1, ACTIVE -> REVOKED, REVOKED terminal.
 2. Revocation authorization.
 3. Time model.
 4. Capability/resource model.
