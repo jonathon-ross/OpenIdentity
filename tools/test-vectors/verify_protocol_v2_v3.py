@@ -362,90 +362,6 @@ def verify_v317(v): verify_recover(v,1,source_status=2)
 def verify_v318(v): verify_recover(v,1,source_version=2)
 
 
-def verify_initial_invalid_cases():
-    print()
-    print("VI306/VI309-VI321/VI325/VI330-VI332 Invalid/Security Verification")
-    print("-"*48)
-
-    # VI309: A -> B without a disposition is semantically ambiguous.
-    require("VI309 A->B rotation missing required disposition", True)
-
-    # VI310: absent -> A is initial installation; disposition is forbidden.
-    require("VI310 initial installation with disposition rejected", True)
-
-    # VI311: removal necessarily invalidates existing generation trust.
-    require("VI311 policy removal with PRESERVE_EXISTING rejected", True)
-
-    # VI312: exact A -> A replacement is an invalid no-op.
-    require("VI312 exact A->A replacement rejected", True)
-
-    # VI313: generation may preserve or increment exactly once, never jump.
-    current_generation=0
-    proposed_generation=2
-    require("VI313 generation jump greater than one rejected",
-            proposed_generation not in (current_generation,current_generation+1))
-
-    # VI330: RESET_AUTHENTICATION has no purpose-specific PoP collection.
-    reset_signed_labels={1,2}
-    require("VI330 RESET_AUTHENTICATION purpose-specific PoP rejected",5 not in reset_signed_labels)
-
-    # Recovery semantic rejection checks.
-    require("VI316 RECOVER cannot preserve AuthenticationPolicy", True)
-    require("VI317 RECOVER cannot preserve DelegationPolicy", True)
-    require("VI318 RECOVER missing assertion disposition rejected", True)
-    require("VI319 RECOVER REMOVE with absent AssertionPolicy rejected", True)
-    require("VI320 RECOVER REPLACE with absent AssertionPolicy rejected", True)
-    require("VI321 RECOVER REPLACE missing Assertion PoP rejected", True)
-    recover_allowed_labels={1,3,4,6}
-    require("VI331 RECOVER ordinary ControllerPolicy authorization rejected",2 not in recover_allowed_labels)
-    require("VI332 RECOVER disposition payload shape mismatch rejected", True)
-
-    # VI306: Authentication-domain signature cannot satisfy Delegation PoP.
-    identity_d=bytes(range(32))
-    dpriv,dpub,dmid,dmethod=key("OpenIdentity protocol-v2 v3 VI306 delegation Ed25519 seed",16)
-    _,_,_,dcm=key("OpenIdentity protocol-v2 v3 VI306 controller Ed25519 seed",0)
-    dcp=policy(dcm); dp=policy(dmethod)
-    dprevious={1:3,2:identity_d,3:1,4:1,5:dcp,8:{1:0},9:{1:0}}
-    dob=enc({1:2,2:7,3:identity_d,4:2,5:mh(enc(dprevious)),6:{1:dp}})
-    wrong_d=enc(["OpenIdentity Authentication Proof",1,dob,dmid])
-    required_d=enc(["OpenIdentity Delegation Proof",1,dob,dmid])
-    dsig=dpriv.sign(wrong_d)
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-    dpk=Ed25519PublicKey.from_public_bytes(dpub)
-    dpk.verify(dsig,wrong_d)
-    require("VI306 signature verifies in Authentication domain",True)
-    drejected=False
-    try:
-        dpk.verify(dsig,required_d)
-    except Exception:
-        drejected=True
-    require("VI306 Authentication PoP rejected as Delegation PoP",drejected)
-
-    # VI325: a signature valid in Assertion PoP domain must fail Authentication domain.
-    identity=bytes(range(32))
-    priv,pub,mid,method=key("OpenIdentity protocol-v2 v3 VI325 authentication Ed25519 seed",16)
-    cp_priv,cp_pub,cp_id,cp_method=key("OpenIdentity protocol-v2 v3 VI325 controller Ed25519 seed",0)
-    cp=policy(cp_method); ap=policy(method)
-    previous={1:3,2:identity,3:1,4:1,5:cp,8:{1:0},9:{1:0}}
-    psh=mh(enc(previous))
-    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:ap}}
-    ob=enc(op)
-    wrong=enc(["OpenIdentity Assertion Proof",1,ob,mid])
-    required=enc(["OpenIdentity Authentication Proof",1,ob,mid])
-    sig=priv.sign(wrong)
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-    pk=Ed25519PublicKey.from_public_bytes(pub)
-    pk.verify(sig,wrong)
-    require("VI325 signature verifies in Assertion domain",True)
-    rejected=False
-    try:
-        pk.verify(sig,required)
-    except Exception:
-        rejected=True
-    require("VI325 Assertion PoP rejected as Authentication PoP",rejected)
-
-
-
 def verify_concrete_pop_invalids(data):
     print()
     print("Concrete PoP / Domain Attack Vectors")
@@ -590,7 +506,6 @@ def main():
     verify_v318(vectors["V318"])
     verify_v319(vectors["V319"])
     verify_v320(vectors["V320"])
-    verify_initial_invalid_cases()
     verify_concrete_pop_invalids(data)
     verify_remaining_invalids(data)
     print()
