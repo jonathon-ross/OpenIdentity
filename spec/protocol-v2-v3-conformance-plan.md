@@ -12,11 +12,11 @@
 - V306 AuthenticationPolicy security rotation / INVALIDATE_EXISTING — generator + independent verifier implemented; generation increments exactly once
 - V307 remove AuthenticationPolicy — generator + independent verifier implemented; policy absent and generation +1
 - V308 RESET_AUTHENTICATION — generator + independent verifier implemented; policy preserved byte-for-byte and generation +1
-- V309 initial DelegationPolicy installation
-- V310 DelegationPolicy planned rotation / PRESERVE_EXISTING
-- V311 DelegationPolicy security rotation / INVALIDATE_EXISTING
-- V312 remove DelegationPolicy
-- V313 RESET_DELEGATIONS
+- V309 initial DelegationPolicy installation — generator + independent verifier implemented; generation remains 0
+- V310 DelegationPolicy planned rotation / PRESERVE_EXISTING — generator + independent verifier implemented; generation preserved
+- V311 DelegationPolicy security rotation / INVALIDATE_EXISTING — generator + independent verifier implemented; generation +1
+- V312 remove DelegationPolicy — generator + independent verifier implemented; policy absent and generation +1
+- V313 RESET_DELEGATIONS — generator + independent verifier implemented; policy preserved byte-for-byte and generation +1
 - V314 RECOVER / PRESERVE AssertionPolicy
 - V315 RECOVER / REMOVE AssertionPolicy
 - V316 RECOVER / REPLACE AssertionPolicy with complete Assertion PoP
@@ -32,7 +32,7 @@
 - VI303 duplicate Authentication PoP
 - VI304 unauthorized Authentication method
 - VI305 missing Delegation PoP
-- VI306 Delegation PoP signed under Authentication domain
+- VI306 Delegation PoP signed under Authentication domain — cryptographic cross-domain rejection implemented
 - VI307 duplicate Delegation PoP
 - VI308 unauthorized Delegation method
 - VI309 A->B rotation missing required disposition — initial independent rejection check implemented
