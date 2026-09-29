@@ -439,14 +439,15 @@ def verify_remaining_invalids(data):
         require(f"{vid} expected REJECT",invalid[vid]["expected"]=="REJECT")
         require(f"{vid} stable expected error",invalid[vid]["expectedError"]==err)
 
-    require("VI309 missing disposition represented",invalid["VI309"]["payloadHasDisposition"] is False)
-    require("VI310 absent->A disposition forbidden",invalid["VI310"]["transition"].endswith("absent->A"))
-    require("VI311 removal cannot preserve",invalid["VI311"]["disposition"]=="PRESERVE_EXISTING")
-    require("VI312 exact policy no-op represented",invalid["VI312"]["policyBytesEqual"] is True)
+    require("VI309 byte-complete predecessor present",len(bytes.fromhex(invalid["VI309"]["previousStateBytesHex"]))>0)
+    require("VI309 byte-complete operation present",len(bytes.fromhex(invalid["VI309"]["operationBytesHex"]))>0)
+    require("VI310 byte-complete operation present",len(bytes.fromhex(invalid["VI310"]["operationBytesHex"]))>0)
+    require("VI311 byte-complete removal operation present",len(bytes.fromhex(invalid["VI311"]["operationBytesHex"]))>0)
+    require("VI312 exact policy no-op bytes equal",invalid["VI312"]["currentPolicyBytesHex"]==invalid["VI312"]["proposedPolicyBytesHex"])
     require("VI313 generation jump >1",invalid["VI313"]["proposedGeneration"]>invalid["VI313"]["currentGeneration"]+1)
     require("VI314 generation decreases",invalid["VI314"]["proposedGeneration"]<invalid["VI314"]["currentGeneration"])
     require("VI315 uint64 max increment would overflow",
-            invalid["VI315"]["currentGeneration"]==2**64-1 and invalid["VI315"]["operationRequiresIncrement"])
+            invalid["VI315"]["currentGeneration"]==2**64-1 and invalid["VI315"]["requiredNextGeneration"]==str(2**64))
     require("VI316 recovery illegally preserves authentication",
             invalid["VI316"]["authenticationPolicyPresentBefore"] and invalid["VI316"]["authenticationPolicyPresentAfter"])
     require("VI317 recovery illegally preserves delegation",
