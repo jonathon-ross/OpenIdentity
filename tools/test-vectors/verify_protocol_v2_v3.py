@@ -497,7 +497,7 @@ def verify_remaining_invalids(data):
     print("-"*48)
     invalid={v["id"]:v for v in data["invalidVectors"]}
     require("full invalid suite IDs VI301-VI332",
-            set(invalid)=={f"VI{i}" for i in range(301,337)})
+            set(invalid)=={f"VI{i}" for i in range(301,338)})
 
     expected={
       "VI309":"MISSING_AUTHORITY_DISPOSITION","VI310":"FORBIDDEN_AUTHORITY_DISPOSITION",
@@ -512,7 +512,7 @@ def verify_remaining_invalids(data):
       "VI330":"MALFORMED_SIGNED_OPERATION","VI331":"MALFORMED_SIGNED_OPERATION",
       "VI332":"MALFORMED_RECOVERY_PAYLOAD","VI333":"RESET_REQUIRES_IDENTITY_STATE_V3",
       "VI334":"RESET_REQUIRES_IDENTITY_STATE_V3","VI335":"OPERATION_NOT_PERMITTED_WHILE_DEACTIVATED",
-      "VI336":"OPERATION_NOT_PERMITTED_WHILE_DEACTIVATED"}
+      "VI336":"OPERATION_NOT_PERMITTED_WHILE_DEACTIVATED","VI337":"SEQUENCE_OVERFLOW"}
     for vid,err in expected.items():
         require(f"{vid} expected REJECT",invalid[vid]["expected"]=="REJECT")
         require(f"{vid} stable expected error",invalid[vid]["expectedError"]==err)
@@ -567,6 +567,9 @@ def verify_remaining_invalids(data):
             invalid["VI335"]["predecessorStatus"]=="DEACTIVATED" and invalid["VI335"]["operationType"]==2)
     require("VI336 SET_AUTHENTICATION_POLICY rejected while deactivated",
             invalid["VI336"]["predecessorStatus"]=="DEACTIVATED" and invalid["VI336"]["operationType"]==6)
+    require("VI337 uint64 sequence terminal condition",
+            invalid["VI337"]["predecessorSequence"]==str(2**64-1)
+            and invalid["VI337"]["requiredNextSequence"]==str(2**64))
 
     require("VI332 byte-complete PRESERVE/replacement shape mismatch",
             invalid["VI332"]["disposition"]==1 and invalid["VI332"]["replacementAssertionPolicyPresent"]
