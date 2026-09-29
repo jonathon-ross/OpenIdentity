@@ -397,6 +397,47 @@ def verify_v322(v):
     require("V322 StateHash",v["stateHashHex"]==mh(sb).hex())
 
 
+
+def _verify_rich_state(v,vid,deactivate=False):
+    identity=bytes(range(32))
+    _,cpub,cid,cm=key(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+    _,_,_,rm=key(f"OpenIdentity protocol-v2 v3 {vid} recovery Ed25519 seed",16)
+    _,_,_,sm=key(f"OpenIdentity protocol-v2 v3 {vid} assertion Ed25519 seed",32)
+    _,_,aid,am=key(f"OpenIdentity protocol-v2 v3 {vid} authentication A Ed25519 seed",48)
+    _,bpub,bid,bm=key(f"OpenIdentity protocol-v2 v3 {vid} authentication B Ed25519 seed",64)
+    _,_,_,dm=key(f"OpenIdentity protocol-v2 v3 {vid} delegation Ed25519 seed",80)
+    cp=policy(cm); rp=recovery_policy(rm); rc=mh(enc(rp)); sp=policy(sm); ap=policy(am); bp=policy(bm); dp=policy(dm)
+    previous={1:3,2:identity,3:12,4:1,5:cp,6:rc,7:sp,8:{1:7,2:ap},9:{1:11,2:dp}}
+    psb=enc(previous); psh=mh(psb)
+    if deactivate:
+        op={1:2,2:4,3:identity,4:13,5:psh,6:{}}
+        state={1:3,2:identity,3:13,4:2,5:cp,6:rc,7:sp,8:{1:7,2:ap},9:{1:11,2:dp}}
+    else:
+        op={1:2,2:6,3:identity,4:13,5:psh,6:{1:bp,2:1}}
+        state={1:3,2:identity,3:13,4:1,5:cp,6:rc,7:sp,8:{1:8,2:bp},9:{1:11,2:dp}}
+    ob=enc(op); sb=enc(state)
+    require(f"{vid} previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require(f"{vid} OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(cpub,v["controllerSignatureHex"],enc(["OpenIdentity Operation",1,ob]))
+    if not deactivate:
+        verify_signature(bpub,v["authenticationProofSignatureHex"],enc(["OpenIdentity Authentication Proof",1,ob,bid]))
+        require("V323 unrelated ControllerPolicy preserved",state[5]==previous[5])
+        require("V323 unrelated recoveryCommitment preserved",state[6]==previous[6])
+        require("V323 unrelated AssertionPolicy preserved",state[7]==previous[7])
+        require("V323 unrelated DelegationAuthority preserved",state[9]==previous[9])
+    else:
+        require("V324 ControllerPolicy preserved",state[5]==previous[5])
+        require("V324 recoveryCommitment preserved",state[6]==previous[6])
+        require("V324 AssertionPolicy preserved",state[7]==previous[7])
+        require("V324 AuthenticationAuthority preserved",state[8]==previous[8])
+        require("V324 DelegationAuthority preserved",state[9]==previous[9])
+    require(f"{vid} StateBytes",v["stateBytesHex"]==sb.hex())
+    require(f"{vid} StateHash",v["stateHashHex"]==mh(sb).hex())
+
+def verify_v323(v): _verify_rich_state(v,"V323",False)
+def verify_v324(v): _verify_rich_state(v,"V324",True)
+
+
 def verify_concrete_pop_invalids(data):
     print()
     print("Concrete PoP / Domain Attack Vectors")
@@ -541,7 +582,7 @@ def main():
     require("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
     require("wire schema",data["wireSchema"]=="spec/cddl/openidentity-operation-v3.cddl")
     vectors={v["id"]:v for v in data["vectors"]}
-    require("vector IDs V301-V322",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313","V314","V315","V316","V317","V318","V319","V320","V321","V322"})
+    require("vector IDs V301-V324",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313","V314","V315","V316","V317","V318","V319","V320","V321","V322","V323","V324"})
     verify_v301(vectors["V301"])
     verify_v302(vectors["V302"])
     verify_v303(vectors["V303"])
@@ -564,11 +605,13 @@ def main():
     verify_v320(vectors["V320"])
     verify_v321(vectors["V321"])
     verify_v322(vectors["V322"])
+    verify_v323(vectors["V323"])
+    verify_v324(vectors["V324"])
     verify_concrete_pop_invalids(data)
     verify_remaining_invalids(data)
     print()
     print("="*48)
-    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V322 VERIFIED")
+    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V324 VERIFIED")
     print("="*48)
 
 
