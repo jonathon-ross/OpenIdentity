@@ -1040,6 +1040,19 @@ def build_remaining_invalid_vectors():
     item("VI332","MALFORMED_RECOVERY_PAYLOAD","recover-shape-mismatch",
          previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex(),
          payloadBytesHex=cbor(op[6]).hex(),disposition=1,replacementAssertionPolicyPresent=True)
+    # Legacy states have no v3 derived-authority generation to reset.
+    for vid,optype,error in [
+        ("VI333",8,"RESET_REQUIRES_IDENTITY_STATE_V3"),
+        ("VI334",9,"RESET_REQUIRES_IDENTITY_STATE_V3")]:
+        _,_,_,cm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+        cp=_single_policy(cm)
+        previous={1:2,2:identity,3:4,4:1,5:cp}
+        psb=cbor(previous); psh=sha256_multihash(psb)
+        op={1:2,2:optype,3:identity,4:5,5:psh,6:{}}
+        item(vid,error,"reset-requires-v3-predecessor",
+             previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
+             predecessorStateVersion=2,operationType=optype)
+
     return out
 
 
