@@ -17,7 +17,7 @@ ProtocolVersion 2 is the explicit state-v3 upgrade boundary.
 - Historical v1/v2 StateBytes and StateHashes are never reinterpreted or rewritten.
 - No transition from IdentityState v3 to v1/v2 is valid.
 
-When a non-RECOVER protocolVersion 2 operation upgrades v1/v2 to v3, absent derived authorities initialize with generation 0. A protocolVersion 2 RECOVER upgrading v1/v2 initializes both derived-authority generations to 1 because recovery is a security reset.
+When an eligible non-RECOVER protocolVersion 2 operation upgrades v1/v2 to v3, derived authorities absent from the legacy state initialize with generation 0. A protocolVersion 2 RECOVER upgrading v1/v2 initializes both derived-authority generations to 1 because recovery is a security reset. RESET_AUTHENTICATION and RESET_DELEGATIONS MUST NOT perform a v1/v2-to-v3 upgrade; they are valid only when the authoritative predecessor is already IdentityState v3. A reset represents invalidation of an existing v3 security generation and MUST NOT manufacture a reset generation for authority that did not exist in the predecessor schema.
 
 ## 2. IdentityState v3
 
