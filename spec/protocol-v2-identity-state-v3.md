@@ -174,6 +174,8 @@ RECOVER cannot preserve or replace AuthenticationPolicy or DelegationPolicy. Tho
 
 DEACTIVATE preserves authority structures and generations in canonical state but makes current derived authority dormant.
 
+While DEACTIVATED, RECOVER is the only state-changing operation permitted. CREATE is inapplicable because the identity already exists, and ROTATE_CONTROLLER, DEACTIVATE, SET_ASSERTION_POLICY, SET_AUTHENTICATION_POLICY, SET_DELEGATION_POLICY, RESET_AUTHENTICATION, and RESET_DELEGATIONS MUST be rejected before authoritative state mutation.
+
 While DEACTIVATED:
 
 - new AuthenticationProofs are invalid;
