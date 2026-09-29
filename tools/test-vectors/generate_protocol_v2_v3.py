@@ -835,12 +835,86 @@ def build_invalid_pop_vectors():
     return out
 
 
+
+def build_remaining_invalid_vectors():
+    identity=bytes(range(32)); out=[]
+    def item(vid,error,kind,**kw):
+        x={"id":vid,"expected":"REJECT","expectedError":error,"attackKind":kind}; x.update(kw); out.append(x)
+
+    # Transition/disposition attacks.
+    item("VI309","MISSING_AUTHORITY_DISPOSITION","missing-disposition",
+         transition="AuthenticationPolicy A->B",payloadHasDisposition=False)
+    item("VI310","FORBIDDEN_AUTHORITY_DISPOSITION","forbidden-disposition",
+         transition="AuthenticationPolicy absent->A",disposition="PRESERVE_EXISTING")
+    item("VI311","INVALID_AUTHORITY_DISPOSITION","removal-preserve",
+         transition="AuthenticationPolicy A->absent",disposition="PRESERVE_EXISTING")
+    item("VI312","NO_OP_POLICY_REPLACEMENT","exact-policy-noop",
+         transition="AuthenticationPolicy A->A",policyBytesEqual=True)
+
+    # Generation attacks.
+    item("VI313","INVALID_AUTHORITY_GENERATION","generation-jump",
+         currentGeneration=7,proposedGeneration=9)
+    item("VI314","INVALID_AUTHORITY_GENERATION","generation-decrease",
+         currentGeneration=7,proposedGeneration=6)
+    item("VI315","AUTHORITY_GENERATION_OVERFLOW","generation-overflow",
+         currentGeneration=18446744073709551615,operationRequiresIncrement=True)
+
+    # Recovery attacks.
+    item("VI316","RECOVERY_MUST_RESET_AUTHENTICATION","recover-preserve-authentication",
+         authenticationPolicyPresentBefore=True,authenticationPolicyPresentAfter=True)
+    item("VI317","RECOVERY_MUST_RESET_DELEGATION","recover-preserve-delegation",
+         delegationPolicyPresentBefore=True,delegationPolicyPresentAfter=True)
+    item("VI318","MISSING_ASSERTION_DISPOSITION","recover-missing-assertion-disposition",
+         payloadLabels=[1,2,3])
+    item("VI319","INVALID_ASSERTION_DISPOSITION","recover-remove-absent-assertion",
+         sourceAssertionPolicyPresent=False,disposition="REMOVE")
+    item("VI320","INVALID_ASSERTION_DISPOSITION","recover-replace-absent-assertion",
+         sourceAssertionPolicyPresent=False,disposition="REPLACE")
+    item("VI321","MISSING_PROOF_OF_POSSESSION","recover-replace-missing-assertion-pop",
+         sourceAssertionPolicyPresent=True,disposition="REPLACE",assertionProofCount=0)
+
+    # Version / structural attacks.
+    item("VI322","STATE_VERSION_DOWNGRADE","state-version-downgrade",
+         sourceStateVersion=3,proposedStateVersion=2)
+    item("VI323","UNSUPPORTED_PROTOCOL_VERSION","pv1-on-v3",
+         sourceStateVersion=3,operationProtocolVersion=1)
+    item("VI324","MALFORMED_PROOF_COLLECTION","malformed-proof-collection",
+         proofField=5,encodedAs="map",requiredShape="non-empty array")
+
+    # Duplicate effective cryptographic key under distinct method IDs.
+    _,pub,mid1,m1=_ed25519("OpenIdentity protocol-v2 v3 VI328 duplicate effective key seed",0)
+    mid2=bytes(range(16,32))
+    m2={1:mid2,2:m1[2]}
+    dup_policy={1:2,2:2,3:[m1,m2]}
+    item("VI328","DUPLICATE_EFFECTIVE_VERIFICATION_KEY","duplicate-effective-key",
+         methodId1Hex=mid1.hex(),methodId2Hex=mid2.hex(),publicKeyHex=pub.hex(),
+         coseKey1Hex=cbor(m1[2]).hex(),coseKey2Hex=cbor(m2[2]).hex(),
+         policyBytesHex=cbor(dup_policy).hex())
+
+    # CREATE structurally forbids redundant Controller PoP.
+    item("VI329","MALFORMED_SIGNED_OPERATION","create-redundant-controller-pop",
+         operationType="CREATE",forbiddenProofField=3)
+
+    # RESET_AUTHENTICATION structurally forbids purpose-specific PoP.
+    item("VI330","MALFORMED_SIGNED_OPERATION","reset-authentication-purpose-pop",
+         operationType="RESET_AUTHENTICATION",forbiddenProofField=5)
+
+    # RECOVER structurally forbids ordinary controller authorization.
+    item("VI331","MALFORMED_SIGNED_OPERATION","recover-ordinary-authorization",
+         operationType="RECOVER",forbiddenProofField=2)
+
+    # RECOVER disposition / payload shape mismatch.
+    item("VI332","MALFORMED_RECOVERY_PAYLOAD","recover-shape-mismatch",
+         disposition="PRESERVE",replacementAssertionPolicyPresent=True)
+    return out
+
+
 def main() -> None:
     bundle = {
         "specification": "OpenIdentity Protocol v2 / IdentityState v3",
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
-        "invalidVectors": build_invalid_pop_vectors(),
+        "invalidVectors": build_invalid_pop_vectors() + build_remaining_invalid_vectors(),
         "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318(), build_v319(), build_v320()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
