@@ -243,6 +243,56 @@ def verify_v308(v):
     require("V308 StateHash",v["stateHashHex"]==mh(sb).hex())
 
 
+
+def verify_delegation_transition(v, mode, disposition=None, gen_before=0, gen_after=0):
+    vid=v["id"]; identity=bytes(range(32))
+    _,cpub,cid,cm=key(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+    oldpriv,oldpub,oldid,oldm=key(f"OpenIdentity protocol-v2 v3 {vid} delegation A Ed25519 seed",16)
+    newpriv,newpub,newid,newm=key(f"OpenIdentity protocol-v2 v3 {vid} delegation B Ed25519 seed",32)
+    cp=policy(cm); oldp=policy(oldm); newp=policy(newm)
+    pdel={1:gen_before}
+    if mode!="install": pdel[2]=oldp
+    previous={1:3,2:identity,3:1,4:1,5:cp,8:{1:0},9:pdel}
+    psb=enc(previous); psh=mh(psb)
+    require(f"{vid} previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require(f"{vid} previous StateHash",v["previousStateHashHex"]==psh.hex())
+    if mode=="reset":
+        op={1:2,2:9,3:identity,4:2,5:psh,6:{}}
+        resultp=oldp
+    else:
+        resultp=None if mode=="remove" else (oldp if mode=="install" else newp)
+        payload={1:resultp}
+        if disposition is not None: payload[2]=disposition
+        op={1:2,2:7,3:identity,4:2,5:psh,6:payload}
+    ob=enc(op)
+    require(f"{vid} OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(cpub,v["controllerSignatureHex"],enc(["OpenIdentity Operation",1,ob]))
+    require(f"{vid} controller authorization verifies",True)
+    if resultp is not None and mode!="reset":
+        proofpub,proofid=(newpub,newid) if mode=="rotate" else (oldpub,oldid)
+        verify_signature(proofpub,v["delegationProofSignatureHex"],
+                         enc(["OpenIdentity Delegation Proof",1,ob,proofid]))
+        require(f"{vid} DelegationPolicy PoP verifies",True)
+    rdel={1:gen_after}
+    if resultp is not None:rdel[2]=resultp
+    state={1:3,2:identity,3:2,4:1,5:cp,8:{1:0},9:rdel}
+    sb=enc(state)
+    require(f"{vid} generation semantics",state[9][1]==gen_after)
+    if mode=="reset":
+        require(f"{vid} DelegationPolicy preserved byte-for-byte",enc(previous[9][2])==enc(state[9][2]))
+    if mode=="remove":
+        require(f"{vid} DelegationPolicy removed",2 not in state[9])
+    require(f"{vid} StateBytes",v["stateBytesHex"]==sb.hex())
+    require(f"{vid} StateHash",v["stateHashHex"]==mh(sb).hex())
+
+
+def verify_v309(v): verify_delegation_transition(v,"install",gen_before=0,gen_after=0)
+def verify_v310(v): verify_delegation_transition(v,"rotate",2,4,4)
+def verify_v311(v): verify_delegation_transition(v,"rotate",1,4,5)
+def verify_v312(v): verify_delegation_transition(v,"remove",gen_before=4,gen_after=5)
+def verify_v313(v): verify_delegation_transition(v,"reset",gen_before=9,gen_after=10)
+
+
 def verify_initial_invalid_cases():
     print()
     print("VI309-VI313/VI325/VI330 Invalid/Security Verification")
@@ -303,7 +353,7 @@ def main():
     require("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
     require("wire schema",data["wireSchema"]=="spec/cddl/openidentity-operation-v3.cddl")
     vectors={v["id"]:v for v in data["vectors"]}
-    require("vector IDs V301-V308",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308"})
+    require("vector IDs V301-V313",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313"})
     verify_v301(vectors["V301"])
     verify_v302(vectors["V302"])
     verify_v303(vectors["V303"])
@@ -312,10 +362,15 @@ def main():
     verify_v306(vectors["V306"])
     verify_v307(vectors["V307"])
     verify_v308(vectors["V308"])
+    verify_v309(vectors["V309"])
+    verify_v310(vectors["V310"])
+    verify_v311(vectors["V311"])
+    verify_v312(vectors["V312"])
+    verify_v313(vectors["V313"])
     verify_initial_invalid_cases()
     print()
     print("="*48)
-    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V308 VERIFIED")
+    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V313 VERIFIED")
     print("="*48)
 
 
