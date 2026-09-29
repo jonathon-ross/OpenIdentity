@@ -136,7 +136,7 @@ IdentityState v3 --PV1 operation--> REJECT
 IdentityState v3 --> v1/v2 downgrade --> REJECT
 ```
 
-For ordinary v1/v2 -> v3 upgrades, absent AuthenticationAuthority and DelegationAuthority initialize at generation 0.
+For eligible ordinary v1/v2 -> v3 upgrades, absent AuthenticationAuthority and DelegationAuthority initialize at generation 0. RESET_AUTHENTICATION and RESET_DELEGATIONS are not eligible upgrade operations: both require an IdentityState v3 predecessor because a reset invalidates an already-existing v3 security generation.
 
 For RECOVER upgrading v1/v2 -> v3, both initialize at generation 1 because recovery is a security reset.
 
