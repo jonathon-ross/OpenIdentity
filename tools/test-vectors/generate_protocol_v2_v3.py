@@ -671,12 +671,83 @@ def build_v313():
     return v
 
 
+
+def _recovery_policy(method):
+    return {1:1,2:1,3:[method]}
+
+
+def _recover_vector(vector_id, disposition, source_version=3, source_status=1, replace_assertion=False):
+    identity=bytes(range(32))
+    _,_,_,oldcm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} old controller Ed25519 seed",0)
+    newcpriv,newcpub,newcid,newcm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} new controller Ed25519 seed",16)
+    rpriv,rpub,rid,rm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} recovery Ed25519 seed",32)
+    _,oldapub,oldaid,oldam=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} assertion A Ed25519 seed",48)
+    newapriv,newapub,newaid,newam=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} assertion B Ed25519 seed",64)
+    _,_,_,authm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} authentication Ed25519 seed",80)
+    _,_,_,delm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} delegation Ed25519 seed",96)
+    oldcp=_single_policy(oldcm); newcp=_single_policy(newcm)
+    oldap=_single_policy(oldam); newap=_single_policy(newam)
+    rp=_recovery_policy(rm); rc=sha256_multihash(cbor(rp))
+    new_rc=sha256_multihash(cbor(_recovery_policy(newcm)))
+    previous={1:source_version,2:identity,3:5,4:source_status,5:oldcp,6:rc,7:oldap}
+    if source_version==3:
+        previous[8]={1:3,2:_single_policy(authm)}
+        previous[9]={1:7,2:_single_policy(delm)}
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    payload={1:newcp,2:rp,3:new_rc,4:disposition}
+    if replace_assertion: payload[5]=newap
+    op={1:2,2:3,3:identity,4:6,5:psh,6:payload}
+    ob=cbor(op)
+    cpop_input=cbor(["OpenIdentity Controller Proof",1,ob,newcid])
+    cpop_sig=newcpriv.sign(cpop_input); newcpriv.public_key().verify(cpop_sig,cpop_input)
+    recovery_input=cbor(["OpenIdentity Recovery",1,ob,rid])
+    recovery_sig=rpriv.sign(recovery_input); rpriv.public_key().verify(recovery_sig,recovery_input)
+    signed={1:op,3:[{1:newcid,2:cpop_sig}],4:[{1:rid,2:recovery_sig}]}
+    assertion_input=None; assertion_sig=None
+    if replace_assertion:
+        assertion_input=cbor(["OpenIdentity Assertion Proof",1,ob,newaid])
+        assertion_sig=newapriv.sign(assertion_input); newapriv.public_key().verify(assertion_sig,assertion_input)
+        signed[6]=[{1:newaid,2:assertion_sig}]
+    result_assertion = oldap if disposition==1 else (newap if disposition==3 else None)
+    auth_gen=1 if source_version==2 else 4
+    del_gen=1 if source_version==2 else 8
+    state={1:3,2:identity,3:6,4:1,5:newcp,6:new_rc,8:{1:auth_gen},9:{1:del_gen}}
+    if result_assertion is not None: state[7]=result_assertion
+    sb=cbor(state); sh=sha256_multihash(sb)
+    out={"id":vector_id,"expected":"PASS","previousStateBytesHex":psb.hex(),
+         "previousStateHashHex":psh.hex(),"operationBytesHex":ob.hex(),
+         "controllerProofSigningBytesHex":cpop_input.hex(),"controllerProofSignatureHex":cpop_sig.hex(),
+         "recoverySigningBytesHex":recovery_input.hex(),"recoverySignatureHex":recovery_sig.hex(),
+         "signedOperationBytesHex":cbor(signed).hex(),"stateBytesHex":sb.hex(),"stateHashHex":sh.hex(),
+         "assertions":{"sourceStateVersion":source_version,"sourceStatus":source_status,
+                       "assertionDisposition":disposition,"ordinaryAuthorizationPresent":False,
+                       "authenticationPolicyPresent":False,"delegationPolicyPresent":False,
+                       "resultingAuthenticationGeneration":auth_gen,"resultingDelegationGeneration":del_gen,
+                       "resultingStatus":"ACTIVE","stateHashLength":len(sh)}}
+    if assertion_input is not None:
+        out["assertionProofSigningBytesHex"]=assertion_input.hex()
+        out["assertionProofSignatureHex"]=assertion_sig.hex()
+    return out
+
+
+def build_v314():
+    v=_recover_vector("V314",1); v["description"]="RECOVER preserves AssertionPolicy and security-resets derived authorities"; return v
+def build_v315():
+    v=_recover_vector("V315",2); v["description"]="RECOVER removes AssertionPolicy and security-resets derived authorities"; return v
+def build_v316():
+    v=_recover_vector("V316",3,replace_assertion=True); v["description"]="RECOVER replaces AssertionPolicy with assertion-domain PoP"; return v
+def build_v317():
+    v=_recover_vector("V317",1,source_status=2); v["description"]="RECOVER from DEACTIVATED v3 returns ACTIVE and resets derived authorities"; return v
+def build_v318():
+    v=_recover_vector("V318",1,source_version=2); v["description"]="protocolVersion 2 RECOVER upgrades v2 to v3 with derived generations 1"; return v
+
+
 def main() -> None:
     bundle = {
         "specification": "OpenIdentity Protocol v2 / IdentityState v3",
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
-        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313()],
+        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
@@ -694,6 +765,11 @@ def main() -> None:
     print("V311 VERIFIED")
     print("V312 VERIFIED")
     print("V313 VERIFIED")
+    print("V314 VERIFIED")
+    print("V315 VERIFIED")
+    print("V316 VERIFIED")
+    print("V317 VERIFIED")
+    print("V318 VERIFIED")
 
 
 if __name__ == "__main__":
