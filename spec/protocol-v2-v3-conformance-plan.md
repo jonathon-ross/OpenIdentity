@@ -24,6 +24,8 @@
 - V318 protocolVersion 2 RECOVER upgrades v2 to v3 with generations = 1 — generator + independent verifier implemented
 - V319 DelegationPolicy PRESERVE_EXISTING leaves delegation generation unchanged — generator + independent verifier implemented at nonzero generation 42
 - V320 RESET_DELEGATIONS increments delegation generation exactly once — generator + independent verifier implemented at generation 42 -> 43
+- V321 protocolVersion 2 SET_DELEGATION_POLICY upgrades v2 to v3 — delegation policy installed at generation 0; authentication generation initializes 0
+- V322 ordinary protocolVersion 2 ROTATE_CONTROLLER upgrades v2 to v3 — both absent derived authorities initialize at generation 0
 
 ## Invalid/security vectors
 
@@ -61,6 +63,8 @@ Coverage status: VI301-VI308 and VI325-VI327 contain concrete cryptographic proo
 - VI330 RESET_AUTHENTICATION carries a forbidden purpose-specific PoP collection — byte-complete Python + Java structural rejection coverage
 - VI331 RECOVER carries forbidden ordinary ControllerPolicy authorization — byte-complete Python + Java structural rejection coverage
 - VI332 RECOVER payload disposition/AssertionPolicy shape mismatch — byte-complete Python + Java rejection coverage
+- VI333 RESET_AUTHENTICATION against IdentityState v1/v2 — reject with RESET_REQUIRES_IDENTITY_STATE_V3
+- VI334 RESET_DELEGATIONS against IdentityState v1/v2 — reject with RESET_REQUIRES_IDENTITY_STATE_V3
 
 DelegationGrant registration, backdating, individual status, and generation-aware
 grant-validity vectors are deferred to OI-014, where the canonical DelegationGrant
@@ -70,13 +74,8 @@ and registration wire formats will be defined.
 
 Every implementation must independently reproduce identical StateBytes and StateHash for every successful state transition. Invalid vectors must fail structurally or semantically before any authoritative state mutation.
 
-## Byte-frozen candidate
+## Superseded byte-frozen candidate
 
-The generated Protocol v2 / IdentityState v3 conformance bundle is currently a **BYTE-FROZEN CANDIDATE** and remains **DRAFT-NON-NORMATIVE**.
+The previous byte-frozen candidate (125506 bytes, SHA-256 `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`) was intentionally invalidated by the final adversarial review after discovering ambiguity around RESET_AUTHENTICATION / RESET_DELEGATIONS as v1/v2-to-v3 upgrade operations.
 
-- File: `test-vectors/generated/protocol-v2-identity-state-v3.json`
-- Exact size: 125506 bytes
-- SHA-256: `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`
-- Checksum file: `checksums/protocol-v2-identity-state-v3.json.sha256`
-
-Any byte change to the candidate MUST invalidate the checksum and requires rerunning the Python pre-freeze gate and both independent Java gates before a new candidate checksum is accepted. Byte freezing does not by itself promote this draft to normative status.
+A new candidate checksum MUST NOT be established until V301-V322 / VI301-VI334 pass the Python and Java gates and all frozen v0.1 regressions remain green.
