@@ -362,6 +362,41 @@ def verify_v317(v): verify_recover(v,1,source_status=2)
 def verify_v318(v): verify_recover(v,1,source_version=2)
 
 
+
+def verify_v321(v):
+    identity=bytes(range(32))
+    _,cpub,cid,cm=key("OpenIdentity protocol-v2 v3 V321 controller Ed25519 seed",0)
+    _,dpub,did,dm=key("OpenIdentity protocol-v2 v3 V321 delegation Ed25519 seed",16)
+    cp=policy(cm); dp=policy(dm)
+    previous={1:2,2:identity,3:1,4:1,5:cp}; psb=enc(previous); psh=mh(psb)
+    op={1:2,2:7,3:identity,4:2,5:psh,6:{1:dp}}; ob=enc(op)
+    require("V321 previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require("V321 OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(cpub,v["controllerSignatureHex"],enc(["OpenIdentity Operation",1,ob]))
+    verify_signature(dpub,v["delegationProofSignatureHex"],enc(["OpenIdentity Delegation Proof",1,ob,did]))
+    state={1:3,2:identity,3:2,4:1,5:cp,8:{1:0},9:{1:0,2:dp}}; sb=enc(state)
+    require("V321 both derived generations initialize 0",state[8][1]==0 and state[9][1]==0)
+    require("V321 StateBytes",v["stateBytesHex"]==sb.hex())
+    require("V321 StateHash",v["stateHashHex"]==mh(sb).hex())
+
+
+def verify_v322(v):
+    identity=bytes(range(32))
+    _,oldpub,oldid,oldm=key("OpenIdentity protocol-v2 v3 V322 old controller Ed25519 seed",0)
+    _,newpub,newid,newm=key("OpenIdentity protocol-v2 v3 V322 new controller Ed25519 seed",16)
+    oldp=policy(oldm); newp=policy(newm)
+    previous={1:2,2:identity,3:4,4:1,5:oldp}; psb=enc(previous); psh=mh(psb)
+    op={1:2,2:2,3:identity,4:5,5:psh,6:{1:newp}}; ob=enc(op)
+    require("V322 previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require("V322 OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(oldpub,v["controllerSignatureHex"],enc(["OpenIdentity Operation",1,ob]))
+    verify_signature(newpub,v["controllerProofSignatureHex"],enc(["OpenIdentity Controller Proof",1,ob,newid]))
+    state={1:3,2:identity,3:5,4:1,5:newp,8:{1:0},9:{1:0}}; sb=enc(state)
+    require("V322 both derived generations initialize 0",state[8][1]==0 and state[9][1]==0)
+    require("V322 StateBytes",v["stateBytesHex"]==sb.hex())
+    require("V322 StateHash",v["stateHashHex"]==mh(sb).hex())
+
+
 def verify_concrete_pop_invalids(data):
     print()
     print("Concrete PoP / Domain Attack Vectors")
@@ -421,7 +456,7 @@ def verify_remaining_invalids(data):
     print("-"*48)
     invalid={v["id"]:v for v in data["invalidVectors"]}
     require("full invalid suite IDs VI301-VI332",
-            set(invalid)=={f"VI{i}" for i in range(301,333)})
+            set(invalid)=={f"VI{i}" for i in range(301,335)})
 
     expected={
       "VI309":"MISSING_AUTHORITY_DISPOSITION","VI310":"FORBIDDEN_AUTHORITY_DISPOSITION",
@@ -434,7 +469,8 @@ def verify_remaining_invalids(data):
       "VI323":"UNSUPPORTED_PROTOCOL_VERSION","VI324":"MALFORMED_PROOF_COLLECTION",
       "VI328":"DUPLICATE_EFFECTIVE_VERIFICATION_KEY","VI329":"MALFORMED_SIGNED_OPERATION",
       "VI330":"MALFORMED_SIGNED_OPERATION","VI331":"MALFORMED_SIGNED_OPERATION",
-      "VI332":"MALFORMED_RECOVERY_PAYLOAD"}
+      "VI332":"MALFORMED_RECOVERY_PAYLOAD","VI333":"RESET_REQUIRES_IDENTITY_STATE_V3",
+      "VI334":"RESET_REQUIRES_IDENTITY_STATE_V3"}
     for vid,err in expected.items():
         require(f"{vid} expected REJECT",invalid[vid]["expected"]=="REJECT")
         require(f"{vid} stable expected error",invalid[vid]["expectedError"]==err)
@@ -481,6 +517,11 @@ def verify_remaining_invalids(data):
             invalid["VI330"]["forbiddenProofField"]==5 and len(bytes.fromhex(invalid["VI330"]["signedOperationBytesHex"]))>0)
     require("VI331 byte-complete RECOVER with forbidden field 2",
             invalid["VI331"]["forbiddenProofField"]==2 and len(bytes.fromhex(invalid["VI331"]["signedOperationBytesHex"]))>0)
+    require("VI333 RESET_AUTHENTICATION legacy predecessor rejected",
+            invalid["VI333"]["predecessorStateVersion"]==2 and invalid["VI333"]["operationType"]==8)
+    require("VI334 RESET_DELEGATIONS legacy predecessor rejected",
+            invalid["VI334"]["predecessorStateVersion"]==2 and invalid["VI334"]["operationType"]==9)
+
     require("VI332 byte-complete PRESERVE/replacement shape mismatch",
             invalid["VI332"]["disposition"]==1 and invalid["VI332"]["replacementAssertionPolicyPresent"]
             and len(bytes.fromhex(invalid["VI332"]["payloadBytesHex"]))>0)
@@ -495,7 +536,7 @@ def main():
     require("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
     require("wire schema",data["wireSchema"]=="spec/cddl/openidentity-operation-v3.cddl")
     vectors={v["id"]:v for v in data["vectors"]}
-    require("vector IDs V301-V320",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313","V314","V315","V316","V317","V318","V319","V320"})
+    require("vector IDs V301-V322",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313","V314","V315","V316","V317","V318","V319","V320","V321","V322"})
     verify_v301(vectors["V301"])
     verify_v302(vectors["V302"])
     verify_v303(vectors["V303"])
@@ -516,11 +557,13 @@ def main():
     verify_v318(vectors["V318"])
     verify_v319(vectors["V319"])
     verify_v320(vectors["V320"])
+    verify_v321(vectors["V321"])
+    verify_v322(vectors["V322"])
     verify_concrete_pop_invalids(data)
     verify_remaining_invalids(data)
     print()
     print("="*48)
-    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V320 VERIFIED")
+    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V322 VERIFIED")
     print("="*48)
 
 
