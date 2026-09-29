@@ -77,6 +77,6 @@ The generated Protocol v2 / IdentityState v3 conformance bundle is currently a *
 - File: `test-vectors/generated/protocol-v2-identity-state-v3.json`
 - Exact size: 125506 bytes
 - SHA-256: `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`
-- Checksum file: `test-vectors/generated/protocol-v2-identity-state-v3.json.sha256`
+- Checksum file: `checksums/protocol-v2-identity-state-v3.json.sha256`
 
 Any byte change to the candidate MUST invalidate the checksum and requires rerunning the Python pre-freeze gate and both independent Java gates before a new candidate checksum is accepted. Byte freezing does not by itself promote this draft to normative status.
