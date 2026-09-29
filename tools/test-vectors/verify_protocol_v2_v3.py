@@ -291,6 +291,17 @@ def verify_v310(v): verify_delegation_transition(v,"rotate",2,4,4)
 def verify_v311(v): verify_delegation_transition(v,"rotate",1,4,5)
 def verify_v312(v): verify_delegation_transition(v,"remove",gen_before=4,gen_after=5)
 def verify_v313(v): verify_delegation_transition(v,"reset",gen_before=9,gen_after=10)
+def verify_v319(v):
+    verify_delegation_transition(v,"rotate",2,42,42)
+    require("V319 nonzero generation preserved",v["assertions"]["resultingDelegationGeneration"]==42)
+    require("V319 prior-generation registered grants remain generation-compatible",
+            v["assertions"]["registeredPriorGenerationGrantsRemainGenerationCompatible"] is True)
+def verify_v320(v):
+    verify_delegation_transition(v,"reset",gen_before=42,gen_after=43)
+    require("V320 nonzero generation increments exactly once",
+            v["assertions"]["resultingDelegationGeneration"]==43)
+    require("V320 prior-generation grants invalidated by generation change",
+            v["assertions"]["priorGenerationGrantsInvalidatedByGenerationChange"] is True)
 
 
 
@@ -443,7 +454,7 @@ def main():
     require("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
     require("wire schema",data["wireSchema"]=="spec/cddl/openidentity-operation-v3.cddl")
     vectors={v["id"]:v for v in data["vectors"]}
-    require("vector IDs V301-V318",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313","V314","V315","V316","V317","V318"})
+    require("vector IDs V301-V320",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313","V314","V315","V316","V317","V318","V319","V320"})
     verify_v301(vectors["V301"])
     verify_v302(vectors["V302"])
     verify_v303(vectors["V303"])
@@ -462,10 +473,12 @@ def main():
     verify_v316(vectors["V316"])
     verify_v317(vectors["V317"])
     verify_v318(vectors["V318"])
+    verify_v319(vectors["V319"])
+    verify_v320(vectors["V320"])
     verify_initial_invalid_cases()
     print()
     print("="*48)
-    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V318 VERIFIED")
+    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V320 VERIFIED")
     print("="*48)
 
 
