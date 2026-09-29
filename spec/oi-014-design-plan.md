@@ -8,8 +8,8 @@
 Resolve before assigning wire labels:
 
 - grant time model and expiry — **RESOLVED:** uint64 Unix seconds, finite expiresAt required, inclusive lower/exclusive upper boundary, profile maximum lifetime;
-- capability identifier model;
-- resource constraint ownership/subset rules;
+- capability identifier model — **RESOLVED:** immutable profileId + opaque capabilityId; no core textual hierarchy;
+- resource constraint ownership/subset rules — **RESOLVED:** profile-owned deterministic resource validity/coverage semantics, bound per capability;
 - delegate principal type model;
 - direct-grant maximum lifetime;
 - subdelegation enablement;
@@ -82,7 +82,7 @@ Profiles must narrow/map OI-014 authority and must not redefine GrantId, generat
 1. Registration/status ordering model — **RESOLVED:** per-GrantId revision chain; REGISTER = revision 1, ACTIVE -> REVOKED, REVOKED terminal.
 2. Revocation authorization — **RESOLVED:** current grantor ControllerPolicy or DelegationPolicy; delegate relinquishment is separately domain-separated.
 3. Time model — **RESOLVED:** whole UTC Unix seconds; finite expiry required; profile-defined bounded skew and maximum lifetime.
-4. Capability/resource model.
+4. Capability/resource model — **RESOLVED:** profile-owned capability semantics with core exact identity/canonical set rules and deterministic attenuation.
 5. Delegate principal model.
 6. Subdelegation model.
 7. GrantId/hash model.
