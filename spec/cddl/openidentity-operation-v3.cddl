@@ -125,7 +125,11 @@ operation-v3 =
 ; 4 = DEACTIVATE
 ; 5 = SET_ASSERTION_POLICY
 ;
-; 6..23 reserved for future OpenIdentity core operations.
+; 6 = SET_AUTHENTICATION_POLICY
+; 7 = SET_DELEGATION_POLICY
+; 8 = RESET_AUTHENTICATION
+; 9 = RESET_DELEGATIONS
+; 10..23 reserved for future OpenIdentity core operations.
 ; =====================================================================
 
 create-operation-type = 1
