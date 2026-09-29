@@ -198,6 +198,12 @@ For each authority generation:
 - wrapping is forbidden;
 - an operation requiring increment at 2^64-1 fails.
 
+## 12A. State preservation invariant
+
+Except for fields explicitly modified by an operation's normative transition semantics, every field of the authoritative predecessor IdentityState MUST be preserved exactly in the successor logical state and therefore in its canonical StateBytes representation. Implementations MUST NOT silently drop, reset, reconstruct with different values, or otherwise mutate unrelated recovery, assertion, authentication, delegation, controller, identity, or status state.
+
+Sequence changes according to the normal state-transition rule. State version changes only at the explicit protocolVersion 2 upgrade boundary. RECOVER is the intentional broad exception defined in Section 10 because its normative semantics explicitly replace/reset multiple authority fields.
+
 ## 13. StateHash
 
 StateHash remains the SHA2-256 Multihash of exact deterministic CBOR StateBytes. In v3 it commits to both AuthenticationAuthority and DelegationAuthority, including their generations and installed policies.
