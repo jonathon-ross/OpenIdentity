@@ -416,12 +416,109 @@ def build_v304() -> dict:
     }
 
 
+
+def _auth_rotation_vector(vector_id: str, disposition: int, generation_after: int) -> dict:
+    identity = bytes(range(32))
+    cpriv, cpub, cid, cm = _ed25519(
+        f"OpenIdentity protocol-v2 v3 {vector_id} controller Ed25519 seed", 0
+    )
+    _, old_pub, old_id, old_method = _ed25519(
+        f"OpenIdentity protocol-v2 v3 {vector_id} authentication A Ed25519 seed", 16
+    )
+    new_priv, new_pub, new_id, new_method = _ed25519(
+        f"OpenIdentity protocol-v2 v3 {vector_id} authentication B Ed25519 seed", 32
+    )
+    controller_policy = _single_policy(cm)
+    old_policy = _single_policy(old_method)
+    new_policy = _single_policy(new_method)
+
+    previous_state = {
+        1: 3, 2: identity, 3: 1, 4: 1, 5: controller_policy,
+        8: {1: 0, 2: old_policy}, 9: {1: 0},
+    }
+    previous_state_bytes = cbor(previous_state)
+    previous_state_hash = sha256_multihash(previous_state_bytes)
+
+    operation = {
+        1: 2, 2: 6, 3: identity, 4: 2, 5: previous_state_hash,
+        6: {1: new_policy, 2: disposition},
+    }
+    operation_bytes = cbor(operation)
+    controller_signing = cbor(["OpenIdentity Operation", 1, operation_bytes])
+    controller_signature = cpriv.sign(controller_signing)
+    cpriv.public_key().verify(controller_signature, controller_signing)
+    auth_signing, auth_proof = _purpose_proof(
+        "OpenIdentity Authentication Proof", operation_bytes, new_priv, new_id
+    )
+    signed_operation = {
+        1: operation,
+        2: [{1: cid, 2: controller_signature}],
+        5: [auth_proof],
+    }
+
+    state = {
+        1: 3, 2: identity, 3: 2, 4: 1, 5: controller_policy,
+        8: {1: generation_after, 2: new_policy}, 9: {1: 0},
+    }
+    state_bytes = cbor(state)
+    state_hash = sha256_multihash(state_bytes)
+
+    assert old_policy != new_policy
+    assert state[8][1] == generation_after
+
+    return {
+        "id": vector_id,
+        "description": (
+            "AuthenticationPolicy A to B planned rotation preserves generation"
+            if disposition == 2 else
+            "AuthenticationPolicy A to B security rotation increments generation"
+        ),
+        "expected": "PASS",
+        "fixture": {
+            "identityHex": identity.hex(),
+            "controllerMethodIdHex": cid.hex(),
+            "controllerPublicKeyHex": cpub.hex(),
+            "oldAuthenticationMethodIdHex": old_id.hex(),
+            "oldAuthenticationPublicKeyHex": old_pub.hex(),
+            "newAuthenticationMethodIdHex": new_id.hex(),
+            "newAuthenticationPublicKeyHex": new_pub.hex(),
+        },
+        "previousStateBytesHex": previous_state_bytes.hex(),
+        "previousStateHashHex": previous_state_hash.hex(),
+        "operationBytesHex": operation_bytes.hex(),
+        "controllerSigningBytesHex": controller_signing.hex(),
+        "controllerSignatureHex": controller_signature.hex(),
+        "authenticationProofSigningBytesHex": auth_signing.hex(),
+        "authenticationProofSignatureHex": auth_proof[2].hex(),
+        "signedOperationBytesHex": cbor(signed_operation).hex(),
+        "stateBytesHex": state_bytes.hex(),
+        "stateHashHex": state_hash.hex(),
+        "assertions": {
+            "disposition": "PRESERVE_EXISTING" if disposition == 2 else "INVALIDATE_EXISTING",
+            "previousAuthenticationGeneration": 0,
+            "resultingAuthenticationGeneration": generation_after,
+            "newAuthenticationPolicyInstalled": True,
+            "oldAuthenticationPolicyIsNotCurrent": True,
+            "newAuthenticationPoPRequired": True,
+            "stateHashLength": len(state_hash),
+        },
+    }
+
+
+def build_v305() -> dict:
+    return _auth_rotation_vector("V305", 2, 0)
+
+
+def build_v306() -> dict:
+    return _auth_rotation_vector("V306", 1, 1)
+
+
 def main() -> None:
     bundle = {
         "specification": "OpenIdentity Protocol v2 / IdentityState v3",
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
-        "vectors": [build_v301(), build_v302(), build_v303(), build_v304()],
+        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
@@ -430,6 +527,8 @@ def main() -> None:
     print("V302 VERIFIED")
     print("V303 VERIFIED")
     print("V304 VERIFIED")
+    print("V305 VERIFIED")
+    print("V306 VERIFIED")
 
 
 if __name__ == "__main__":
