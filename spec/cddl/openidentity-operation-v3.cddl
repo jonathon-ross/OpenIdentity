@@ -907,7 +907,9 @@ operation-bytes = bstr
 ; - generation transitions follow the disposition semantics in the v3 spec
 ;
 ; RESET_AUTHENTICATION / RESET_DELEGATIONS:
-; - require ACTIVE current state and current ControllerPolicy authorization
+; - require ACTIVE IdentityState v3 as the authoritative predecessor
+; - MUST NOT perform a v1/v2 -> v3 upgrade
+; - require current ControllerPolicy authorization
 ; - increment only the applicable generation and identity sequence
 ;
 ; Upgrade:
@@ -972,6 +974,8 @@ operation-bytes = bstr
 ;   to operation semantics; it never decreases, jumps, or wraps.
 ; - RECOVER always clears AuthenticationPolicy and DelegationPolicy and
 ;   increments both generations.
+; - RESET_AUTHENTICATION and RESET_DELEGATIONS require an IdentityState v3
+;   predecessor; reset operations cannot manufacture the v1/v2 -> v3 upgrade.
 ; - Delegation grants become authoritative only through network registration
 ;   under the current DelegationPolicy; registration does not mutate root
 ;   IdentityState.
