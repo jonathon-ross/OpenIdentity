@@ -841,23 +841,52 @@ def build_remaining_invalid_vectors():
     def item(vid,error,kind,**kw):
         x={"id":vid,"expected":"REJECT","expectedError":error,"attackKind":kind}; x.update(kw); out.append(x)
 
-    # Transition/disposition attacks.
-    item("VI309","MISSING_AUTHORITY_DISPOSITION","missing-disposition",
-         transition="AuthenticationPolicy A->B",payloadHasDisposition=False)
-    item("VI310","FORBIDDEN_AUTHORITY_DISPOSITION","forbidden-disposition",
-         transition="AuthenticationPolicy absent->A",disposition="PRESERVE_EXISTING")
-    item("VI311","INVALID_AUTHORITY_DISPOSITION","removal-preserve",
-         transition="AuthenticationPolicy A->absent",disposition="PRESERVE_EXISTING")
-    item("VI312","NO_OP_POLICY_REPLACEMENT","exact-policy-noop",
-         transition="AuthenticationPolicy A->A",policyBytesEqual=True)
+    # Transition/disposition attacks with byte-complete predecessor/operation artifacts.
+    def auth_case(vid, present=True, generation=7):
+        cpriv,_,cid,cm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+        apriv,_,aid,am=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} authentication A Ed25519 seed",16)
+        _,_,_,bm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} authentication B Ed25519 seed",32)
+        cp=_single_policy(cm); ap=_single_policy(am); bp=_single_policy(bm)
+        aa={1:generation}
+        if present: aa[2]=ap
+        prev={1:3,2:identity,3:1,4:1,5:cp,8:aa,9:{1:0}}
+        return cp,ap,bp,prev
 
-    # Generation attacks.
-    item("VI313","INVALID_AUTHORITY_GENERATION","generation-jump",
-         currentGeneration=7,proposedGeneration=9)
-    item("VI314","INVALID_AUTHORITY_GENERATION","generation-decrease",
-         currentGeneration=7,proposedGeneration=6)
+    cp,ap,bp,prev=auth_case("VI309"); psb=cbor(prev); psh=sha256_multihash(psb)
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:bp}}
+    item("VI309","MISSING_AUTHORITY_DISPOSITION","missing-disposition",
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),payloadBytesHex=cbor(op[6]).hex())
+
+    cp,ap,bp,prev=auth_case("VI310",False,0); psb=cbor(prev); psh=sha256_multihash(psb)
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:ap,2:2}}
+    item("VI310","FORBIDDEN_AUTHORITY_DISPOSITION","forbidden-disposition",
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),payloadBytesHex=cbor(op[6]).hex())
+
+    cp,ap,bp,prev=auth_case("VI311"); psb=cbor(prev); psh=sha256_multihash(psb)
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:None,2:2}}
+    item("VI311","INVALID_AUTHORITY_DISPOSITION","removal-preserve",
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),payloadBytesHex=cbor(op[6]).hex())
+
+    cp,ap,bp,prev=auth_case("VI312"); psb=cbor(prev); psh=sha256_multihash(psb)
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:ap,2:2}}
+    item("VI312","NO_OP_POLICY_REPLACEMENT","exact-policy-noop",
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
+         currentPolicyBytesHex=cbor(ap).hex(),proposedPolicyBytesHex=cbor(op[6][1]).hex())
+
+    # Generation attacks carry exact predecessor, operation, and invalid proposed state bytes.
+    for vid,proposed in [("VI313",9),("VI314",6)]:
+        cp,ap,bp,prev=auth_case(vid,True,7); psb=cbor(prev); psh=sha256_multihash(psb)
+        op={1:2,2:8,3:identity,4:2,5:psh,6:{}}
+        bad={1:3,2:identity,3:2,4:1,5:cp,8:{1:proposed,2:ap},9:{1:0}}
+        item(vid,"INVALID_AUTHORITY_GENERATION","generation-jump" if proposed==9 else "generation-decrease",
+             previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
+             proposedStateBytesHex=cbor(bad).hex(),currentGeneration=7,proposedGeneration=proposed)
+
+    cp,ap,bp,prev=auth_case("VI315",True,18446744073709551615); psb=cbor(prev); psh=sha256_multihash(psb)
+    op={1:2,2:8,3:identity,4:2,5:psh,6:{}}
     item("VI315","AUTHORITY_GENERATION_OVERFLOW","generation-overflow",
-         currentGeneration=18446744073709551615,operationRequiresIncrement=True)
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
+         currentGeneration=18446744073709551615,requiredNextGeneration="18446744073709551616")
 
     # Recovery attacks.
     item("VI316","RECOVERY_MUST_RESET_AUTHENTICATION","recover-preserve-authentication",
