@@ -22,8 +22,8 @@
 - V316 RECOVER / REPLACE AssertionPolicy with complete Assertion PoP — generator + independent verifier implemented
 - V317 RECOVER from DEACTIVATED — generator + independent verifier implemented; resulting state ACTIVE
 - V318 protocolVersion 2 RECOVER upgrades v2 to v3 with generations = 1 — generator + independent verifier implemented
-- V319 DelegationPolicy PRESERVE_EXISTING leaves delegation generation unchanged
-- V320 RESET_DELEGATIONS increments delegation generation exactly once
+- V319 DelegationPolicy PRESERVE_EXISTING leaves delegation generation unchanged — generator + independent verifier implemented at nonzero generation 42
+- V320 RESET_DELEGATIONS increments delegation generation exactly once — generator + independent verifier implemented at generation 42 -> 43
 
 ## Invalid/security vectors
 
