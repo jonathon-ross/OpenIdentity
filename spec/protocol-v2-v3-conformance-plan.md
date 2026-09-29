@@ -79,6 +79,20 @@ and registration wire formats will be defined.
 
 Every implementation must independently reproduce identical StateBytes and StateHash for every successful state transition. Invalid vectors must fail structurally or semantically before any authoritative state mutation.
 
+## Current byte-frozen candidate
+
+The security-reviewed Protocol v2 / IdentityState v3 conformance bundle is a **BYTE-FROZEN CANDIDATE** and remains **DRAFT-NON-NORMATIVE** pending explicit promotion.
+
+- File: `test-vectors/generated/protocol-v2-identity-state-v3.json`
+- Coverage: V301-V324 / VI301-VI337
+- SHA-256: `3a5cf175f0b3fb72c7f6b363d169739fffa8102e61f8a37fba2992c3f3803b3c`
+- Checksum file: `checksums/protocol-v2-identity-state-v3.json.sha256`
+- Python strict pre-freeze release gate: PASS
+- Independent Java v3 verification: V301-V324 / VI301-VI337 PASS
+- Frozen v0.1 regression/generator integrity: PASS
+
+Any byte change invalidates this candidate and requires the candidate-refresh workflow, complete Python/frozen regression gate, independent Java gates, and a new checksum before another byte freeze is accepted.
+
 ## Superseded byte-frozen candidate
 
 The previous byte-frozen candidate (125506 bytes, SHA-256 `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`) was intentionally invalidated by the final adversarial review after discovering ambiguity around RESET_AUTHENTICATION / RESET_DELEGATIONS as v1/v2-to-v3 upgrade operations.
