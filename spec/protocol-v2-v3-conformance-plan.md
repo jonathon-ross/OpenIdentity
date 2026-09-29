@@ -69,3 +69,14 @@ and registration wire formats will be defined.
 ## Required invariants
 
 Every implementation must independently reproduce identical StateBytes and StateHash for every successful state transition. Invalid vectors must fail structurally or semantically before any authoritative state mutation.
+
+## Byte-frozen candidate
+
+The generated Protocol v2 / IdentityState v3 conformance bundle is currently a **BYTE-FROZEN CANDIDATE** and remains **DRAFT-NON-NORMATIVE**.
+
+- File: `test-vectors/generated/protocol-v2-identity-state-v3.json`
+- Exact size: 125506 bytes
+- SHA-256: `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`
+- Checksum file: `test-vectors/generated/protocol-v2-identity-state-v3.json.sha256`
+
+Any byte change to the candidate MUST invalidate the checksum and requires rerunning the Python pre-freeze gate and both independent Java gates before a new candidate checksum is accepted. Byte freezing does not by itself promote this draft to normative status.
