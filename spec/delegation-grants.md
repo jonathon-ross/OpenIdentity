@@ -183,6 +183,69 @@ The authoritative network/registry representation may differ, but it MUST preser
 
 Initial statuses are expected to include ACTIVE and REVOKED. Additional terminal or suspension statuses require explicit semantics before inclusion.
 
+## 8A. RegisteredGrant state history
+
+Authoritative grant registration/status uses a per-GrantId monotonic revision chain. It is independent of the grantor IdentityState sequence.
+
+The canonical logical state is:
+
+    RegisteredGrantState {
+        grantId
+        revision
+        previousRecordHash
+        status
+        grantBytes
+        grantorStateHash
+        delegationGeneration
+        registeredAt
+    }
+
+REGISTER establishes:
+
+    revision = 1
+    previousRecordHash = nil
+    status = ACTIVE
+
+A later grant-state transition MUST use:
+
+    revision = current.revision + 1
+    previousRecordHash = RecordHash(current)
+
+The initial OI-014 state machine permits ACTIVE -> REVOKED. REVOKED is terminal. A revoked GrantId MUST NOT be reactivated, re-registered, or assigned a later ACTIVE revision.
+
+RecordBytes are deterministic CBOR encoding of the complete RegisteredGrantState. The initial RecordHash profile is:
+
+    RecordBytes = deterministicCBOR(RegisteredGrantState)
+    RecordHash  = 0x12 || 0x20 || SHA-256(RecordBytes)
+
+GrantId and RecordHash serve different purposes. GrantId identifies immutable grant intent derived from GrantBytes. RecordHash identifies one exact authoritative registration/status state for that GrantId.
+
+Registration metadata is therefore outside GrantBytes but cryptographically committed by RecordHash.
+
+### Ordering and replay
+
+A grant-state processor MUST validate revision and previousRecordHash against the same authoritative predecessor it uses to establish the successor.
+
+A stale, duplicate, skipped, or replayed revision MUST NOT become authoritative.
+
+Once one successor becomes authoritative for revision N+1, competing transitions referencing revision N are stale and MUST NOT later be applied.
+
+The registry/consensus mechanism that chooses among otherwise-valid competing successors is outside OI-014, but it MUST establish at most one authoritative successor from a particular RegisteredGrantState.
+
+Revision MUST NOT wrap. If current revision is 2^64 - 1, no further grant-state transition is representable.
+
+### Separation from root state
+
+Grant revision:
+
+- is scoped to one GrantId;
+- is not the grantor IdentityState sequence;
+- does not alter grantor StateHash;
+- does not alter DelegationAuthority.generation;
+- does not order records belonging to other GrantIds.
+
+A grantor may therefore have many independently evolving grant records without serializing all grant activity through the root identity state machine.
+
 ## 9. Grant usability
 
 A registered grant is usable only if all of the following hold:
@@ -354,7 +417,7 @@ The following require deliberate decisions before assigning final CDDL labels:
 6. whether subdelegation is core-enabled or profile-opt-in;
 7. authoritative registration/status transaction format;
 8. revocation authorization model;
-9. whether registration records need their own monotonic sequence/version;
+9. **RESOLVED:** registration records use a per-GrantId uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
 10. whether GrantId remains SHA2-256-only in the first release or uses a general Multihash bound;
 11. privacy implications of public registration and whether commitments/private registries are allowed;
 12. resolution/discovery API semantics for registered grants.
