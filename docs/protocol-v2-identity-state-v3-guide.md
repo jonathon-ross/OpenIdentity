@@ -175,7 +175,7 @@ If AssertionPolicy is absent, RECOVER cannot introduce one; only PRESERVE is val
 
 DEACTIVATE preserves the authority structures and generations in StateBytes but changes status to DEACTIVATED.
 
-While deactivated, new authentication, delegation registration, and credential issuance are invalid. Existing delegation grants are unusable. Historical credential verification remains possible against the historical authoritative state.
+While deactivated, RECOVER is the only permitted state-changing operation. ROTATE_CONTROLLER, DEACTIVATE, SET_ASSERTION_POLICY, SET_AUTHENTICATION_POLICY, SET_DELEGATION_POLICY, RESET_AUTHENTICATION, and RESET_DELEGATIONS are rejected. New authentication, delegation registration, and credential issuance are also invalid. Existing delegation grants are unusable. Historical credential verification remains possible against the historical authoritative state.
 
 RECOVER returns the identity to ACTIVE and increments both derived-authority generations, preventing dormant derived authority from becoming usable again.
 
