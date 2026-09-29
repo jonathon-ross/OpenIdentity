@@ -475,11 +475,15 @@ def verify_remaining_invalids(data):
     require("VI328 effective COSE_Key bytes identical",v["coseKey1Hex"]==v["coseKey2Hex"])
     require("VI328 public key is Ed25519 length",len(bytes.fromhex(v["publicKeyHex"]))==32)
 
-    require("VI329 CREATE redundant controller PoP field is 3",invalid["VI329"]["forbiddenProofField"]==3)
-    require("VI330 RESET_AUTHENTICATION forbidden purpose PoP field is 5",invalid["VI330"]["forbiddenProofField"]==5)
-    require("VI331 RECOVER forbidden ordinary authorization field is 2",invalid["VI331"]["forbiddenProofField"]==2)
-    require("VI332 PRESERVE cannot carry replacement AssertionPolicy",
-            invalid["VI332"]["disposition"]=="PRESERVE" and invalid["VI332"]["replacementAssertionPolicyPresent"])
+    require("VI329 byte-complete CREATE with forbidden field 3",
+            invalid["VI329"]["forbiddenProofField"]==3 and len(bytes.fromhex(invalid["VI329"]["signedOperationBytesHex"]))>0)
+    require("VI330 byte-complete RESET_AUTHENTICATION with forbidden field 5",
+            invalid["VI330"]["forbiddenProofField"]==5 and len(bytes.fromhex(invalid["VI330"]["signedOperationBytesHex"]))>0)
+    require("VI331 byte-complete RECOVER with forbidden field 2",
+            invalid["VI331"]["forbiddenProofField"]==2 and len(bytes.fromhex(invalid["VI331"]["signedOperationBytesHex"]))>0)
+    require("VI332 byte-complete PRESERVE/replacement shape mismatch",
+            invalid["VI332"]["disposition"]==1 and invalid["VI332"]["replacementAssertionPolicyPresent"]
+            and len(bytes.fromhex(invalid["VI332"]["payloadBytesHex"]))>0)
 
 
 def main():
