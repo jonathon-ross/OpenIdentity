@@ -583,12 +583,100 @@ def build_v308() -> dict:
     }
 
 
+
+def _delegation_transition(vector_id, mode, disposition=None, generation_before=0, generation_after=0):
+    identity=bytes(range(32))
+    cpriv,cpub,cid,cm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} controller Ed25519 seed",0)
+    _,oldpub,oldid,oldm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} delegation A Ed25519 seed",16)
+    newpriv,newpub,newid,newm=_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} delegation B Ed25519 seed",32)
+    cp=_single_policy(cm); oldp=_single_policy(oldm); newp=_single_policy(newm)
+    previous_auth={1:0}
+    previous_del={1:generation_before}
+    if mode!="install": previous_del[2]=oldp
+    previous={1:3,2:identity,3:1,4:1,5:cp,8:previous_auth,9:previous_del}
+    psb=cbor(previous); psh=sha256_multihash(psb)
+
+    if mode=="reset":
+        operation={1:2,2:9,3:identity,4:2,5:psh,6:{}}
+        result_policy=oldp
+    else:
+        payload_policy=None if mode=="remove" else (oldp if mode=="install" else newp)
+        payload={1:payload_policy}
+        if disposition is not None: payload[2]=disposition
+        operation={1:2,2:7,3:identity,4:2,5:psh,6:payload}
+        result_policy=payload_policy
+
+    ob=cbor(operation)
+    csi=cbor(["OpenIdentity Operation",1,ob])
+    csig=cpriv.sign(csi); cpriv.public_key().verify(csig,csi)
+    signed={1:operation,2:[{1:cid,2:csig}]}
+    delegation_signing=None
+    delegation_sig=None
+    if result_policy is not None and mode!="reset":
+        proof_priv, proof_id = ((newpriv,newid) if mode=="rotate" else
+                               (_ed25519(f"OpenIdentity protocol-v2 v3 {vector_id} delegation A Ed25519 seed",16)[0],oldid))
+        delegation_signing,proof=_purpose_proof("OpenIdentity Delegation Proof",ob,proof_priv,proof_id)
+        delegation_sig=proof[2]
+        signed[7]=[proof]
+
+    result_del={1:generation_after}
+    if result_policy is not None: result_del[2]=result_policy
+    state={1:3,2:identity,3:2,4:1,5:cp,8:{1:0},9:result_del}
+    sb=cbor(state); sh=sha256_multihash(sb)
+    out={
+        "id":vector_id,"expected":"PASS","previousStateBytesHex":psb.hex(),
+        "previousStateHashHex":psh.hex(),"operationBytesHex":ob.hex(),
+        "controllerSigningBytesHex":csi.hex(),"controllerSignatureHex":csig.hex(),
+        "signedOperationBytesHex":cbor(signed).hex(),"stateBytesHex":sb.hex(),
+        "stateHashHex":sh.hex(),"assertions":{
+            "previousDelegationGeneration":generation_before,
+            "resultingDelegationGeneration":generation_after,
+            "delegationPolicyPresent":result_policy is not None,
+            "delegationProofCollectionPresent":7 in signed,
+            "stateHashLength":len(sh)
+        }
+    }
+    if delegation_signing is not None:
+        out["delegationProofSigningBytesHex"]=delegation_signing.hex()
+        out["delegationProofSignatureHex"]=delegation_sig.hex()
+    return out
+
+
+def build_v309():
+    v=_delegation_transition("V309","install",generation_before=0,generation_after=0)
+    v["description"]="Initial DelegationPolicy installation preserves generation 0"
+    return v
+
+def build_v310():
+    v=_delegation_transition("V310","rotate",disposition=2,generation_before=4,generation_after=4)
+    v["description"]="DelegationPolicy planned rotation preserves generation"
+    v["assertions"]["disposition"]="PRESERVE_EXISTING"
+    return v
+
+def build_v311():
+    v=_delegation_transition("V311","rotate",disposition=1,generation_before=4,generation_after=5)
+    v["description"]="DelegationPolicy security rotation increments generation exactly once"
+    v["assertions"]["disposition"]="INVALIDATE_EXISTING"
+    return v
+
+def build_v312():
+    v=_delegation_transition("V312","remove",generation_before=4,generation_after=5)
+    v["description"]="Removing DelegationPolicy increments generation exactly once"
+    return v
+
+def build_v313():
+    v=_delegation_transition("V313","reset",generation_before=9,generation_after=10)
+    v["description"]="RESET_DELEGATIONS preserves policy and increments generation exactly once"
+    v["assertions"]["delegationPolicyPreserved"]=True
+    return v
+
+
 def main() -> None:
     bundle = {
         "specification": "OpenIdentity Protocol v2 / IdentityState v3",
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
-        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308()],
+        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
@@ -601,6 +689,11 @@ def main() -> None:
     print("V306 VERIFIED")
     print("V307 VERIFIED")
     print("V308 VERIFIED")
+    print("V309 VERIFIED")
+    print("V310 VERIFIED")
+    print("V311 VERIFIED")
+    print("V312 VERIFIED")
+    print("V313 VERIFIED")
 
 
 if __name__ == "__main__":
