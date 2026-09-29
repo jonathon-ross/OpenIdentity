@@ -18,6 +18,7 @@ PY = sys.executable
 CHECKS = [
     ("Generate draft Protocol v2/v3 vectors", "generate_protocol_v2_v3.py"),
     ("Verify draft Protocol v2/v3 vectors", "verify_protocol_v2_v3.py"),
+    ("Verify v3 byte-frozen candidate", "verify_protocol_v2_v3_freeze_candidate.py"),
     ("Frozen OI-002 cryptographic agility", "verify_cryptographic_agility.py", "test-vectors/cryptographic-agility-v0.1.json"),
     ("Frozen identity vectors", "verify_identity_vectors.py"),
     ("Frozen assertion authority", "verify_assertion_authority.py"),
