@@ -5,6 +5,8 @@
 **Resulting IdentityState version:** 3  
 **Normative wire draft:** `spec/cddl/openidentity-operation-v3.cddl`
 
+**Implementation guide:** `docs/protocol-v2-identity-state-v3-guide.md` (supporting/non-normative explanation)
+
 ## 1. Upgrade boundary
 
 ProtocolVersion 2 is the explicit state-v3 upgrade boundary.
