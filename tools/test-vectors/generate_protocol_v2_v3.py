@@ -1053,6 +1053,23 @@ def build_remaining_invalid_vectors():
              previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
              predecessorStateVersion=2,operationType=optype)
 
+    # DEACTIVATED permits RECOVER only.
+    for vid,optype in [("VI335",2),("VI336",6)]:
+        _,_,_,cm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+        cp=_single_policy(cm)
+        previous={1:3,2:identity,3:8,4:2,5:cp,8:{1:2},9:{1:3}}
+        psb=cbor(previous); psh=sha256_multihash(psb)
+        if optype==2:
+            _,_,_,nm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} replacement controller Ed25519 seed",16)
+            payload={1:_single_policy(nm)}
+        else:
+            _,_,_,am=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} authentication Ed25519 seed",16)
+            payload={1:_single_policy(am)}
+        op={1:2,2:optype,3:identity,4:9,5:psh,6:payload}
+        item(vid,"OPERATION_NOT_PERMITTED_WHILE_DEACTIVATED","deactivated-non-recover",
+             previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
+             predecessorStatus="DEACTIVATED",operationType=optype)
+
     return out
 
 
