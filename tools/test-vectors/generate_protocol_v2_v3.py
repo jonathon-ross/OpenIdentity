@@ -888,27 +888,72 @@ def build_remaining_invalid_vectors():
          previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),
          currentGeneration=18446744073709551615,requiredNextGeneration="18446744073709551616")
 
-    # Recovery attacks.
+    # Recovery attacks with exact predecessor/operation/proposed-state artifacts.
+    def recovery_case(vid, assertion=True, disposition=1, replacement=False):
+        _,_,_,oldcm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} old controller Ed25519 seed",0)
+        _,_,_,newcm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} new controller Ed25519 seed",16)
+        _,_,_,rm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} recovery Ed25519 seed",32)
+        _,_,_,oldam=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} assertion A Ed25519 seed",48)
+        _,_,_,newam=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} assertion B Ed25519 seed",64)
+        _,_,_,authm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} authentication Ed25519 seed",80)
+        _,_,_,delm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} delegation Ed25519 seed",96)
+        oldcp=_single_policy(oldcm); newcp=_single_policy(newcm)
+        oldap=_single_policy(oldam); newap=_single_policy(newam)
+        rp=_recovery_policy(rm); rc=sha256_multihash(cbor(rp)); newrc=sha256_multihash(cbor(_recovery_policy(newcm)))
+        prev={1:3,2:identity,3:5,4:1,5:oldcp,6:rc,8:{1:3,2:_single_policy(authm)},9:{1:7,2:_single_policy(delm)}}
+        if assertion: prev[7]=oldap
+        payload={1:newcp,2:rp,3:newrc}
+        if disposition is not None: payload[4]=disposition
+        if replacement: payload[5]=newap
+        op={1:2,2:3,3:identity,4:6,5:sha256_multihash(cbor(prev)),6:payload}
+        return prev,op,newcp,newrc,oldap,newap
+
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI316")
+    bad={1:3,2:identity,3:6,4:1,5:newcp,6:newrc,7:oldap,8:prev[8],9:{1:8}}
     item("VI316","RECOVERY_MUST_RESET_AUTHENTICATION","recover-preserve-authentication",
-         authenticationPolicyPresentBefore=True,authenticationPolicyPresentAfter=True)
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex(),proposedStateBytesHex=cbor(bad).hex())
+
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI317")
+    bad={1:3,2:identity,3:6,4:1,5:newcp,6:newrc,7:oldap,8:{1:4},9:prev[9]}
     item("VI317","RECOVERY_MUST_RESET_DELEGATION","recover-preserve-delegation",
-         delegationPolicyPresentBefore=True,delegationPolicyPresentAfter=True)
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex(),proposedStateBytesHex=cbor(bad).hex())
+
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI318",True,None)
     item("VI318","MISSING_ASSERTION_DISPOSITION","recover-missing-assertion-disposition",
-         payloadLabels=[1,2,3])
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex(),payloadBytesHex=cbor(op[6]).hex())
+
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI319",False,2)
     item("VI319","INVALID_ASSERTION_DISPOSITION","recover-remove-absent-assertion",
-         sourceAssertionPolicyPresent=False,disposition="REMOVE")
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex())
+
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI320",False,3,True)
     item("VI320","INVALID_ASSERTION_DISPOSITION","recover-replace-absent-assertion",
-         sourceAssertionPolicyPresent=False,disposition="REPLACE")
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex())
+
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI321",True,3,True)
+    malformed={1:op,3:[{1:bytes(range(16,32)),2:bytes(64)}],4:[{1:bytes(range(32,48)),2:bytes(64)}]}
     item("VI321","MISSING_PROOF_OF_POSSESSION","recover-replace-missing-assertion-pop",
-         sourceAssertionPolicyPresent=True,disposition="REPLACE",assertionProofCount=0)
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex(),
+         signedOperationBytesHex=cbor(malformed).hex(),missingProofField=6)
 
     # Version / structural attacks.
+    cp,ap,bp,prev=auth_case("VI322",True,7); psb=cbor(prev); psh=sha256_multihash(psb)
+    op={1:2,2:8,3:identity,4:2,5:psh,6:{}}; bad={1:2,2:identity,3:2,4:1,5:cp}
     item("VI322","STATE_VERSION_DOWNGRADE","state-version-downgrade",
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),proposedStateBytesHex=cbor(bad).hex(),
          sourceStateVersion=3,proposedStateVersion=2)
+
+    cp,ap,bp,prev=auth_case("VI323",True,7); psb=cbor(prev); psh=sha256_multihash(psb)
+    pv1={1:1,2:4,3:identity,4:2,5:psh,6:{}}
     item("VI323","UNSUPPORTED_PROTOCOL_VERSION","pv1-on-v3",
-         sourceStateVersion=3,operationProtocolVersion=1)
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(pv1).hex(),sourceStateVersion=3,operationProtocolVersion=1)
+
+    cp,ap,bp,prev=auth_case("VI324",False,0); psb=cbor(prev); psh=sha256_multihash(psb)
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:ap}}
+    malformed={1:op,2:[{1:bytes(range(16)),2:bytes(64)}],5:{1:bytes(range(16,32)),2:bytes(64)}}
     item("VI324","MALFORMED_PROOF_COLLECTION","malformed-proof-collection",
-         proofField=5,encodedAs="map",requiredShape="non-empty array")
+         previousStateBytesHex=psb.hex(),operationBytesHex=cbor(op).hex(),signedOperationBytesHex=cbor(malformed).hex(),
+         proofField=5,encodedMajorType="map",requiredMajorType="array")
 
     # Duplicate effective cryptographic key under distinct method IDs.
     _,pub,mid1,m1=_ed25519("OpenIdentity protocol-v2 v3 VI328 duplicate effective key seed",0)
