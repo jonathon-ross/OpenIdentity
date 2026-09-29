@@ -208,6 +208,10 @@ A state processor should conceptually validate in this order:
 
 Implementations may reorder internal checks only when externally observable conformance and security behavior remains equivalent.
 
+## 10A. Unrelated-state preservation
+
+A state-changing operation owns only the fields its transition semantics explicitly modify. Every unrelated predecessor field must survive unchanged in the successor. For example, SET_AUTHENTICATION_POLICY must not alter ControllerPolicy, recoveryCommitment, AssertionPolicy, DelegationAuthority, or status; DEACTIVATE changes status and sequence but preserves all authority structures and generations. RECOVER is the deliberate exception because its specification explicitly replaces/resets several authority fields.
+
 ## 11. Canonical serialization rules that matter most
 
 Protocol v2 continues the RFC 8949 deterministic-CBOR rules defined by OI-009.
