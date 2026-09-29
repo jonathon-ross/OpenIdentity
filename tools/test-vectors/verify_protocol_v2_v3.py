@@ -160,6 +160,42 @@ def verify_v304(v):
     require("V304 StateHash",v["stateHashHex"]==mh(sb).hex())
 
 
+
+def verify_auth_rotation(v, disposition, expected_generation):
+    vid=v["id"]
+    identity=bytes(range(32))
+    _,cpub,cid,cm=key(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+    _,old_pub,old_id,old_method=key(f"OpenIdentity protocol-v2 v3 {vid} authentication A Ed25519 seed",16)
+    _,new_pub,new_id,new_method=key(f"OpenIdentity protocol-v2 v3 {vid} authentication B Ed25519 seed",32)
+    cp,oldp,newp=policy(cm),policy(old_method),policy(new_method)
+    previous={1:3,2:identity,3:1,4:1,5:cp,8:{1:0,2:oldp},9:{1:0}}
+    psb=enc(previous); psh=mh(psb)
+    require(f"{vid} previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require(f"{vid} previous StateHash",v["previousStateHashHex"]==psh.hex())
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:newp,2:disposition}}
+    ob=enc(op)
+    require(f"{vid} OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(cpub,v["controllerSignatureHex"],enc(["OpenIdentity Operation",1,ob]))
+    require(f"{vid} controller authorization verifies",True)
+    auth_input=enc(["OpenIdentity Authentication Proof",1,ob,new_id])
+    verify_signature(new_pub,v["authenticationProofSignatureHex"],auth_input)
+    require(f"{vid} new AuthenticationPolicy PoP verifies",True)
+    state={1:3,2:identity,3:2,4:1,5:cp,8:{1:expected_generation,2:newp},9:{1:0}}
+    sb=enc(state)
+    require(f"{vid} generation semantics",state[8][1]==expected_generation)
+    require(f"{vid} old policy retired for new proofs",state[8][2]!=oldp)
+    require(f"{vid} StateBytes",v["stateBytesHex"]==sb.hex())
+    require(f"{vid} StateHash",v["stateHashHex"]==mh(sb).hex())
+
+
+def verify_v305(v):
+    verify_auth_rotation(v,2,0)
+
+
+def verify_v306(v):
+    verify_auth_rotation(v,1,1)
+
+
 def main():
     data=json.loads(BUNDLE.read_text(encoding="utf-8"))
     print("OpenIdentity Protocol v2 / IdentityState v3")
@@ -169,14 +205,16 @@ def main():
     require("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
     require("wire schema",data["wireSchema"]=="spec/cddl/openidentity-operation-v3.cddl")
     vectors={v["id"]:v for v in data["vectors"]}
-    require("vector IDs V301-V304",set(vectors)=={"V301","V302","V303","V304"})
+    require("vector IDs V301-V306",set(vectors)=={"V301","V302","V303","V304","V305","V306"})
     verify_v301(vectors["V301"])
     verify_v302(vectors["V302"])
     verify_v303(vectors["V303"])
     verify_v304(vectors["V304"])
+    verify_v305(vectors["V305"])
+    verify_v306(vectors["V306"])
     print()
     print("="*48)
-    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V304 VERIFIED")
+    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V306 VERIFIED")
     print("="*48)
 
 
