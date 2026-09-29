@@ -295,7 +295,7 @@ def verify_v313(v): verify_delegation_transition(v,"reset",gen_before=9,gen_afte
 
 def verify_initial_invalid_cases():
     print()
-    print("VI309-VI313/VI325/VI330 Invalid/Security Verification")
+    print("VI306/VI309-VI313/VI325/VI330 Invalid/Security Verification")
     print("-"*48)
 
     # VI309: A -> B without a disposition is semantically ambiguous.
@@ -319,6 +319,27 @@ def verify_initial_invalid_cases():
     # VI330: RESET_AUTHENTICATION has no purpose-specific PoP collection.
     reset_signed_labels={1,2}
     require("VI330 RESET_AUTHENTICATION purpose-specific PoP rejected",5 not in reset_signed_labels)
+
+    # VI306: Authentication-domain signature cannot satisfy Delegation PoP.
+    identity_d=bytes(range(32))
+    dpriv,dpub,dmid,dmethod=key("OpenIdentity protocol-v2 v3 VI306 delegation Ed25519 seed",16)
+    _,_,_,dcm=key("OpenIdentity protocol-v2 v3 VI306 controller Ed25519 seed",0)
+    dcp=policy(dcm); dp=policy(dmethod)
+    dprevious={1:3,2:identity_d,3:1,4:1,5:dcp,8:{1:0},9:{1:0}}
+    dob=enc({1:2,2:7,3:identity_d,4:2,5:mh(enc(dprevious)),6:{1:dp}})
+    wrong_d=enc(["OpenIdentity Authentication Proof",1,dob,dmid])
+    required_d=enc(["OpenIdentity Delegation Proof",1,dob,dmid])
+    dsig=dpriv.sign(wrong_d)
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    dpk=Ed25519PublicKey.from_public_bytes(dpub)
+    dpk.verify(dsig,wrong_d)
+    require("VI306 signature verifies in Authentication domain",True)
+    drejected=False
+    try:
+        dpk.verify(dsig,required_d)
+    except Exception:
+        drejected=True
+    require("VI306 Authentication PoP rejected as Delegation PoP",drejected)
 
     # VI325: a signature valid in Assertion PoP domain must fail Authentication domain.
     identity=bytes(range(32))
