@@ -498,6 +498,68 @@ def verify_concrete_pop_invalids(data):
         require(f"{vid} unauthorized proof cryptographically valid",True)
 
 
+
+def verify_remaining_invalids(data):
+    print()
+    print("Concrete Transition / Generation / Recovery / Structural Attacks")
+    print("-"*48)
+    invalid={v["id"]:v for v in data["invalidVectors"]}
+    require("full invalid suite IDs VI301-VI332",
+            set(invalid)=={f"VI{i}" for i in range(301,333)})
+
+    expected={
+      "VI309":"MISSING_AUTHORITY_DISPOSITION","VI310":"FORBIDDEN_AUTHORITY_DISPOSITION",
+      "VI311":"INVALID_AUTHORITY_DISPOSITION","VI312":"NO_OP_POLICY_REPLACEMENT",
+      "VI313":"INVALID_AUTHORITY_GENERATION","VI314":"INVALID_AUTHORITY_GENERATION",
+      "VI315":"AUTHORITY_GENERATION_OVERFLOW","VI316":"RECOVERY_MUST_RESET_AUTHENTICATION",
+      "VI317":"RECOVERY_MUST_RESET_DELEGATION","VI318":"MISSING_ASSERTION_DISPOSITION",
+      "VI319":"INVALID_ASSERTION_DISPOSITION","VI320":"INVALID_ASSERTION_DISPOSITION",
+      "VI321":"MISSING_PROOF_OF_POSSESSION","VI322":"STATE_VERSION_DOWNGRADE",
+      "VI323":"UNSUPPORTED_PROTOCOL_VERSION","VI324":"MALFORMED_PROOF_COLLECTION",
+      "VI328":"DUPLICATE_EFFECTIVE_VERIFICATION_KEY","VI329":"MALFORMED_SIGNED_OPERATION",
+      "VI330":"MALFORMED_SIGNED_OPERATION","VI331":"MALFORMED_SIGNED_OPERATION",
+      "VI332":"MALFORMED_RECOVERY_PAYLOAD"}
+    for vid,err in expected.items():
+        require(f"{vid} expected REJECT",invalid[vid]["expected"]=="REJECT")
+        require(f"{vid} stable expected error",invalid[vid]["expectedError"]==err)
+
+    require("VI309 missing disposition represented",invalid["VI309"]["payloadHasDisposition"] is False)
+    require("VI310 absent->A disposition forbidden",invalid["VI310"]["transition"].endswith("absent->A"))
+    require("VI311 removal cannot preserve",invalid["VI311"]["disposition"]=="PRESERVE_EXISTING")
+    require("VI312 exact policy no-op represented",invalid["VI312"]["policyBytesEqual"] is True)
+    require("VI313 generation jump >1",invalid["VI313"]["proposedGeneration"]>invalid["VI313"]["currentGeneration"]+1)
+    require("VI314 generation decreases",invalid["VI314"]["proposedGeneration"]<invalid["VI314"]["currentGeneration"])
+    require("VI315 uint64 max increment would overflow",
+            invalid["VI315"]["currentGeneration"]==2**64-1 and invalid["VI315"]["operationRequiresIncrement"])
+    require("VI316 recovery illegally preserves authentication",
+            invalid["VI316"]["authenticationPolicyPresentBefore"] and invalid["VI316"]["authenticationPolicyPresentAfter"])
+    require("VI317 recovery illegally preserves delegation",
+            invalid["VI317"]["delegationPolicyPresentBefore"] and invalid["VI317"]["delegationPolicyPresentAfter"])
+    require("VI318 recovery disposition missing",4 not in invalid["VI318"]["payloadLabels"])
+    require("VI319 REMOVE invalid when assertion absent",
+            not invalid["VI319"]["sourceAssertionPolicyPresent"] and invalid["VI319"]["disposition"]=="REMOVE")
+    require("VI320 REPLACE invalid when assertion absent",
+            not invalid["VI320"]["sourceAssertionPolicyPresent"] and invalid["VI320"]["disposition"]=="REPLACE")
+    require("VI321 replacement Assertion PoP missing",invalid["VI321"]["assertionProofCount"]==0)
+    require("VI322 v3->v2 downgrade represented",
+            invalid["VI322"]["sourceStateVersion"]==3 and invalid["VI322"]["proposedStateVersion"]==2)
+    require("VI323 PV1 applied to v3 represented",
+            invalid["VI323"]["sourceStateVersion"]==3 and invalid["VI323"]["operationProtocolVersion"]==1)
+    require("VI324 malformed proof collection represented",
+            invalid["VI324"]["encodedAs"]=="map" and invalid["VI324"]["requiredShape"]=="non-empty array")
+
+    v=invalid["VI328"]
+    require("VI328 method IDs distinct",v["methodId1Hex"]!=v["methodId2Hex"])
+    require("VI328 effective COSE_Key bytes identical",v["coseKey1Hex"]==v["coseKey2Hex"])
+    require("VI328 public key is Ed25519 length",len(bytes.fromhex(v["publicKeyHex"]))==32)
+
+    require("VI329 CREATE redundant controller PoP field is 3",invalid["VI329"]["forbiddenProofField"]==3)
+    require("VI330 RESET_AUTHENTICATION forbidden purpose PoP field is 5",invalid["VI330"]["forbiddenProofField"]==5)
+    require("VI331 RECOVER forbidden ordinary authorization field is 2",invalid["VI331"]["forbiddenProofField"]==2)
+    require("VI332 PRESERVE cannot carry replacement AssertionPolicy",
+            invalid["VI332"]["disposition"]=="PRESERVE" and invalid["VI332"]["replacementAssertionPolicyPresent"])
+
+
 def main():
     data=json.loads(BUNDLE.read_text(encoding="utf-8"))
     print("OpenIdentity Protocol v2 / IdentityState v3")
@@ -530,6 +592,7 @@ def main():
     verify_v320(vectors["V320"])
     verify_initial_invalid_cases()
     verify_concrete_pop_invalids(data)
+    verify_remaining_invalids(data)
     print()
     print("="*48)
     print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V320 VERIFIED")
