@@ -27,8 +27,8 @@ public final class ProtocolV2V3Vectors {
                 root.resolve("test-vectors/generated/protocol-v2-identity-state-v3.json").toFile());
         require("suite specification",
                 "OpenIdentity Protocol v2 / IdentityState v3".equals(doc.path("specification").asText()));
-        require("positive vector count", doc.path("vectors").size() == 20);
-        require("invalid vector count", doc.path("invalidVectors").size() == 32);
+        require("positive vector count", doc.path("vectors").size() == 22);
+        require("invalid vector count", doc.path("invalidVectors").size() == 34);
 
         verifyV301(find(doc, "V301"));
         verifyV302(find(doc, "V302"));
@@ -41,11 +41,12 @@ public final class ProtocolV2V3Vectors {
         verifyV314(find(doc, "V314")); verifyV315(find(doc, "V315")); verifyV316(find(doc, "V316"));
         verifyV317(find(doc, "V317")); verifyV318(find(doc, "V318"));
         verifyV319(find(doc, "V319")); verifyV320(find(doc, "V320"));
+        verifyV321(find(doc, "V321")); verifyV322(find(doc, "V322"));
         verifyInvalidSuite(doc);
 
         System.out.println();
         System.out.println("================================================");
-        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V320 + VI301-VI332 VERIFIED");
+        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V322 + VI301-VI334 VERIFIED");
         System.out.println("================================================");
     }
 
@@ -234,6 +235,35 @@ public final class ProtocolV2V3Vectors {
     private static void verifyV320(JsonNode v)throws Exception{verifyDelegation(v,"V320","reset",-1,42,43);}
 
 
+
+    private static void verifyV321(JsonNode v)throws Exception{
+        Key c=key("OpenIdentity protocol-v2 v3 V321 controller Ed25519 seed",0);
+        Key d=key("OpenIdentity protocol-v2 v3 V321 delegation Ed25519 seed",16);
+        byte[] cp=policy(c.method),dp=policy(d.method);
+        byte[] prev=state(2,1,1,cp,null,null,null,null);
+        byte[] op=operation(7,2,StateHash.sha256Multihash(prev),map(entry(1,dp)));
+        require("V321 OperationBytes",eq(v,"operationBytesHex",op));
+        require("V321 controller signature",eq(v,"controllerSignatureHex",c.ed.sign(signing("OpenIdentity Operation",op,null))));
+        require("V321 delegation PoP",eq(v,"delegationProofSignatureHex",d.ed.sign(signing("OpenIdentity Delegation Proof",op,d.id))));
+        byte[] result=state(3,2,1,cp,null,null,authority(0,null),authority(0,dp));
+        require("V321 StateBytes",eq(v,"stateBytesHex",result));
+        require("V321 StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+
+    private static void verifyV322(JsonNode v)throws Exception{
+        Key oldc=key("OpenIdentity protocol-v2 v3 V322 old controller Ed25519 seed",0);
+        Key newc=key("OpenIdentity protocol-v2 v3 V322 new controller Ed25519 seed",16);
+        byte[] oldp=policy(oldc.method),newp=policy(newc.method);
+        byte[] prev=state(2,4,1,oldp,null,null,null,null);
+        byte[] op=operation(2,5,StateHash.sha256Multihash(prev),map(entry(1,newp)));
+        require("V322 OperationBytes",eq(v,"operationBytesHex",op));
+        require("V322 controller signature",eq(v,"controllerSignatureHex",oldc.ed.sign(signing("OpenIdentity Operation",op,null))));
+        require("V322 controller PoP",eq(v,"controllerProofSignatureHex",newc.ed.sign(signing("OpenIdentity Controller Proof",op,newc.id))));
+        byte[] result=state(3,5,1,newp,null,null,authority(0,null),authority(0,null));
+        require("V322 StateBytes",eq(v,"stateBytesHex",result));
+        require("V322 StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+
     private static JsonNode invalid(JsonNode doc,String id){
         for(JsonNode v:doc.path("invalidVectors"))if(id.equals(v.path("id").asText()))return v;
         throw new IllegalStateException("Missing invalid vector "+id);
@@ -243,7 +273,7 @@ public final class ProtocolV2V3Vectors {
         System.out.println();
         System.out.println("Java VI301-VI332 Rejection Verification");
         System.out.println("------------------------------------------------");
-        for(int i=301;i<=332;i++){
+        for(int i=301;i<=334;i++){
             String id="VI"+i; JsonNode v=invalid(doc,id);
             require(id+" expected REJECT","REJECT".equals(v.path("expected").asText()));
             require(id+" expected error present",!v.path("expectedError").asText().isBlank());
@@ -303,10 +333,14 @@ public final class ProtocolV2V3Vectors {
                 && invalid(doc,"VI330").has("signedOperationBytesHex"));
         require("VI331 forbidden RECOVER field 2",invalid(doc,"VI331").path("forbiddenProofField").asInt()==2
                 && invalid(doc,"VI331").has("signedOperationBytesHex"));
+        require("VI333 RESET_AUTHENTICATION requires v3 predecessor",
+                invalid(doc,"VI333").path("predecessorStateVersion").asInt()==2 && invalid(doc,"VI333").path("operationType").asInt()==8);
+        require("VI334 RESET_DELEGATIONS requires v3 predecessor",
+                invalid(doc,"VI334").path("predecessorStateVersion").asInt()==2 && invalid(doc,"VI334").path("operationType").asInt()==9);
         require("VI332 PRESERVE plus replacement",invalid(doc,"VI332").path("disposition").asInt()==1
                 && invalid(doc,"VI332").path("replacementAssertionPolicyPresent").asBoolean());
 
-        System.out.println("VI301-VI332: PASS");
+        System.out.println("VI301-VI334: PASS");
     }
 
     private static boolean verifyPublic(byte[] publicKey,byte[] message,byte[] signature){
