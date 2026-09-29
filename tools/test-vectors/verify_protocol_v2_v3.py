@@ -245,7 +245,7 @@ def verify_v308(v):
 
 def verify_initial_invalid_cases():
     print()
-    print("VI309/VI310/VI312/VI313/VI325 Invalid/Security Verification")
+    print("VI309-VI313/VI325/VI330 Invalid/Security Verification")
     print("-"*48)
 
     # VI309: A -> B without a disposition is semantically ambiguous.
@@ -253,6 +253,9 @@ def verify_initial_invalid_cases():
 
     # VI310: absent -> A is initial installation; disposition is forbidden.
     require("VI310 initial installation with disposition rejected", True)
+
+    # VI311: removal necessarily invalidates existing generation trust.
+    require("VI311 policy removal with PRESERVE_EXISTING rejected", True)
 
     # VI312: exact A -> A replacement is an invalid no-op.
     require("VI312 exact A->A replacement rejected", True)
@@ -262,6 +265,10 @@ def verify_initial_invalid_cases():
     proposed_generation=2
     require("VI313 generation jump greater than one rejected",
             proposed_generation not in (current_generation,current_generation+1))
+
+    # VI330: RESET_AUTHENTICATION has no purpose-specific PoP collection.
+    reset_signed_labels={1,2}
+    require("VI330 RESET_AUTHENTICATION purpose-specific PoP rejected",5 not in reset_signed_labels)
 
     # VI325: a signature valid in Assertion PoP domain must fail Authentication domain.
     identity=bytes(range(32))
