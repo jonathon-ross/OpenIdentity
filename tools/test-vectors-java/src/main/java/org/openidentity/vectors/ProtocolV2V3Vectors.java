@@ -28,7 +28,7 @@ public final class ProtocolV2V3Vectors {
         require("suite specification",
                 "OpenIdentity Protocol v2 / IdentityState v3".equals(doc.path("specification").asText()));
         require("positive vector count", doc.path("vectors").size() == 24);
-        require("invalid vector count", doc.path("invalidVectors").size() == 36);
+        require("invalid vector count", doc.path("invalidVectors").size() == 37);
 
         verifyV301(find(doc, "V301"));
         verifyV302(find(doc, "V302"));
@@ -47,7 +47,7 @@ public final class ProtocolV2V3Vectors {
 
         System.out.println();
         System.out.println("================================================");
-        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V324 + VI301-VI336 VERIFIED");
+        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V324 + VI301-VI337 VERIFIED");
         System.out.println("================================================");
     }
 
@@ -299,7 +299,7 @@ public final class ProtocolV2V3Vectors {
         System.out.println();
         System.out.println("Java VI301-VI332 Rejection Verification");
         System.out.println("------------------------------------------------");
-        for(int i=301;i<=336;i++){
+        for(int i=301;i<=337;i++){
             String id="VI"+i; JsonNode v=invalid(doc,id);
             require(id+" expected REJECT","REJECT".equals(v.path("expected").asText()));
             require(id+" expected error present",!v.path("expectedError").asText().isBlank());
@@ -369,10 +369,13 @@ public final class ProtocolV2V3Vectors {
         require("VI336 SET_AUTHENTICATION_POLICY rejected while deactivated",
                 "DEACTIVATED".equals(invalid(doc,"VI336").path("predecessorStatus").asText())
                         && invalid(doc,"VI336").path("operationType").asInt()==6);
+        require("VI337 uint64 sequence terminal condition",
+                "18446744073709551615".equals(invalid(doc,"VI337").path("predecessorSequence").asText())
+                        && "18446744073709551616".equals(invalid(doc,"VI337").path("requiredNextSequence").asText()));
         require("VI332 PRESERVE plus replacement",invalid(doc,"VI332").path("disposition").asInt()==1
                 && invalid(doc,"VI332").path("replacementAssertionPolicyPresent").asBoolean());
 
-        System.out.println("VI301-VI336: PASS");
+        System.out.println("VI301-VI337: PASS");
     }
 
     private static boolean verifyPublic(byte[] publicKey,byte[] message,byte[] signature){
