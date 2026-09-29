@@ -759,11 +759,88 @@ def build_v320():
     return v
 
 
+
+def build_invalid_pop_vectors():
+    identity=bytes(range(32))
+    out=[]
+
+    def base(vid, purpose, operation_type, payload_label, proof_field, domain):
+        cpriv,_,cid,cm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+        ppriv,ppub,pid,pm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} {purpose} Ed25519 seed",16)
+        _,upub,uid,um=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} unauthorized Ed25519 seed",32)
+        cp=_single_policy(cm); pp=_single_policy(pm)
+        previous={1:3,2:identity,3:1,4:1,5:cp,8:{1:0},9:{1:0}}
+        psh=sha256_multihash(cbor(previous))
+        op={1:2,2:operation_type,3:identity,4:2,5:psh,6:{1:pp}}
+        ob=cbor(op)
+        csig=cpriv.sign(cbor(["OpenIdentity Operation",1,ob]))
+        valid_input=cbor([domain,1,ob,pid])
+        valid_sig=ppriv.sign(valid_input)
+        return cp,pp,ob,cid,csig,ppriv,ppub,pid,valid_input,valid_sig,upub,uid,um,proof_field
+
+    # Missing, wrong-domain, duplicate, unauthorized Authentication PoPs.
+    cp,pp,ob,cid,csig,ppriv,ppub,pid,inp,sig,upub,uid,um,pf=base(
+        "VI301","authentication",6,4,5,"OpenIdentity Authentication Proof")
+    out.append({"id":"VI301","expected":"REJECT","expectedError":"MISSING_PROOF_OF_POSSESSION",
+                "operationBytesHex":ob.hex(),"signedOperationBytesHex":cbor({1:cbor_decode_placeholder if False else {}}).hex() if False else "",
+                "proofField":5,"proofCount":0})
+    wrong_in=cbor(["OpenIdentity Operation",1,ob]); wrong_sig=ppriv.sign(wrong_in)
+    out.append({"id":"VI302","expected":"REJECT","expectedError":"INVALID_PROOF_OF_POSSESSION",
+                "operationBytesHex":ob.hex(),"methodIdHex":pid.hex(),"publicKeyHex":ppub.hex(),
+                "sourceDomain":"OpenIdentity Operation","requiredDomain":"OpenIdentity Authentication Proof",
+                "wrongSigningBytesHex":wrong_in.hex(),"requiredSigningBytesHex":inp.hex(),"signatureHex":wrong_sig.hex()})
+    proof={1:pid,2:sig}
+    out.append({"id":"VI303","expected":"REJECT","expectedError":"DUPLICATE_AUTHENTICATION_PROOF",
+                "operationBytesHex":ob.hex(),"proofsHex":[cbor(proof).hex(),cbor(proof).hex()]})
+    unauthorized_input=cbor(["OpenIdentity Authentication Proof",1,ob,uid])
+    # deterministic unauthorized private key reconstructed explicitly
+    upriv,_,_,_=_ed25519("OpenIdentity protocol-v2 v3 VI301 unauthorized Ed25519 seed",32)
+    usig=upriv.sign(unauthorized_input)
+    out.append({"id":"VI304","expected":"REJECT","expectedError":"UNAUTHORIZED_AUTHENTICATION_METHOD",
+                "operationBytesHex":ob.hex(),"authorizedMethodIdHex":pid.hex(),"unauthorizedMethodIdHex":uid.hex(),
+                "unauthorizedPublicKeyHex":upub.hex(),"signingBytesHex":unauthorized_input.hex(),"signatureHex":usig.hex()})
+
+    cp,pp,ob,cid,csig,ppriv,ppub,pid,inp,sig,upub,uid,um,pf=base(
+        "VI305","delegation",7,5,7,"OpenIdentity Delegation Proof")
+    out.append({"id":"VI305","expected":"REJECT","expectedError":"MISSING_PROOF_OF_POSSESSION",
+                "operationBytesHex":ob.hex(),"proofField":7,"proofCount":0})
+    wrong_in=cbor(["OpenIdentity Authentication Proof",1,ob,pid]); wrong_sig=ppriv.sign(wrong_in)
+    out.append({"id":"VI306","expected":"REJECT","expectedError":"INVALID_PROOF_OF_POSSESSION",
+                "operationBytesHex":ob.hex(),"methodIdHex":pid.hex(),"publicKeyHex":ppub.hex(),
+                "sourceDomain":"OpenIdentity Authentication Proof","requiredDomain":"OpenIdentity Delegation Proof",
+                "wrongSigningBytesHex":wrong_in.hex(),"requiredSigningBytesHex":inp.hex(),"signatureHex":wrong_sig.hex()})
+    proof={1:pid,2:sig}
+    out.append({"id":"VI307","expected":"REJECT","expectedError":"DUPLICATE_DELEGATION_PROOF",
+                "operationBytesHex":ob.hex(),"proofsHex":[cbor(proof).hex(),cbor(proof).hex()]})
+    upriv,upub,uid,um=_ed25519("OpenIdentity protocol-v2 v3 VI305 unauthorized Ed25519 seed",32)
+    unauthorized_input=cbor(["OpenIdentity Delegation Proof",1,ob,uid]); usig=upriv.sign(unauthorized_input)
+    out.append({"id":"VI308","expected":"REJECT","expectedError":"UNAUTHORIZED_DELEGATION_METHOD",
+                "operationBytesHex":ob.hex(),"authorizedMethodIdHex":pid.hex(),"unauthorizedMethodIdHex":uid.hex(),
+                "unauthorizedPublicKeyHex":upub.hex(),"signingBytesHex":unauthorized_input.hex(),"signatureHex":usig.hex()})
+
+    # Explicit cross-purpose substitutions.
+    for vid,source,required in [
+        ("VI325","OpenIdentity Assertion Proof","OpenIdentity Authentication Proof"),
+        ("VI326","OpenIdentity Delegation Proof","OpenIdentity Assertion Proof"),
+        ("VI327","OpenIdentity Authentication Proof","OpenIdentity Delegation Proof")]:
+        priv,pub,mid,_=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} cross-domain Ed25519 seed",16)
+        dummy_op=cbor({1:2,2:6,3:identity,4:2,5:b"\\x12\\x20"+bytes(32),6:{}})
+        source_input=cbor([source,1,dummy_op,mid]); required_input=cbor([required,1,dummy_op,mid])
+        signature=priv.sign(source_input)
+        out.append({"id":vid,"expected":"REJECT","expectedError":"INVALID_PROOF_OF_POSSESSION",
+                    "operationBytesHex":dummy_op.hex(),"methodIdHex":mid.hex(),"publicKeyHex":pub.hex(),
+                    "sourceDomain":source,"requiredDomain":required,
+                    "sourceSigningBytesHex":source_input.hex(),"requiredSigningBytesHex":required_input.hex(),
+                    "signatureHex":signature.hex()})
+    return out
+
+
 def main() -> None:
     bundle = {
         "specification": "OpenIdentity Protocol v2 / IdentityState v3",
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
+        "invalidVectors": build_invalid_pop_vectors(),
         "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318(), build_v319(), build_v320()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
