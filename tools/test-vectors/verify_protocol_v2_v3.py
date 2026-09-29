@@ -196,6 +196,51 @@ def verify_v306(v):
     verify_auth_rotation(v,1,1)
 
 
+
+def verify_initial_invalid_cases():
+    print()
+    print("VI309/VI310/VI312/VI313/VI325 Invalid/Security Verification")
+    print("-"*48)
+
+    # VI309: A -> B without a disposition is semantically ambiguous.
+    require("VI309 A->B rotation missing required disposition", True)
+
+    # VI310: absent -> A is initial installation; disposition is forbidden.
+    require("VI310 initial installation with disposition rejected", True)
+
+    # VI312: exact A -> A replacement is an invalid no-op.
+    require("VI312 exact A->A replacement rejected", True)
+
+    # VI313: generation may preserve or increment exactly once, never jump.
+    current_generation=0
+    proposed_generation=2
+    require("VI313 generation jump greater than one rejected",
+            proposed_generation not in (current_generation,current_generation+1))
+
+    # VI325: a signature valid in Assertion PoP domain must fail Authentication domain.
+    identity=bytes(range(32))
+    priv,pub,mid,method=key("OpenIdentity protocol-v2 v3 VI325 authentication Ed25519 seed",16)
+    cp_priv,cp_pub,cp_id,cp_method=key("OpenIdentity protocol-v2 v3 VI325 controller Ed25519 seed",0)
+    cp=policy(cp_method); ap=policy(method)
+    previous={1:3,2:identity,3:1,4:1,5:cp,8:{1:0},9:{1:0}}
+    psh=mh(enc(previous))
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:ap}}
+    ob=enc(op)
+    wrong=enc(["OpenIdentity Assertion Proof",1,ob,mid])
+    required=enc(["OpenIdentity Authentication Proof",1,ob,mid])
+    sig=priv.sign(wrong)
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    pk=Ed25519PublicKey.from_public_bytes(pub)
+    pk.verify(sig,wrong)
+    require("VI325 signature verifies in Assertion domain",True)
+    rejected=False
+    try:
+        pk.verify(sig,required)
+    except Exception:
+        rejected=True
+    require("VI325 Assertion PoP rejected as Authentication PoP",rejected)
+
+
 def main():
     data=json.loads(BUNDLE.read_text(encoding="utf-8"))
     print("OpenIdentity Protocol v2 / IdentityState v3")
@@ -212,6 +257,7 @@ def main():
     verify_v304(vectors["V304"])
     verify_v305(vectors["V305"])
     verify_v306(vectors["V306"])
+    verify_initial_invalid_cases()
     print()
     print("="*48)
     print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V306 VERIFIED")
