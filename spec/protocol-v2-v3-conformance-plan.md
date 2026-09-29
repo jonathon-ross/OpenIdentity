@@ -34,33 +34,33 @@ Coverage status: VI301-VI308 and VI325-VI327 contain concrete cryptographic proo
 - VI303 duplicate Authentication PoP
 - VI304 unauthorized Authentication method
 - VI305 missing Delegation PoP
-- VI306 Delegation PoP signed under Authentication domain — cryptographic cross-domain rejection implemented
+- VI306 Delegation PoP signed under Authentication domain — cryptographic Python + Java cross-domain rejection coverage
 - VI307 duplicate Delegation PoP
 - VI308 unauthorized Delegation method
-- VI309 A->B rotation missing required disposition — initial independent rejection check implemented
-- VI310 initial policy installation supplies forbidden disposition — initial independent rejection check implemented
-- VI311 policy removal attempts PRESERVE_EXISTING — independent rejection check implemented
-- VI312 exact A->A replacement — initial independent rejection check implemented
-- VI313 generation jump greater than one — initial independent rejection check implemented
+- VI309 A->B rotation missing required disposition — byte-complete Python + Java rejection coverage
+- VI310 initial policy installation supplies forbidden disposition — byte-complete Python + Java rejection coverage
+- VI311 policy removal attempts PRESERVE_EXISTING — byte-complete Python + Java rejection coverage
+- VI312 exact A->A replacement — byte-complete Python + Java rejection coverage
+- VI313 generation jump greater than one — byte-complete Python + Java rejection coverage
 - VI314 generation decrease
 - VI315 generation overflow
-- VI316 RECOVER attempts to preserve AuthenticationPolicy — independent rejection check implemented
-- VI317 RECOVER attempts to preserve DelegationPolicy — independent rejection check implemented
-- VI318 RECOVER missing assertion disposition — independent rejection check implemented
-- VI319 RECOVER REMOVE while AssertionPolicy absent — independent rejection check implemented
-- VI320 RECOVER REPLACE while AssertionPolicy absent — independent rejection check implemented
-- VI321 RECOVER REPLACE missing Assertion PoP — independent rejection check implemented
+- VI316 RECOVER attempts to preserve AuthenticationPolicy — byte-complete Python + Java rejection coverage
+- VI317 RECOVER attempts to preserve DelegationPolicy — byte-complete Python + Java rejection coverage
+- VI318 RECOVER missing assertion disposition — byte-complete Python + Java rejection coverage
+- VI319 RECOVER REMOVE while AssertionPolicy absent — byte-complete Python + Java rejection coverage
+- VI320 RECOVER REPLACE while AssertionPolicy absent — byte-complete Python + Java rejection coverage
+- VI321 RECOVER REPLACE missing Assertion PoP — byte-complete Python + Java rejection coverage
 - VI322 stateVersion 3 downgrade attempt
 - VI323 protocolVersion 1 operation applied to stateVersion 3
 - VI324 malformed protocolVersion 2 proof collection
-- VI325 Assertion PoP substituted for Authentication PoP — cryptographic cross-domain rejection implemented
+- VI325 Assertion PoP substituted for Authentication PoP — cryptographic Python + Java cross-domain rejection coverage
 - VI326 Delegation PoP substituted for Assertion PoP
 - VI327 Authentication PoP substituted for Delegation PoP
 - VI328 duplicate effective public key under different method IDs in one policy
 - VI329 CREATE supplies structurally forbidden redundant Controller PoP
-- VI330 RESET_AUTHENTICATION carries a forbidden purpose-specific PoP collection — independent structural rejection check implemented
-- VI331 RECOVER carries forbidden ordinary ControllerPolicy authorization — structural rejection check implemented
-- VI332 RECOVER payload disposition/AssertionPolicy shape mismatch — independent rejection check implemented
+- VI330 RESET_AUTHENTICATION carries a forbidden purpose-specific PoP collection — byte-complete Python + Java structural rejection coverage
+- VI331 RECOVER carries forbidden ordinary ControllerPolicy authorization — byte-complete Python + Java structural rejection coverage
+- VI332 RECOVER payload disposition/AssertionPolicy shape mismatch — byte-complete Python + Java rejection coverage
 
 DelegationGrant registration, backdating, individual status, and generation-aware
 grant-validity vectors are deferred to OI-014, where the canonical DelegationGrant
