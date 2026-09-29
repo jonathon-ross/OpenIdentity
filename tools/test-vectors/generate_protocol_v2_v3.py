@@ -742,12 +742,29 @@ def build_v318():
     v=_recover_vector("V318",1,source_version=2); v["description"]="protocolVersion 2 RECOVER upgrades v2 to v3 with derived generations 1"; return v
 
 
+
+def build_v319():
+    v=_delegation_transition("V319","rotate",disposition=2,generation_before=42,generation_after=42)
+    v["description"]="DelegationPolicy PRESERVE_EXISTING leaves nonzero delegation generation unchanged"
+    v["assertions"]["disposition"]="PRESERVE_EXISTING"
+    v["assertions"]["registeredPriorGenerationGrantsRemainGenerationCompatible"]=True
+    return v
+
+
+def build_v320():
+    v=_delegation_transition("V320","reset",generation_before=42,generation_after=43)
+    v["description"]="RESET_DELEGATIONS increments nonzero delegation generation exactly once"
+    v["assertions"]["delegationPolicyPreserved"]=True
+    v["assertions"]["priorGenerationGrantsInvalidatedByGenerationChange"]=True
+    return v
+
+
 def main() -> None:
     bundle = {
         "specification": "OpenIdentity Protocol v2 / IdentityState v3",
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
-        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318()],
+        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318(), build_v319(), build_v320()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
@@ -770,6 +787,8 @@ def main() -> None:
     print("V316 VERIFIED")
     print("V317 VERIFIED")
     print("V318 VERIFIED")
+    print("V319 VERIFIED")
+    print("V320 VERIFIED")
 
 
 if __name__ == "__main__":
