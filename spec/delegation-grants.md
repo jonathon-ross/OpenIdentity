@@ -106,6 +106,90 @@ Present only for delegated/subdelegated authority. It binds the child to one aut
 
 Grantor-chosen entropy preventing accidental semantic duplication and allowing two intentionally distinct grants with otherwise identical constraints.
 
+## 4A. Time model
+
+OI-014 uses integer Unix-epoch seconds for protocol time values.
+
+A protocol timestamp is the number of whole seconds elapsed since 1970-01-01T00:00:00Z. It is UTC by definition and carries no timezone, locale, fractional-second, floating-point, or textual-date representation.
+
+The wire type will be an unsigned integer. Values MUST fit the final CDDL integer range selected for OI-014; the initial design targets uint64.
+
+### Grant interval
+
+Every DelegationGrant MUST contain `expiresAt`.
+
+`notBefore` is optional.
+
+If `notBefore` is absent, the effective lower boundary is authoritative registration time.
+
+If `notBefore` is present:
+
+    notBefore < expiresAt
+
+MUST hold.
+
+Registration MUST reject a grant when `expiresAt <= registeredAt`. A registry MUST NOT create an authoritative ACTIVE registration for a grant that is already expired at authoritative registration time.
+
+If `notBefore > registeredAt`, the grant may be registered ACTIVE but is not yet usable until the lower boundary is reached.
+
+### Boundary semantics
+
+Let `t` be the protocol evaluation time after any profile-permitted clock-skew treatment.
+
+A grant satisfies its time interval exactly when:
+
+    effectiveNotBefore <= t < expiresAt
+
+The lower boundary is inclusive. The expiration boundary is exclusive.
+
+At `t == expiresAt`, the grant is expired and unusable.
+
+Expiration does not require an explicit REVOKED transition. Expiry and REVOKED status are independent reasons a grant is unusable.
+
+### Authoritative registration time
+
+`registeredAt` belongs to RegisteredGrantState, not GrantBytes.
+
+The authoritative registry establishes `registeredAt` according to its network/profile time source. A submitter-supplied timestamp MUST NOT become authoritative registration time merely because it appears in transport metadata.
+
+The registration mechanism MUST provide a deterministic authoritative `registeredAt` value for the accepted record and preserve it in RecordBytes.
+
+### Clock skew
+
+Core OI-014 defines exact protocol boundaries and does not silently widen them for clock skew.
+
+A deployment/integration profile MAY define a bounded clock-skew allowance for request evaluation, but it MUST:
+
+- specify the maximum allowance explicitly;
+- apply it consistently;
+- never change GrantBytes, GrantId, RecordBytes, RecordHash, `notBefore`, `expiresAt`, or `registeredAt`;
+- never make an expired grant authoritative at registration;
+- never extend a child grant beyond its parent's canonical `expiresAt`;
+- never use skew to bypass REVOKED status or generation invalidation.
+
+A verifier that does not implement a profile-defined skew uses the exact canonical boundaries.
+
+### Maximum lifetime
+
+Core OI-014 requires finite expiration but does not impose one universal maximum grant lifetime.
+
+Every deployment/profile that permits grant registration MUST define a maximum lifetime appropriate to its risk domain. Registration MUST reject grants exceeding that profile maximum.
+
+This lets high-risk profiles, such as AI-agent or payment authority, require short-lived grants while enterprise profiles may deliberately permit longer delegation.
+
+A profile maximum narrows OI-014. It cannot permit perpetual grants or remove the required `expiresAt`.
+
+### Subdelegation time attenuation
+
+For a child grant:
+
+- child `expiresAt <= parent.expiresAt`;
+- the child's effective lower boundary MUST NOT precede the parent's effective lower boundary;
+- a child cannot become usable while its parent is not yet usable;
+- parent expiration immediately makes the child unusable even if the child's own fields would otherwise permit use.
+
+Clock-skew policy MUST NOT turn these canonical subset requirements into broader child authority.
+
 ## 5. Canonical bytes and GrantId
 
 GrantBytes are deterministic RFC 8949 CBOR encoding of the complete DelegationGrant.
@@ -490,11 +574,11 @@ Invalid/security:
 
 The following require deliberate decisions before assigning final CDDL labels:
 
-1. exact time representation and clock-skew semantics;
+1. **RESOLVED:** uint64 whole Unix-epoch seconds UTC; required finite expiresAt; optional notBefore; interval is effectiveNotBefore <= t < expiresAt; profile-defined bounded skew may affect evaluation only;
 2. core capability identifier format;
 3. generic resource-constraint representation versus profile-owned resource syntax;
 4. delegate principal type registry;
-5. whether direct grants require a maximum protocol-level lifetime;
+5. **RESOLVED:** core requires finite expiry but no universal maximum; every registration profile MUST define and enforce a maximum lifetime;
 6. whether subdelegation is core-enabled or profile-opt-in;
 7. authoritative registration/status transaction format;
 8. **RESOLVED:** current grantor ControllerPolicy or current DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
