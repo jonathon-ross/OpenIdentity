@@ -450,8 +450,8 @@ def verify_concrete_pop_invalids(data):
     print()
     print("Concrete PoP / Domain Attack Vectors")
     print("-"*48)
-    invalid={v["id"]:v for v in data["invalidVectors"]}
     expected_ids={"VI301","VI302","VI303","VI304","VI305","VI306","VI307","VI308","VI325","VI326","VI327"}
+    invalid={v["id"]:v for v in data["invalidVectors"] if v["id"] in expected_ids}
     require("concrete PoP invalid vector IDs",set(invalid)==expected_ids)
     errors={
         "VI301":"MISSING_PROOF_OF_POSSESSION","VI302":"INVALID_PROOF_OF_POSSESSION",
