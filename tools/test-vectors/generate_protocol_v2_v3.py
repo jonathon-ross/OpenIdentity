@@ -513,12 +513,82 @@ def build_v306() -> dict:
     return _auth_rotation_vector("V306", 1, 1)
 
 
+
+def build_v307() -> dict:
+    identity = bytes(range(32))
+    cpriv, cpub, cid, cm = _ed25519(
+        "OpenIdentity protocol-v2 v3 V307 controller Ed25519 seed", 0
+    )
+    _, apub, aid, am = _ed25519(
+        "OpenIdentity protocol-v2 v3 V307 authentication Ed25519 seed", 16
+    )
+    cp, ap = _single_policy(cm), _single_policy(am)
+    previous = {1:3,2:identity,3:1,4:1,5:cp,8:{1:4,2:ap},9:{1:0}}
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    operation={1:2,2:6,3:identity,4:2,5:psh,6:{1:None}}
+    ob=cbor(operation)
+    csi=cbor(["OpenIdentity Operation",1,ob])
+    csig=cpriv.sign(csi); cpriv.public_key().verify(csig,csi)
+    signed={1:operation,2:[{1:cid,2:csig}]}
+    state={1:3,2:identity,3:2,4:1,5:cp,8:{1:5},9:{1:0}}
+    sb=cbor(state); sh=sha256_multihash(sb)
+    return {
+        "id":"V307","description":"Removing AuthenticationPolicy increments generation exactly once",
+        "expected":"PASS",
+        "fixture":{"identityHex":identity.hex(),"controllerMethodIdHex":cid.hex(),
+                   "controllerPublicKeyHex":cpub.hex(),"removedAuthenticationMethodIdHex":aid.hex(),
+                   "removedAuthenticationPublicKeyHex":apub.hex()},
+        "previousStateBytesHex":psb.hex(),"previousStateHashHex":psh.hex(),
+        "operationBytesHex":ob.hex(),"controllerSigningBytesHex":csi.hex(),
+        "controllerSignatureHex":csig.hex(),"signedOperationBytesHex":cbor(signed).hex(),
+        "stateBytesHex":sb.hex(),"stateHashHex":sh.hex(),
+        "assertions":{"previousAuthenticationGeneration":4,"resultingAuthenticationGeneration":5,
+                      "authenticationPolicyPresent":False,"authenticationProofCollectionPresent":False,
+                      "stateHashLength":len(sh)}
+    }
+
+
+def build_v308() -> dict:
+    identity = bytes(range(32))
+    cpriv, cpub, cid, cm = _ed25519(
+        "OpenIdentity protocol-v2 v3 V308 controller Ed25519 seed", 0
+    )
+    _, apub, aid, am = _ed25519(
+        "OpenIdentity protocol-v2 v3 V308 authentication Ed25519 seed", 16
+    )
+    cp, ap = _single_policy(cm), _single_policy(am)
+    previous={1:3,2:identity,3:7,4:1,5:cp,8:{1:9,2:ap},9:{1:0}}
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    operation={1:2,2:8,3:identity,4:8,5:psh,6:{}}
+    ob=cbor(operation)
+    csi=cbor(["OpenIdentity Operation",1,ob])
+    csig=cpriv.sign(csi); cpriv.public_key().verify(csig,csi)
+    signed={1:operation,2:[{1:cid,2:csig}]}
+    state={1:3,2:identity,3:8,4:1,5:cp,8:{1:10,2:ap},9:{1:0}}
+    sb=cbor(state); sh=sha256_multihash(sb)
+    assert previous[8][2] == state[8][2]
+    return {
+        "id":"V308","description":"RESET_AUTHENTICATION preserves policy and increments generation exactly once",
+        "expected":"PASS",
+        "fixture":{"identityHex":identity.hex(),"controllerMethodIdHex":cid.hex(),
+                   "controllerPublicKeyHex":cpub.hex(),"authenticationMethodIdHex":aid.hex(),
+                   "authenticationPublicKeyHex":apub.hex()},
+        "previousStateBytesHex":psb.hex(),"previousStateHashHex":psh.hex(),
+        "operationBytesHex":ob.hex(),"controllerSigningBytesHex":csi.hex(),
+        "controllerSignatureHex":csig.hex(),"signedOperationBytesHex":cbor(signed).hex(),
+        "stateBytesHex":sb.hex(),"stateHashHex":sh.hex(),
+        "assertions":{"previousAuthenticationGeneration":9,"resultingAuthenticationGeneration":10,
+                      "authenticationPolicyPreserved":True,"authenticationProofCollectionPresent":False,
+                      "stateHashLength":len(sh)}
+    }
+
+
 def main() -> None:
     bundle = {
         "specification": "OpenIdentity Protocol v2 / IdentityState v3",
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
-        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306()],
+        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
@@ -529,6 +599,8 @@ def main() -> None:
     print("V304 VERIFIED")
     print("V305 VERIFIED")
     print("V306 VERIFIED")
+    print("V307 VERIFIED")
+    print("V308 VERIFIED")
 
 
 if __name__ == "__main__":
