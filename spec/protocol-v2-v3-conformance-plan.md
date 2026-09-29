@@ -26,6 +26,8 @@
 - V320 RESET_DELEGATIONS increments delegation generation exactly once — generator + independent verifier implemented at generation 42 -> 43
 - V321 protocolVersion 2 SET_DELEGATION_POLICY upgrades v2 to v3 — delegation policy installed at generation 0; authentication generation initializes 0
 - V322 ordinary protocolVersion 2 ROTATE_CONTROLLER upgrades v2 to v3 — both absent derived authorities initialize at generation 0
+- V323 rich-state SET_AUTHENTICATION_POLICY / INVALIDATE_EXISTING — changes only AuthenticationAuthority + sequence; ControllerPolicy, recoveryCommitment, AssertionPolicy, DelegationAuthority, and status preserved
+- V324 rich-state DEACTIVATE — changes only sequence + status; all authority structures and generations preserved
 
 ## Invalid/security vectors
 
@@ -80,4 +82,4 @@ Every implementation must independently reproduce identical StateBytes and State
 
 The previous byte-frozen candidate (125506 bytes, SHA-256 `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`) was intentionally invalidated by the final adversarial review after discovering ambiguity around RESET_AUTHENTICATION / RESET_DELEGATIONS as v1/v2-to-v3 upgrade operations.
 
-A new candidate checksum MUST NOT be established until V301-V322 / VI301-VI336 pass the Python and Java gates and all frozen v0.1 regressions remain green.
+A new candidate checksum MUST NOT be established until V301-V324 / VI301-VI336 pass the Python and Java gates and all frozen v0.1 regressions remain green.
