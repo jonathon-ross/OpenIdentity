@@ -8,6 +8,7 @@ this script must not hide or weaken cross-language independence.
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -33,21 +34,32 @@ CHECKS = [
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--refresh-candidate",
+        action="store_true",
+        help="Run semantic and frozen regressions while intentionally skipping the superseded candidate checksum checks.",
+    )
+    args = parser.parse_args()
     tools = ROOT / "tools" / "test-vectors"
     print("OpenIdentity Protocol v2 / IdentityState v3")
     print("Pre-Freeze Python Release Gate")
     print("=" * 60)
     for check in CHECKS:
-        label, filename, *args = check
+        label, filename, *check_args = check
+        if args.refresh_candidate and filename == "verify_protocol_v2_v3_freeze_candidate.py":
+            print(f"\n[SKIP] {label} (candidate refresh explicitly requested)")
+            continue
         print(f"\n[{label}]")
-        result = subprocess.run([PY, str(tools / filename), *args], cwd=ROOT)
+        result = subprocess.run([PY, str(tools / filename), *check_args], cwd=ROOT)
         if result.returncode != 0:
             print(f"\nRELEASE GATE: FAIL ({label})")
             raise SystemExit(result.returncode)
         print(f"[PASS] {label}")
 
     print("\n" + "=" * 60)
-    print("PYTHON PRE-FREEZE RELEASE GATE: PASS")
+    print("PYTHON CANDIDATE-REFRESH REGRESSION GATE: PASS" if args.refresh_candidate
+          else "PYTHON PRE-FREEZE RELEASE GATE: PASS")
     print("=" * 60)
     print()
     print("Required independent Java gates:")
@@ -55,6 +67,10 @@ def main() -> None:
     print("  mvn clean compile exec:java")
     print("  mvn clean compile exec:java -Dexec.mainClass=org.openidentity.vectors.ProtocolV2V3Vectors")
     print()
+    if args.refresh_candidate:
+        print("Candidate checksum verification was intentionally skipped.")
+        print("Do not treat this run as a byte-freeze. Establish and commit a new checksum only after")
+        print("both Java commands pass and frozen v0.1 artifacts remain unchanged.")
     print("Do not freeze until both Java commands pass and git diff confirms")
     print("that no frozen v0.1 artifact/checksum changed.")
 
