@@ -445,6 +445,59 @@ def verify_initial_invalid_cases():
     require("VI325 Assertion PoP rejected as Authentication PoP",rejected)
 
 
+
+def verify_concrete_pop_invalids(data):
+    print()
+    print("Concrete PoP / Domain Attack Vectors")
+    print("-"*48)
+    invalid={v["id"]:v for v in data["invalidVectors"]}
+    expected_ids={"VI301","VI302","VI303","VI304","VI305","VI306","VI307","VI308","VI325","VI326","VI327"}
+    require("concrete PoP invalid vector IDs",set(invalid)==expected_ids)
+    errors={
+        "VI301":"MISSING_PROOF_OF_POSSESSION","VI302":"INVALID_PROOF_OF_POSSESSION",
+        "VI303":"DUPLICATE_AUTHENTICATION_PROOF","VI304":"UNAUTHORIZED_AUTHENTICATION_METHOD",
+        "VI305":"MISSING_PROOF_OF_POSSESSION","VI306":"INVALID_PROOF_OF_POSSESSION",
+        "VI307":"DUPLICATE_DELEGATION_PROOF","VI308":"UNAUTHORIZED_DELEGATION_METHOD",
+        "VI325":"INVALID_PROOF_OF_POSSESSION","VI326":"INVALID_PROOF_OF_POSSESSION",
+        "VI327":"INVALID_PROOF_OF_POSSESSION"}
+    for vid,err in errors.items():
+        require(f"{vid} expected REJECT",invalid[vid]["expected"]=="REJECT")
+        require(f"{vid} stable expected error",invalid[vid]["expectedError"]==err)
+
+    require("VI301 missing Authentication PoP is concrete",
+            invalid["VI301"]["proofField"]==5 and invalid["VI301"]["proofCount"]==0)
+    require("VI305 missing Delegation PoP is concrete",
+            invalid["VI305"]["proofField"]==7 and invalid["VI305"]["proofCount"]==0)
+    require("VI303 duplicate Authentication proofs are byte-identical",
+            invalid["VI303"]["proofsHex"][0]==invalid["VI303"]["proofsHex"][1])
+    require("VI307 duplicate Delegation proofs are byte-identical",
+            invalid["VI307"]["proofsHex"][0]==invalid["VI307"]["proofsHex"][1])
+    require("VI304 unauthorized method differs from authorized",
+            invalid["VI304"]["unauthorizedMethodIdHex"]!=invalid["VI304"]["authorizedMethodIdHex"])
+    require("VI308 unauthorized method differs from authorized",
+            invalid["VI308"]["unauthorizedMethodIdHex"]!=invalid["VI308"]["authorizedMethodIdHex"])
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    for vid in ["VI302","VI306","VI325","VI326","VI327"]:
+        v=invalid[vid]
+        pub=Ed25519PublicKey.from_public_bytes(bytes.fromhex(v["publicKeyHex"]))
+        sig=bytes.fromhex(v["signatureHex"])
+        source_hex=v.get("wrongSigningBytesHex",v.get("sourceSigningBytesHex"))
+        required_hex=v["requiredSigningBytesHex"]
+        pub.verify(sig,bytes.fromhex(source_hex))
+        require(f"{vid} signature valid in source domain",True)
+        rejected=False
+        try: pub.verify(sig,bytes.fromhex(required_hex))
+        except Exception: rejected=True
+        require(f"{vid} signature rejected in required domain",rejected)
+
+    for vid in ["VI304","VI308"]:
+        v=invalid[vid]
+        pub=Ed25519PublicKey.from_public_bytes(bytes.fromhex(v["unauthorizedPublicKeyHex"]))
+        pub.verify(bytes.fromhex(v["signatureHex"]),bytes.fromhex(v["signingBytesHex"]))
+        require(f"{vid} unauthorized proof cryptographically valid",True)
+
+
 def main():
     data=json.loads(BUNDLE.read_text(encoding="utf-8"))
     print("OpenIdentity Protocol v2 / IdentityState v3")
@@ -476,6 +529,7 @@ def main():
     verify_v319(vectors["V319"])
     verify_v320(vectors["V320"])
     verify_initial_invalid_cases()
+    verify_concrete_pop_invalids(data)
     print()
     print("="*48)
     print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V320 VERIFIED")
