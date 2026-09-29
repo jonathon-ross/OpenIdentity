@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
 BUNDLE=ROOT/"test-vectors"/"generated"/"protocol-v2-identity-state-v3.json"
-CHECKSUM=ROOT/"test-vectors"/"generated"/"protocol-v2-identity-state-v3.json.sha256"
+CHECKSUM=ROOT/"checksums"/"protocol-v2-identity-state-v3.json.sha256"
 
 if not CHECKSUM.exists():
     raise SystemExit("Missing v3 freeze-candidate checksum: "+str(CHECKSUM))
