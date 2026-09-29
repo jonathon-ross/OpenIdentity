@@ -34,10 +34,17 @@ public final class ProtocolV2V3Vectors {
         verifyV302(find(doc, "V302"));
         verifyV303(find(doc, "V303"));
         verifyV304(find(doc, "V304"));
+        verifyV305(find(doc, "V305")); verifyV306(find(doc, "V306"));
+        verifyV307(find(doc, "V307")); verifyV308(find(doc, "V308"));
+        verifyV309(find(doc, "V309")); verifyV310(find(doc, "V310"));
+        verifyV311(find(doc, "V311")); verifyV312(find(doc, "V312")); verifyV313(find(doc, "V313"));
+        verifyV314(find(doc, "V314")); verifyV315(find(doc, "V315")); verifyV316(find(doc, "V316"));
+        verifyV317(find(doc, "V317")); verifyV318(find(doc, "V318"));
+        verifyV319(find(doc, "V319")); verifyV320(find(doc, "V320"));
 
         System.out.println();
         System.out.println("================================================");
-        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V304 VERIFIED");
+        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V320 VERIFIED");
         System.out.println("================================================");
     }
 
@@ -105,8 +112,131 @@ public final class ProtocolV2V3Vectors {
         require("V304 StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
     }
 
+
+    private static void verifyAuthRotation(JsonNode v,String id,long disposition,long before,long after) throws Exception {
+        Key c=key("OpenIdentity protocol-v2 v3 "+id+" controller Ed25519 seed",0);
+        Key a=key("OpenIdentity protocol-v2 v3 "+id+" authentication A Ed25519 seed",16);
+        Key b=key("OpenIdentity protocol-v2 v3 "+id+" authentication B Ed25519 seed",32);
+        byte[] cp=policy(c.method),ap=policy(a.method),bp=policy(b.method);
+        byte[] prev=state(3,1,1,cp,null,null,authority(before,ap),authority(0,null));
+        byte[] ph=StateHash.sha256Multihash(prev);
+        byte[] op=operation(6,2,ph,map(entry(1,bp),uintEntry(2,disposition)));
+        require(id+" previous StateBytes",eq(v,"previousStateBytesHex",prev));
+        require(id+" OperationBytes",eq(v,"operationBytesHex",op));
+        require(id+" controller signature",eq(v,"controllerSignatureHex",c.ed.sign(signing("OpenIdentity Operation",op,null))));
+        require(id+" authentication signature",eq(v,"authenticationProofSignatureHex",b.ed.sign(signing("OpenIdentity Authentication Proof",op,b.id))));
+        byte[] result=state(3,2,1,cp,null,null,authority(after,bp),authority(0,null));
+        require(id+" StateBytes",eq(v,"stateBytesHex",result));
+        require(id+" StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+
+    private static void verifyV305(JsonNode v)throws Exception{verifyAuthRotation(v,"V305",2,0,0);}
+    private static void verifyV306(JsonNode v)throws Exception{verifyAuthRotation(v,"V306",1,0,1);}
+
+    private static void verifyV307(JsonNode v)throws Exception{
+        Key c=key("OpenIdentity protocol-v2 v3 V307 controller Ed25519 seed",0);
+        Key a=key("OpenIdentity protocol-v2 v3 V307 authentication Ed25519 seed",16);
+        byte[] cp=policy(c.method),ap=policy(a.method);
+        byte[] prev=state(3,1,1,cp,null,null,authority(4,ap),authority(0,null));
+        byte[] op=operation(6,2,StateHash.sha256Multihash(prev),map(nullEntry(1)));
+        byte[] result=state(3,2,1,cp,null,null,authority(5,null),authority(0,null));
+        require("V307 OperationBytes",eq(v,"operationBytesHex",op));
+        require("V307 StateBytes",eq(v,"stateBytesHex",result));
+        require("V307 StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+
+    private static void verifyV308(JsonNode v)throws Exception{
+        Key c=key("OpenIdentity protocol-v2 v3 V308 controller Ed25519 seed",0);
+        Key a=key("OpenIdentity protocol-v2 v3 V308 authentication Ed25519 seed",16);
+        byte[] cp=policy(c.method),ap=policy(a.method);
+        byte[] prev=state(3,7,1,cp,null,null,authority(9,ap),authority(0,null));
+        byte[] op=operation(8,8,StateHash.sha256Multihash(prev),map());
+        byte[] result=state(3,8,1,cp,null,null,authority(10,ap),authority(0,null));
+        require("V308 OperationBytes",eq(v,"operationBytesHex",op));
+        require("V308 StateBytes",eq(v,"stateBytesHex",result));
+        require("V308 StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+
+    private static void verifyDelegation(JsonNode v,String id,String mode,long disposition,long before,long after)throws Exception{
+        Key c=key("OpenIdentity protocol-v2 v3 "+id+" controller Ed25519 seed",0);
+        Key a=key("OpenIdentity protocol-v2 v3 "+id+" delegation A Ed25519 seed",16);
+        Key b=key("OpenIdentity protocol-v2 v3 "+id+" delegation B Ed25519 seed",32);
+        byte[] cp=policy(c.method),ap=policy(a.method),bp=policy(b.method);
+        byte[] prev=state(3,1,1,cp,null,null,authority(0,null),authority(before,"install".equals(mode)?null:ap));
+        byte[] ph=StateHash.sha256Multihash(prev);
+        byte[] payload;
+        byte[] resultPolicy;
+        long type;
+        if("reset".equals(mode)){type=9;payload=map();resultPolicy=ap;}
+        else {
+            type=7;
+            resultPolicy="remove".equals(mode)?null:("install".equals(mode)?ap:bp);
+            payload=disposition<0?map(resultPolicy==null?nullEntry(1):entry(1,resultPolicy))
+                    :map(resultPolicy==null?nullEntry(1):entry(1,resultPolicy),uintEntry(2,disposition));
+        }
+        byte[] op=operation(type,2,ph,payload);
+        require(id+" OperationBytes",eq(v,"operationBytesHex",op));
+        if(resultPolicy!=null && !"reset".equals(mode)){
+            Key proof="rotate".equals(mode)?b:a;
+            require(id+" delegation signature",eq(v,"delegationProofSignatureHex",
+                    proof.ed.sign(signing("OpenIdentity Delegation Proof",op,proof.id))));
+        }
+        byte[] result=state(3,2,1,cp,null,null,authority(0,null),authority(after,resultPolicy));
+        require(id+" StateBytes",eq(v,"stateBytesHex",result));
+        require(id+" StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+
+    private static void verifyV309(JsonNode v)throws Exception{verifyDelegation(v,"V309","install",-1,0,0);}
+    private static void verifyV310(JsonNode v)throws Exception{verifyDelegation(v,"V310","rotate",2,4,4);}
+    private static void verifyV311(JsonNode v)throws Exception{verifyDelegation(v,"V311","rotate",1,4,5);}
+    private static void verifyV312(JsonNode v)throws Exception{verifyDelegation(v,"V312","remove",-1,4,5);}
+    private static void verifyV313(JsonNode v)throws Exception{verifyDelegation(v,"V313","reset",-1,9,10);}
+
+    private static byte[] recoveryPolicy(byte[] method){
+        var c=new DeterministicCborWriter();c.writeMapHeader(3);
+        c.writeUnsigned(1);c.writeUnsigned(1);c.writeUnsigned(2);c.writeUnsigned(1);
+        c.writeUnsigned(3);c.writeArrayHeader(1);c.writeEncoded(method);return c.toByteArray();
+    }
+
+    private static void verifyRecovery(JsonNode v,String id,int disposition,int sourceVersion,int sourceStatus,boolean replace)throws Exception{
+        Key oldc=key("OpenIdentity protocol-v2 v3 "+id+" old controller Ed25519 seed",0);
+        Key newc=key("OpenIdentity protocol-v2 v3 "+id+" new controller Ed25519 seed",16);
+        Key r=key("OpenIdentity protocol-v2 v3 "+id+" recovery Ed25519 seed",32);
+        Key olda=key("OpenIdentity protocol-v2 v3 "+id+" assertion A Ed25519 seed",48);
+        Key newa=key("OpenIdentity protocol-v2 v3 "+id+" assertion B Ed25519 seed",64);
+        Key auth=key("OpenIdentity protocol-v2 v3 "+id+" authentication Ed25519 seed",80);
+        Key del=key("OpenIdentity protocol-v2 v3 "+id+" delegation Ed25519 seed",96);
+        byte[] oldcp=policy(oldc.method),newcp=policy(newc.method),oldap=policy(olda.method),newap=policy(newa.method);
+        byte[] rp=recoveryPolicy(r.method),rc=StateHash.sha256Multihash(rp),newrc=StateHash.sha256Multihash(recoveryPolicy(newc.method));
+        byte[] prev=state(sourceVersion,5,sourceStatus,oldcp,rc,oldap,
+                sourceVersion==3?authority(3,policy(auth.method)):null,
+                sourceVersion==3?authority(7,policy(del.method)):null);
+        Entry[] pe=replace?new Entry[]{entry(1,newcp),entry(2,rp),bytesEntry(3,newrc),uintEntry(4,disposition),entry(5,newap)}
+                :new Entry[]{entry(1,newcp),entry(2,rp),bytesEntry(3,newrc),uintEntry(4,disposition)};
+        byte[] op=operation(3,6,StateHash.sha256Multihash(prev),map(pe));
+        require(id+" OperationBytes",eq(v,"operationBytesHex",op));
+        require(id+" controller PoP",eq(v,"controllerProofSignatureHex",newc.ed.sign(signing("OpenIdentity Controller Proof",op,newc.id))));
+        require(id+" recovery signature",eq(v,"recoverySignatureHex",r.ed.sign(signing("OpenIdentity Recovery",op,r.id))));
+        if(replace)require(id+" assertion PoP",eq(v,"assertionProofSignatureHex",newa.ed.sign(signing("OpenIdentity Assertion Proof",op,newa.id))));
+        byte[] assertion=disposition==1?oldap:(disposition==3?newap:null);
+        byte[] result=state(3,6,1,newcp,newrc,assertion,authority(sourceVersion==2?1:4,null),authority(sourceVersion==2?1:8,null));
+        require(id+" StateBytes",eq(v,"stateBytesHex",result));
+        require(id+" StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+
+    private static void verifyV314(JsonNode v)throws Exception{verifyRecovery(v,"V314",1,3,1,false);}
+    private static void verifyV315(JsonNode v)throws Exception{verifyRecovery(v,"V315",2,3,1,false);}
+    private static void verifyV316(JsonNode v)throws Exception{verifyRecovery(v,"V316",3,3,1,true);}
+    private static void verifyV317(JsonNode v)throws Exception{verifyRecovery(v,"V317",1,3,2,false);}
+    private static void verifyV318(JsonNode v)throws Exception{verifyRecovery(v,"V318",1,2,1,false);}
+    private static void verifyV319(JsonNode v)throws Exception{verifyDelegation(v,"V319","rotate",2,42,42);}
+    private static void verifyV320(JsonNode v)throws Exception{verifyDelegation(v,"V320","reset",-1,42,43);}
+
     private record Key(Ed25519Support ed, byte[] id, byte[] method) {}
     private record Entry(long label, byte[] encoded) {}
+    private static Entry uintEntry(long label,long value){var c=new DeterministicCborWriter();c.writeUnsigned(value);return new Entry(label,c.toByteArray());}
+    private static Entry nullEntry(long label){var c=new DeterministicCborWriter();c.writeNull();return new Entry(label,c.toByteArray());}
+    private static Entry bytesEntry(long label,byte[] value){var c=new DeterministicCborWriter();c.writeByteString(value);return new Entry(label,c.toByteArray());}
 
     private static Key key(String label,int start) throws Exception {
         byte[] seed=MessageDigest.getInstance("SHA-256").digest(label.getBytes(StandardCharsets.US_ASCII));
