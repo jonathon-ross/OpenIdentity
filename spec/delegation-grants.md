@@ -190,6 +190,151 @@ For a child grant:
 
 Clock-skew policy MUST NOT turn these canonical subset requirements into broader child authority.
 
+## 4B. Capability and resource model
+
+OI-014 core treats capability meaning as profile-owned. The core protocol defines canonical capability identity, ordering, duplication, and attenuation rules but does not assign application semantics to names such as read, write, approve, send, transfer, or administer.
+
+### Capability reference
+
+A capability is identified by the pair:
+
+    CapabilityRef {
+        profileId
+        capabilityId
+    }
+
+`profileId` identifies the capability profile that owns the identifier space and semantics.
+
+`capabilityId` is opaque to OI-014 core. Equality in the core protocol is exact canonical equality of both fields.
+
+The final wire representation will use deterministic byte/text forms with explicit length bounds. Human-readable examples do not determine the eventual encoding.
+
+A profile MUST define:
+
+- its stable profileId;
+- every capabilityId it recognizes;
+- the authority represented by each capability;
+- whether any semantic implication relationships exist between its capabilities;
+- resource-constraint syntax, if resources are used;
+- deterministic resource equality/subset rules;
+- its maximum grant lifetime;
+- any additional constraints required for registration/use.
+
+Unknown profiles or capability identifiers MUST NOT be guessed, prefix-matched, or silently interpreted.
+
+### No ambient hierarchy
+
+Core OI-014 defines no hierarchy from spelling.
+
+For example, none of these relationships exist merely because of their text:
+
+    "read" < "admin"
+    "calendar.read" < "calendar.*"
+    "invoice.approve.small" < "invoice.approve"
+    "tool:email.send" < "tool:*"
+
+Wildcards and prefix/suffix matching are not core semantics.
+
+A profile MAY define implication or wildcard behavior, but it MUST do so explicitly and deterministically. A verifier that does not understand the required profile semantics cannot safely conclude that an implied capability is authorized.
+
+### Canonical capability set
+
+A DelegationGrant contains a non-empty set of CapabilityRef values.
+
+The set MUST:
+
+- use deterministic canonical ordering;
+- contain no duplicate CapabilityRef;
+- contain no semantically duplicate aliases when the owning profile declares them equivalent;
+- contain only identifiers valid under the referenced profile.
+
+The exact ordering rule will be frozen with the wire encoding. The design target is unsigned bytewise lexicographic ordering over each CapabilityRef's canonical encoded identity.
+
+### Direct capability evaluation
+
+A request is authorized only when the requested capability is covered by a grant according to the owning profile.
+
+Core exact-match profiles simply require exact CapabilityRef membership.
+
+Profiles defining implication MUST provide a deterministic function equivalent to:
+
+    covers(grantedCapability, requestedCapability) -> boolean
+
+Profiles MUST NOT allow this function to create authority outside the profile's declared capability universe.
+
+### Resources
+
+Resources are optional and profile-owned.
+
+A capability profile may define a resource constraint representation for capabilities in its namespace. Examples might identify an API audience, tenant, account, repository, document, bucket/object prefix, payment account, tool, or other target.
+
+Core OI-014 does not assign universal meaning to arbitrary resource strings.
+
+A profile supporting resources MUST define deterministic functions equivalent to:
+
+    resourceValid(resourceConstraint) -> boolean
+    resourceCovers(parentConstraint, childConstraint) -> boolean
+    resourceAllows(constraint, requestedResource) -> boolean
+
+The representation and functions MUST be deterministic enough for independent implementations to reach the same result.
+
+If a profile declares a capability resource-scoped, omission of a required resource constraint MUST be rejected rather than interpreted as unrestricted authority.
+
+If a profile declares a capability unscoped, attaching an undefined resource field MUST NOT silently change its meaning.
+
+### Capability/resource binding
+
+Resource constraints apply to specific capabilities, not globally by implication.
+
+The logical grant model is therefore refined to:
+
+    DelegatedCapability {
+        capability: CapabilityRef
+        resourceConstraint?
+    }
+
+    DelegationGrant {
+        ...
+        capabilities: non-empty set<DelegatedCapability>
+        ...
+    }
+
+Two entries with the same CapabilityRef but different resource constraints are distinct only when the profile explicitly permits multiple independently constrained entries. Otherwise registration MUST reject ambiguous duplicates.
+
+### Attenuation
+
+A child grant cannot expand authority.
+
+For every child DelegatedCapability there MUST exist at least one parent DelegatedCapability that covers it according to the same capability profile.
+
+At minimum:
+
+    parent capability covers child capability
+    AND
+    parent resource constraint covers child resource constraint
+
+A child MUST NOT switch a capability into a different profile merely because two profiles use similar names.
+
+If deterministic attenuation cannot be established, child registration MUST fail closed.
+
+Profiles may impose stronger attenuation rules.
+
+### Multi-profile grants
+
+A single grant MAY contain capabilities from multiple profiles if the registration environment supports all required profiles.
+
+Each entry is validated independently under its owning profile.
+
+Registration MUST fail if a required profile is unknown or unsupported. Implementations MUST NOT drop unknown capability entries and register only the subset they understand because doing so would change the signed GrantBytes semantics.
+
+### Profile versioning
+
+A profileId MUST identify semantics immutably enough that later profile changes cannot retroactively broaden an already-registered grant.
+
+An incompatible capability or resource semantic change requires a new profile identity/version.
+
+Registries and verifiers MUST evaluate a registered grant using the profile semantics identified by its GrantBytes, not whatever newer profile happens to exist at evaluation time.
+
 ## 5. Canonical bytes and GrantId
 
 GrantBytes are deterministic RFC 8949 CBOR encoding of the complete DelegationGrant.
@@ -575,8 +720,8 @@ Invalid/security:
 The following require deliberate decisions before assigning final CDDL labels:
 
 1. **RESOLVED:** uint64 whole Unix-epoch seconds UTC; required finite expiresAt; optional notBefore; interval is effectiveNotBefore <= t < expiresAt; profile-defined bounded skew may affect evaluation only;
-2. core capability identifier format;
-3. generic resource-constraint representation versus profile-owned resource syntax;
+2. **RESOLVED:** capability identity is (profileId, capabilityId); capabilityId is opaque to core; no implicit textual hierarchy;
+3. **RESOLVED:** resources and deterministic coverage/subset semantics are profile-owned; core binds resource constraints to individual capabilities and fails closed when attenuation cannot be established;
 4. delegate principal type registry;
 5. **RESOLVED:** core requires finite expiry but no universal maximum; every registration profile MUST define and enforce a maximum lifetime;
 6. whether subdelegation is core-enabled or profile-opt-in;
