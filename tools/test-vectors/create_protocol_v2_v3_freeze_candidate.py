@@ -10,8 +10,9 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
 BUNDLE=ROOT/"test-vectors"/"generated"/"protocol-v2-identity-state-v3.json"
-CHECKSUM=ROOT/"test-vectors"/"generated"/"protocol-v2-identity-state-v3.json.sha256"
+CHECKSUM=ROOT/"checksums"/"protocol-v2-identity-state-v3.json.sha256"
 
+CHECKSUM.parent.mkdir(parents=True, exist_ok=True)
 raw=BUNDLE.read_bytes()
 digest=hashlib.sha256(raw).hexdigest()
 CHECKSUM.write_text(f"{digest}  {BUNDLE.name}\n",encoding="ascii",newline="\n")
