@@ -10,7 +10,7 @@ Resolve before assigning wire labels:
 - grant time model and expiry — **RESOLVED:** uint64 Unix seconds, finite expiresAt required, inclusive lower/exclusive upper boundary, profile maximum lifetime;
 - capability identifier model — **RESOLVED:** immutable profileId + opaque capabilityId; no core textual hierarchy;
 - resource constraint ownership/subset rules — **RESOLVED:** profile-owned deterministic resource validity/coverage semantics, bound per capability;
-- delegate principal type model;
+- delegate principal type model — **RESOLVED:** native OPENIDENTITY plus profile-defined external/workload principal; AI agents are profiles, not core types;
 - direct-grant maximum lifetime;
 - subdelegation enablement;
 - registration/status ordering model — **RESOLVED:** per-GrantId uint64 revision + previous RecordHash;
@@ -83,7 +83,7 @@ Profiles must narrow/map OI-014 authority and must not redefine GrantId, generat
 2. Revocation authorization — **RESOLVED:** current grantor ControllerPolicy or DelegationPolicy; delegate relinquishment is separately domain-separated.
 3. Time model — **RESOLVED:** whole UTC Unix seconds; finite expiry required; profile-defined bounded skew and maximum lifetime.
 4. Capability/resource model — **RESOLVED:** profile-owned capability semantics with core exact identity/canonical set rules and deterministic attenuation.
-5. Delegate principal model.
+5. Delegate principal model — **RESOLVED:** principal identity separated from authentication proof; OPENIDENTITY native, other principals profile-defined.
 6. Subdelegation model.
 7. GrantId/hash model.
 8. Privacy/network boundary.
