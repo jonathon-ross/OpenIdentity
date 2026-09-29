@@ -208,6 +208,10 @@ A state processor should conceptually validate in this order:
 
 Implementations may reorder internal checks only when externally observable conformance and security behavior remains equivalent.
 
+## 10.1 Sequence exhaustion
+
+Sequence is a uint64 state-history counter. At predecessor sequence `2^64 - 1`, the identity cannot accept another state-changing operation because the required exact-next sequence would be `2^64`. Implementations must reject rather than wrap, reuse an earlier value, or special-case RECOVER.
+
 ## 10A. Unrelated-state preservation
 
 A state-changing operation owns only the fields its transition semantics explicitly modify. Every unrelated predecessor field must survive unchanged in the successor. For example, SET_AUTHENTICATION_POLICY must not alter ControllerPolicy, recoveryCommitment, AssertionPolicy, DelegationAuthority, or status; DEACTIVATE changes status and sequence but preserves all authority structures and generations. RECOVER is the deliberate exception because its specification explicitly replaces/resets several authority fields.
