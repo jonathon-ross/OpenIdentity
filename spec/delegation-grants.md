@@ -292,6 +292,87 @@ A revoked GrantId MUST NOT become ACTIVE again. Re-granting equivalent authority
 
 The exact revocation transaction/wire record will be specified with the registration CDDL.
 
+## 11A. Revocation authorization
+
+Revocation authority is evaluated at the time of revocation. Historical authority that originally registered a grant does not retain special revocation power merely because it created that grant.
+
+An ACTIVE grant may become REVOKED through either grantor revocation or delegate relinquishment.
+
+### Grantor revocation
+
+Either of the following current authorities may revoke any ACTIVE grant whose grantor is the identity they currently govern:
+
+1. the grantor's current ControllerPolicy; or
+2. the grantor's current DelegationPolicy.
+
+The grantor IdentityState MUST be current and authoritative. ControllerPolicy revocation provides a root/emergency path. DelegationPolicy revocation provides the ordinary delegation-management path.
+
+If DelegationPolicy A registered grant G and later rotates to DelegationPolicy B with PRESERVE_EXISTING, G may remain usable, but B—not A—is the DelegationPolicy authority that may subsequently revoke G. A historical or rotated-out DelegationPolicy has no continuing revocation authority.
+
+If the current DelegationPolicy is absent, ControllerPolicy remains able to revoke a still-recorded grant even though generation-changing policy removal will normally already make prior-generation grants unusable.
+
+### Delegate relinquishment
+
+The delegate MAY relinquish its own ACTIVE grant if the applicable delegate-principal profile defines a verifiable authentication/signature mechanism.
+
+Relinquishment only reduces the delegate's authority. It MUST NOT modify the grant, transfer authority, alter the grantor IdentityState, change delegation generation, or reactivate another grant.
+
+A parent delegate relinquishing its parent grant makes descendant grants unusable through the normal parent-usability rule.
+
+### Domain separation
+
+Grantor revocation and delegate relinquishment are distinct proof purposes.
+
+Proposed grantor revocation signing structure:
+
+    [
+      "OpenIdentity Delegation Grant Revocation",
+      1,
+      grantId,
+      currentRecordHash,
+      nextRevision,
+      verificationMethodId
+    ]
+
+Proposed delegate relinquishment signing structure:
+
+    [
+      "OpenIdentity Delegation Grant Relinquishment",
+      1,
+      grantId,
+      currentRecordHash,
+      nextRevision,
+      delegatePrincipal
+    ]
+
+The final delegate-proof binding may include a delegate verification-method identifier or profile-specific proof context once the delegate principal model is resolved.
+
+A signature from one revocation purpose MUST NOT be accepted for another.
+
+### Revocation transition validation
+
+A processor accepting ACTIVE -> REVOKED SHALL:
+
+1. load the exact current authoritative RegisteredGrantState;
+2. require status ACTIVE;
+3. require nextRevision = current.revision + 1;
+4. require previousRecordHash = RecordHash(current);
+5. determine whether the request is grantor revocation or delegate relinquishment;
+6. for grantor revocation, load the current authoritative grantor IdentityState and verify either current ControllerPolicy or current DelegationPolicy authorization under the correct domain;
+7. for delegate relinquishment, verify the current grant delegate under the applicable delegate-principal profile and relinquishment domain;
+8. construct the canonical REVOKED successor;
+9. atomically establish at most one authoritative successor.
+
+A stale proof over an earlier RecordHash/revision cannot revoke a later grant-state record.
+
+### Generation invalidation versus individual revocation
+
+Generation mismatch and individual REVOKED status are independent reasons a grant is unusable.
+
+A generation-invalid grant need not receive an individual REVOKED record merely to become unusable. The grantor MAY still record an explicit revocation for audit/finality, using current revocation authority.
+
+Neither generation changes nor deactivation may convert a REVOKED grant back to ACTIVE.
+
 ## 12. Subdelegation and attenuation
 
 Subdelegation is explicit, never ambient.
@@ -416,7 +497,7 @@ The following require deliberate decisions before assigning final CDDL labels:
 5. whether direct grants require a maximum protocol-level lifetime;
 6. whether subdelegation is core-enabled or profile-opt-in;
 7. authoritative registration/status transaction format;
-8. revocation authorization model;
+8. **RESOLVED:** current grantor ControllerPolicy or current DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
 9. **RESOLVED:** registration records use a per-GrantId uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
 10. whether GrantId remains SHA2-256-only in the first release or uses a general Multihash bound;
 11. privacy implications of public registration and whether commitments/private registries are allowed;
