@@ -35,9 +35,10 @@ def main() -> None:
     print("OpenIdentity Protocol v2 / IdentityState v3")
     print("Pre-Freeze Python Release Gate")
     print("=" * 60)
-    for label, filename in CHECKS:
+    for check in CHECKS:
+        label, filename, *args = check
         print(f"\n[{label}]")
-        result = subprocess.run([PY, str(tools / filename)], cwd=ROOT)
+        result = subprocess.run([PY, str(tools / filename), *args], cwd=ROOT)
         if result.returncode != 0:
             print(f"\nRELEASE GATE: FAIL ({label})")
             raise SystemExit(result.returncode)
