@@ -46,6 +46,118 @@ The delegate is identified by a typed principal reference. OI-014 MUST support a
 
 A delegate reference is not proof of possession. Use of a grant MUST include authentication appropriate to the delegate principal/profile.
 
+## 3A. Delegate principal model
+
+OI-014 separates principal identity from proof/authentication mechanism.
+
+The logical delegate reference is:
+
+    DelegatePrincipal {
+        principalType
+        principalProfile?
+        principalId
+    }
+
+The final wire encoding will use registered integer/type identifiers and bounded deterministic byte representations. The semantic model is fixed before those labels are assigned.
+
+### Native OpenIdentity principal
+
+Core OI-014 defines one native principal type:
+
+    OPENIDENTITY
+
+For OPENIDENTITY:
+
+- `principalProfile` is absent;
+- `principalId` is exactly the permanent 32-byte OpenIdentity Identity ID;
+- the delegate's identity remains independent of its current keys;
+- delegate authentication is evaluated against the applicable current OpenIdentity authority/profile at grant-use time rather than embedding one delegate key into the grant.
+
+A grant to an OpenIdentity principal therefore survives legitimate delegate key rotation unless another grant constraint says otherwise.
+
+### Profile-defined external/workload principal
+
+Non-OpenIdentity principals use a profile-defined principal type:
+
+    PROFILE_PRINCIPAL
+
+For PROFILE_PRINCIPAL:
+
+- `principalProfile` is required and identifies immutable principal semantics;
+- `principalId` is opaque to core OI-014;
+- the profile defines canonical principalId syntax and equality;
+- the profile defines how the principal proves control at grant-use or relinquishment time;
+- the profile defines any attestation, workload, runtime, issuer, audience, tenant, or key-binding requirements.
+
+Core OI-014 MUST NOT guess the meaning of an unknown principal profile.
+
+Examples of profile-defined principals may include workloads, services, devices, OAuth/OIDC subjects, cloud workload identities, hardware-backed agents, or AI-agent runtimes. These are examples, not core principal types.
+
+### AI agents
+
+AI_AGENT is deliberately not a core principal type.
+
+An AI agent normally combines several concepts:
+
+    stable agent/workload identity
+    + runtime or deployment identity
+    + authentication key and/or attestation
+    + capability constraints
+
+Those details evolve faster than the core protocol. An AI-agent profile should therefore define a PROFILE_PRINCIPAL representation and proof requirements without changing OI-014's principal model.
+
+This permits different agent systems to interoperate with the same DelegationGrant semantics while keeping model vendor, runtime vendor, attestation technology, and key format outside the core.
+
+### Principal identity versus proof material
+
+`principalId` identifies the delegate. It MUST NOT be treated as interchangeable with a public key unless the owning profile explicitly defines a key-as-principal identity.
+
+Proof material authenticates the principal; it does not implicitly redefine the principal.
+
+A profile that permits authentication-key rotation MUST define how continuity of the same principalId is established.
+
+A profile that uses attestations MUST define which attestation claims are identity-bearing and which are merely contextual.
+
+### Canonical equality
+
+Two DelegatePrincipal values are the same principal only when their canonical principal identities are equal under the applicable principal type/profile.
+
+For OPENIDENTITY this is exact equality of the 32-byte Identity ID.
+
+For PROFILE_PRINCIPAL, equality is defined by the immutable principal profile and MUST be deterministic.
+
+Text display names, DNS names, account labels, model names, user-facing agent names, or aliases MUST NOT be used as principal equality unless a profile explicitly makes them canonical identity material.
+
+### Delegate authentication at grant use
+
+Possession of GrantBytes is not delegate authentication.
+
+To use a grant, the requester MUST prove it is the exact DelegatePrincipal named by the grant using the proof mechanism defined for that principal type/profile.
+
+The grant-use verifier MUST bind the authenticated principal to the grant's canonical DelegatePrincipal before evaluating capabilities/resources.
+
+Authentication evidence MUST NOT expand grant authority. It proves who is acting; the registered grant defines what that principal may do.
+
+### Delegate relinquishment
+
+The relinquishment proof defined by OI-014 MUST authenticate the exact current DelegatePrincipal under its applicable proof profile.
+
+For OPENIDENTITY delegates, a later wire/profile decision will specify which OpenIdentity authority purpose authenticates relinquishment. OI-014 MUST NOT silently assume ControllerPolicy merely because it is root authority.
+
+For PROFILE_PRINCIPAL delegates, the principal profile defines the relinquishment proof binding.
+
+### Principal profile versioning
+
+A principalProfile MUST identify immutable semantics sufficiently to prevent a later profile revision from changing:
+
+- principalId equality;
+- proof/control requirements;
+- key-rotation continuity;
+- attestation identity meaning;
+- relinquishment authorization.
+
+An incompatible change requires a new profile identity/version.
+
 ## 4. Canonical DelegationGrant
 
 The initial logical grant contains:
@@ -722,7 +834,7 @@ The following require deliberate decisions before assigning final CDDL labels:
 1. **RESOLVED:** uint64 whole Unix-epoch seconds UTC; required finite expiresAt; optional notBefore; interval is effectiveNotBefore <= t < expiresAt; profile-defined bounded skew may affect evaluation only;
 2. **RESOLVED:** capability identity is (profileId, capabilityId); capabilityId is opaque to core; no implicit textual hierarchy;
 3. **RESOLVED:** resources and deterministic coverage/subset semantics are profile-owned; core binds resource constraints to individual capabilities and fails closed when attenuation cannot be established;
-4. delegate principal type registry;
+4. **RESOLVED:** core supports native OPENIDENTITY and extensible PROFILE_PRINCIPAL; AI agents/workloads are profile-defined, not core types; principal identity is separate from proof material;
 5. **RESOLVED:** core requires finite expiry but no universal maximum; every registration profile MUST define and enforce a maximum lifetime;
 6. whether subdelegation is core-enabled or profile-opt-in;
 7. authoritative registration/status transaction format;
