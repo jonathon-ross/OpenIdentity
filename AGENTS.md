@@ -10,15 +10,22 @@ Preserve OpenIdentity interoperability, deterministic cryptographic behavior, cr
 
 The repository is preparing Protocol v0.1 under OI-012. Normative work through OI-011 is complete.
 
-The CURRENT operation schema is:
+The current **released v0.1.1** operation schema is:
 
 ```text
 spec/cddl/openidentity-operation-v2.cddl
 ```
 
-`spec/cddl/openidentity-operation-v1.cddl` is historical/frozen compatibility material. Never use its omissions or reserved ranges to infer current behavior.
+ProtocolVersion 2 / IdentityState v3 candidate work uses:
 
-The current schema still uses `protocolVersion = 1`; schema revision and operation protocol version are distinct.
+```text
+spec/cddl/openidentity-operation-v3.cddl
+spec/protocol-v2-identity-state-v3.md
+```
+
+`spec/cddl/openidentity-operation-v1.cddl` is historical/frozen compatibility material. Never use its omissions or reserved ranges to infer current behavior. See `docs/documentation-status.md` for version/status classification.
+
+The released v0.1.1 schema uses `protocolVersion = 1`; schema revision and operation protocol version are distinct.
 
 ## Authority order
 
