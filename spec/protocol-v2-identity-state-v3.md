@@ -198,6 +198,10 @@ For each authority generation:
 - wrapping is forbidden;
 - an operation requiring increment at 2^64-1 fails.
 
+## 12.1 Sequence terminal condition
+
+IdentityState sequence is uint64 and MUST NOT wrap. If the authoritative predecessor sequence is `2^64 - 1`, no further state-changing operation can produce a representable exact-next sequence. Such an operation MUST be rejected with `SEQUENCE_OVERFLOW`. Recovery authority does not bypass this terminal condition.
+
 ## 12A. State preservation invariant
 
 Except for fields explicitly modified by an operation's normative transition semantics, every field of the authoritative predecessor IdentityState MUST be preserved exactly in the successor logical state and therefore in its canonical StateBytes representation. Implementations MUST NOT silently drop, reset, reconstruct with different values, or otherwise mutate unrelated recovery, assertion, authentication, delegation, controller, identity, or status state.
