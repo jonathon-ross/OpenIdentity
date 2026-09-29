@@ -448,22 +448,27 @@ def verify_remaining_invalids(data):
     require("VI314 generation decreases",invalid["VI314"]["proposedGeneration"]<invalid["VI314"]["currentGeneration"])
     require("VI315 uint64 max increment would overflow",
             invalid["VI315"]["currentGeneration"]==2**64-1 and invalid["VI315"]["requiredNextGeneration"]==str(2**64))
-    require("VI316 recovery illegally preserves authentication",
-            invalid["VI316"]["authenticationPolicyPresentBefore"] and invalid["VI316"]["authenticationPolicyPresentAfter"])
-    require("VI317 recovery illegally preserves delegation",
-            invalid["VI317"]["delegationPolicyPresentBefore"] and invalid["VI317"]["delegationPolicyPresentAfter"])
-    require("VI318 recovery disposition missing",4 not in invalid["VI318"]["payloadLabels"])
-    require("VI319 REMOVE invalid when assertion absent",
-            not invalid["VI319"]["sourceAssertionPolicyPresent"] and invalid["VI319"]["disposition"]=="REMOVE")
-    require("VI320 REPLACE invalid when assertion absent",
-            not invalid["VI320"]["sourceAssertionPolicyPresent"] and invalid["VI320"]["disposition"]=="REPLACE")
-    require("VI321 replacement Assertion PoP missing",invalid["VI321"]["assertionProofCount"]==0)
-    require("VI322 v3->v2 downgrade represented",
-            invalid["VI322"]["sourceStateVersion"]==3 and invalid["VI322"]["proposedStateVersion"]==2)
-    require("VI323 PV1 applied to v3 represented",
-            invalid["VI323"]["sourceStateVersion"]==3 and invalid["VI323"]["operationProtocolVersion"]==1)
-    require("VI324 malformed proof collection represented",
-            invalid["VI324"]["encodedAs"]=="map" and invalid["VI324"]["requiredShape"]=="non-empty array")
+    require("VI316 byte-complete invalid recovery state",
+            len(bytes.fromhex(invalid["VI316"]["proposedStateBytesHex"]))>0)
+    require("VI317 byte-complete invalid recovery state",
+            len(bytes.fromhex(invalid["VI317"]["proposedStateBytesHex"]))>0)
+    require("VI318 byte-complete missing-disposition payload",
+            len(bytes.fromhex(invalid["VI318"]["payloadBytesHex"]))>0)
+    require("VI319 byte-complete REMOVE operation",
+            len(bytes.fromhex(invalid["VI319"]["operationBytesHex"]))>0)
+    require("VI320 byte-complete REPLACE operation",
+            len(bytes.fromhex(invalid["VI320"]["operationBytesHex"]))>0)
+    require("VI321 signed operation omits required Assertion PoP",
+            invalid["VI321"]["missingProofField"]==6 and len(bytes.fromhex(invalid["VI321"]["signedOperationBytesHex"]))>0)
+    require("VI322 v3->v2 downgrade bytes present",
+            invalid["VI322"]["sourceStateVersion"]==3 and invalid["VI322"]["proposedStateVersion"]==2
+            and len(bytes.fromhex(invalid["VI322"]["proposedStateBytesHex"]))>0)
+    require("VI323 PV1 operation bytes applied to v3",
+            invalid["VI323"]["sourceStateVersion"]==3 and invalid["VI323"]["operationProtocolVersion"]==1
+            and len(bytes.fromhex(invalid["VI323"]["operationBytesHex"]))>0)
+    require("VI324 byte-complete malformed proof collection",
+            invalid["VI324"]["encodedMajorType"]=="map" and invalid["VI324"]["requiredMajorType"]=="array"
+            and len(bytes.fromhex(invalid["VI324"]["signedOperationBytesHex"]))>0)
 
     v=invalid["VI328"]
     require("VI328 method IDs distinct",v["methodId1Hex"]!=v["methodId2Hex"])
