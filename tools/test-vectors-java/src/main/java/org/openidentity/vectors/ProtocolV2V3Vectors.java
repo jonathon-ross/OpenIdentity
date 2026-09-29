@@ -27,7 +27,7 @@ public final class ProtocolV2V3Vectors {
                 root.resolve("test-vectors/generated/protocol-v2-identity-state-v3.json").toFile());
         require("suite specification",
                 "OpenIdentity Protocol v2 / IdentityState v3".equals(doc.path("specification").asText()));
-        require("positive vector count", doc.path("vectors").size() == 22);
+        require("positive vector count", doc.path("vectors").size() == 24);
         require("invalid vector count", doc.path("invalidVectors").size() == 36);
 
         verifyV301(find(doc, "V301"));
@@ -42,11 +42,12 @@ public final class ProtocolV2V3Vectors {
         verifyV317(find(doc, "V317")); verifyV318(find(doc, "V318"));
         verifyV319(find(doc, "V319")); verifyV320(find(doc, "V320"));
         verifyV321(find(doc, "V321")); verifyV322(find(doc, "V322"));
+        verifyV323(find(doc, "V323")); verifyV324(find(doc, "V324"));
         verifyInvalidSuite(doc);
 
         System.out.println();
         System.out.println("================================================");
-        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V322 + VI301-VI336 VERIFIED");
+        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V324 + VI301-VI336 VERIFIED");
         System.out.println("================================================");
     }
 
@@ -263,6 +264,31 @@ public final class ProtocolV2V3Vectors {
         require("V322 StateBytes",eq(v,"stateBytesHex",result));
         require("V322 StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
     }
+
+
+    private static void verifyRich(JsonNode v,String id,boolean deactivate)throws Exception{
+        Key c=key("OpenIdentity protocol-v2 v3 "+id+" controller Ed25519 seed",0);
+        Key r=key("OpenIdentity protocol-v2 v3 "+id+" recovery Ed25519 seed",16);
+        Key a=key("OpenIdentity protocol-v2 v3 "+id+" assertion Ed25519 seed",32);
+        Key aa=key("OpenIdentity protocol-v2 v3 "+id+" authentication A Ed25519 seed",48);
+        Key ab=key("OpenIdentity protocol-v2 v3 "+id+" authentication B Ed25519 seed",64);
+        Key d=key("OpenIdentity protocol-v2 v3 "+id+" delegation Ed25519 seed",80);
+        byte[] cp=policy(c.method),rc=StateHash.sha256Multihash(recoveryPolicy(r.method)),sp=policy(a.method),
+                ap=policy(aa.method),bp=policy(ab.method),dp=policy(d.method);
+        byte[] prev=state(3,12,1,cp,rc,sp,authority(7,ap),authority(11,dp));
+        byte[] op=deactivate?operation(4,13,StateHash.sha256Multihash(prev),map())
+                :operation(6,13,StateHash.sha256Multihash(prev),map(entry(1,bp),uintEntry(2,1)));
+        require(id+" OperationBytes",eq(v,"operationBytesHex",op));
+        require(id+" controller signature",eq(v,"controllerSignatureHex",c.ed.sign(signing("OpenIdentity Operation",op,null))));
+        if(!deactivate)require(id+" authentication PoP",eq(v,"authenticationProofSignatureHex",
+                ab.ed.sign(signing("OpenIdentity Authentication Proof",op,ab.id))));
+        byte[] result=deactivate?state(3,13,2,cp,rc,sp,authority(7,ap),authority(11,dp))
+                :state(3,13,1,cp,rc,sp,authority(8,bp),authority(11,dp));
+        require(id+" StateBytes",eq(v,"stateBytesHex",result));
+        require(id+" StateHash",eq(v,"stateHashHex",StateHash.sha256Multihash(result)));
+    }
+    private static void verifyV323(JsonNode v)throws Exception{verifyRich(v,"V323",false);}
+    private static void verifyV324(JsonNode v)throws Exception{verifyRich(v,"V324",true);}
 
     private static JsonNode invalid(JsonNode doc,String id){
         for(JsonNode v:doc.path("invalidVectors"))if(id.equals(v.path("id").asText()))return v;
