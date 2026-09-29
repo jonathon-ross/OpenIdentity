@@ -803,6 +803,55 @@ def build_v322():
             "stateHashHex":sha256_multihash(sb).hex()}
 
 
+
+def _rich_v3_fixture(vid):
+    identity=bytes(range(32))
+    cpriv,_,cid,cm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} controller Ed25519 seed",0)
+    _,_,_,rm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} recovery Ed25519 seed",16)
+    _,_,_,sm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} assertion Ed25519 seed",32)
+    apriv,_,aid,am=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} authentication A Ed25519 seed",48)
+    bpriv,_,bid,bm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} authentication B Ed25519 seed",64)
+    _,_,_,dm=_ed25519(f"OpenIdentity protocol-v2 v3 {vid} delegation Ed25519 seed",80)
+    cp=_single_policy(cm); rp=_recovery_policy(rm); rc=sha256_multihash(cbor(rp))
+    sp=_single_policy(sm); ap=_single_policy(am); bp=_single_policy(bm); dp=_single_policy(dm)
+    state={1:3,2:identity,3:12,4:1,5:cp,6:rc,7:sp,8:{1:7,2:ap},9:{1:11,2:dp}}
+    return identity,cpriv,cid,cp,rc,sp,apriv,aid,ap,bpriv,bid,bp,dp,state
+
+
+def build_v323():
+    identity,cpriv,cid,cp,rc,sp,apriv,aid,ap,bpriv,bid,bp,dp,previous=_rich_v3_fixture("V323")
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    op={1:2,2:6,3:identity,4:13,5:psh,6:{1:bp,2:1}}; ob=cbor(op)
+    cs=cbor(["OpenIdentity Operation",1,ob]); csig=cpriv.sign(cs)
+    aps,proof=_purpose_proof("OpenIdentity Authentication Proof",ob,bpriv,bid)
+    signed={1:op,2:[{1:cid,2:csig}],5:[proof]}
+    state={1:3,2:identity,3:13,4:1,5:cp,6:rc,7:sp,8:{1:8,2:bp},9:{1:11,2:dp}}
+    sb=cbor(state)
+    return {"id":"V323","description":"Rich-state AuthenticationPolicy security rotation preserves every unrelated state field",
+            "expected":"PASS","previousStateBytesHex":psb.hex(),"previousStateHashHex":psh.hex(),
+            "operationBytesHex":ob.hex(),"controllerSignatureHex":csig.hex(),
+            "authenticationProofSigningBytesHex":aps.hex(),"authenticationProofSignatureHex":proof[2].hex(),
+            "signedOperationBytesHex":cbor(signed).hex(),"stateBytesHex":sb.hex(),"stateHashHex":sha256_multihash(sb).hex(),
+            "assertions":{"unrelatedStatePreserved":True,"previousAuthenticationGeneration":7,
+                          "resultingAuthenticationGeneration":8,"delegationGenerationPreserved":11}}
+
+
+def build_v324():
+    identity,cpriv,cid,cp,rc,sp,apriv,aid,ap,bpriv,bid,bp,dp,previous=_rich_v3_fixture("V324")
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    op={1:2,2:4,3:identity,4:13,5:psh,6:{}}; ob=cbor(op)
+    cs=cbor(["OpenIdentity Operation",1,ob]); csig=cpriv.sign(cs)
+    signed={1:op,2:[{1:cid,2:csig}]}
+    state={1:3,2:identity,3:13,4:2,5:cp,6:rc,7:sp,8:{1:7,2:ap},9:{1:11,2:dp}}
+    sb=cbor(state)
+    return {"id":"V324","description":"DEACTIVATE rich v3 state changes only sequence and status",
+            "expected":"PASS","previousStateBytesHex":psb.hex(),"previousStateHashHex":psh.hex(),
+            "operationBytesHex":ob.hex(),"controllerSignatureHex":csig.hex(),
+            "signedOperationBytesHex":cbor(signed).hex(),"stateBytesHex":sb.hex(),"stateHashHex":sha256_multihash(sb).hex(),
+            "assertions":{"allAuthorityStatePreserved":True,"resultingStatus":"DEACTIVATED",
+                          "authenticationGenerationPreserved":7,"delegationGenerationPreserved":11}}
+
+
 def build_invalid_pop_vectors():
     identity=bytes(range(32))
     out=[]
@@ -1079,7 +1128,7 @@ def main() -> None:
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
         "invalidVectors": build_invalid_pop_vectors() + build_remaining_invalid_vectors(),
-        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318(), build_v319(), build_v320(), build_v321(), build_v322()],
+        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318(), build_v319(), build_v320(), build_v321(), build_v322(), build_v323(), build_v324()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
@@ -1106,6 +1155,8 @@ def main() -> None:
     print("V320 VERIFIED")
     print("V321 VERIFIED")
     print("V322 VERIFIED")
+    print("V323 VERIFIED")
+    print("V324 VERIFIED")
 
 
 if __name__ == "__main__":
