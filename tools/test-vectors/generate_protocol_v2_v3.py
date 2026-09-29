@@ -760,6 +760,49 @@ def build_v320():
 
 
 
+
+def build_v321():
+    identity=bytes(range(32))
+    cpriv,_,cid,cm=_ed25519("OpenIdentity protocol-v2 v3 V321 controller Ed25519 seed",0)
+    dpriv,_,did,dm=_ed25519("OpenIdentity protocol-v2 v3 V321 delegation Ed25519 seed",16)
+    cp=_single_policy(cm); dp=_single_policy(dm)
+    previous={1:2,2:identity,3:1,4:1,5:cp}
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    op={1:2,2:7,3:identity,4:2,5:psh,6:{1:dp}}; ob=cbor(op)
+    cs=cbor(["OpenIdentity Operation",1,ob]); csig=cpriv.sign(cs)
+    ds,proof=_purpose_proof("OpenIdentity Delegation Proof",ob,dpriv,did)
+    signed={1:op,2:[{1:cid,2:csig}],7:[proof]}
+    state={1:3,2:identity,3:2,4:1,5:cp,8:{1:0},9:{1:0,2:dp}}
+    sb=cbor(state)
+    return {"id":"V321","description":"protocolVersion 2 SET_DELEGATION_POLICY upgrades v2 to v3 at delegation generation 0",
+            "expected":"PASS","previousStateBytesHex":psb.hex(),"previousStateHashHex":psh.hex(),
+            "operationBytesHex":ob.hex(),"controllerSigningBytesHex":cs.hex(),"controllerSignatureHex":csig.hex(),
+            "delegationProofSigningBytesHex":ds.hex(),"delegationProofSignatureHex":proof[2].hex(),
+            "signedOperationBytesHex":cbor(signed).hex(),"stateBytesHex":sb.hex(),
+            "stateHashHex":sha256_multihash(sb).hex()}
+
+
+def build_v322():
+    identity=bytes(range(32))
+    oldpriv,_,oldid,oldm=_ed25519("OpenIdentity protocol-v2 v3 V322 old controller Ed25519 seed",0)
+    newpriv,_,newid,newm=_ed25519("OpenIdentity protocol-v2 v3 V322 new controller Ed25519 seed",16)
+    oldp=_single_policy(oldm); newp=_single_policy(newm)
+    previous={1:2,2:identity,3:4,4:1,5:oldp}
+    psb=cbor(previous); psh=sha256_multihash(psb)
+    op={1:2,2:2,3:identity,4:5,5:psh,6:{1:newp}}; ob=cbor(op)
+    os=cbor(["OpenIdentity Operation",1,ob]); osig=oldpriv.sign(os)
+    ns,proof=_purpose_proof("OpenIdentity Controller Proof",ob,newpriv,newid)
+    signed={1:op,2:[{1:oldid,2:osig}],3:[proof]}
+    state={1:3,2:identity,3:5,4:1,5:newp,8:{1:0},9:{1:0}}
+    sb=cbor(state)
+    return {"id":"V322","description":"ordinary protocolVersion 2 ROTATE_CONTROLLER upgrades v2 to v3 with both derived generations 0",
+            "expected":"PASS","previousStateBytesHex":psb.hex(),"previousStateHashHex":psh.hex(),
+            "operationBytesHex":ob.hex(),"controllerSigningBytesHex":os.hex(),"controllerSignatureHex":osig.hex(),
+            "controllerProofSigningBytesHex":ns.hex(),"controllerProofSignatureHex":proof[2].hex(),
+            "signedOperationBytesHex":cbor(signed).hex(),"stateBytesHex":sb.hex(),
+            "stateHashHex":sha256_multihash(sb).hex()}
+
+
 def build_invalid_pop_vectors():
     identity=bytes(range(32))
     out=[]
@@ -1006,7 +1049,7 @@ def main() -> None:
         "status": "DRAFT-NON-NORMATIVE",
         "wireSchema": "spec/cddl/openidentity-operation-v3.cddl",
         "invalidVectors": build_invalid_pop_vectors() + build_remaining_invalid_vectors(),
-        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318(), build_v319(), build_v320()],
+        "vectors": [build_v301(), build_v302(), build_v303(), build_v304(), build_v305(), build_v306(), build_v307(), build_v308(), build_v309(), build_v310(), build_v311(), build_v312(), build_v313(), build_v314(), build_v315(), build_v316(), build_v317(), build_v318(), build_v319(), build_v320(), build_v321(), build_v322()],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
@@ -1031,6 +1074,8 @@ def main() -> None:
     print("V318 VERIFIED")
     print("V319 VERIFIED")
     print("V320 VERIFIED")
+    print("V321 VERIFIED")
+    print("V322 VERIFIED")
 
 
 if __name__ == "__main__":
