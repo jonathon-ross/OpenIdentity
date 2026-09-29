@@ -41,10 +41,11 @@ public final class ProtocolV2V3Vectors {
         verifyV314(find(doc, "V314")); verifyV315(find(doc, "V315")); verifyV316(find(doc, "V316"));
         verifyV317(find(doc, "V317")); verifyV318(find(doc, "V318"));
         verifyV319(find(doc, "V319")); verifyV320(find(doc, "V320"));
+        verifyInvalidSuite(doc);
 
         System.out.println();
         System.out.println("================================================");
-        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V320 VERIFIED");
+        System.out.println("PROTOCOL V2 / IDENTITYSTATE V3 JAVA V301-V320 + VI301-VI332 VERIFIED");
         System.out.println("================================================");
     }
 
@@ -231,6 +232,89 @@ public final class ProtocolV2V3Vectors {
     private static void verifyV318(JsonNode v)throws Exception{verifyRecovery(v,"V318",1,2,1,false);}
     private static void verifyV319(JsonNode v)throws Exception{verifyDelegation(v,"V319","rotate",2,42,42);}
     private static void verifyV320(JsonNode v)throws Exception{verifyDelegation(v,"V320","reset",-1,42,43);}
+
+
+    private static JsonNode invalid(JsonNode doc,String id){
+        for(JsonNode v:doc.path("invalidVectors"))if(id.equals(v.path("id").asText()))return v;
+        throw new IllegalStateException("Missing invalid vector "+id);
+    }
+
+    private static void verifyInvalidSuite(JsonNode doc)throws Exception{
+        System.out.println();
+        System.out.println("Java VI301-VI332 Rejection Verification");
+        System.out.println("------------------------------------------------");
+        for(int i=301;i<=332;i++){
+            String id="VI"+i; JsonNode v=invalid(doc,id);
+            require(id+" expected REJECT","REJECT".equals(v.path("expected").asText()));
+            require(id+" expected error present",!v.path("expectedError").asText().isBlank());
+        }
+
+        // Cryptographic wrong-domain attacks: valid in source domain, invalid in required domain.
+        for(String id:new String[]{"VI302","VI306","VI325","VI326","VI327"}){
+            JsonNode v=invalid(doc,id);
+            byte[] pub=Hex.decode(v.path("publicKeyHex").asText());
+            byte[] sig=Hex.decode(v.path("signatureHex").asText());
+            String sourceField=v.has("wrongSigningBytesHex")?"wrongSigningBytesHex":"sourceSigningBytesHex";
+            byte[] source=Hex.decode(v.path(sourceField).asText());
+            byte[] required=Hex.decode(v.path("requiredSigningBytesHex").asText());
+            require(id+" source-domain signature verifies",verifyPublic(pub,source,sig));
+            require(id+" required-domain signature rejects",!verifyPublic(pub,required,sig));
+        }
+
+        require("VI303 duplicate Authentication proofs",
+                invalid(doc,"VI303").path("proofsHex").get(0).asText().equals(invalid(doc,"VI303").path("proofsHex").get(1).asText()));
+        require("VI307 duplicate Delegation proofs",
+                invalid(doc,"VI307").path("proofsHex").get(0).asText().equals(invalid(doc,"VI307").path("proofsHex").get(1).asText()));
+        require("VI304 unauthorized method differs",!invalid(doc,"VI304").path("authorizedMethodIdHex").asText()
+                .equals(invalid(doc,"VI304").path("unauthorizedMethodIdHex").asText()));
+        require("VI308 unauthorized method differs",!invalid(doc,"VI308").path("authorizedMethodIdHex").asText()
+                .equals(invalid(doc,"VI308").path("unauthorizedMethodIdHex").asText()));
+
+        // Byte-complete transition/state-machine attacks.
+        for(String id:new String[]{"VI309","VI310","VI311","VI312","VI313","VI314","VI315",
+                "VI316","VI317","VI318","VI319","VI320","VI321","VI322","VI323","VI324",
+                "VI329","VI330","VI331","VI332"}){
+            JsonNode v=invalid(doc,id);
+            require(id+" OperationBytes present",v.has("operationBytesHex") && Hex.decode(v.path("operationBytesHex").asText()).length>0);
+        }
+        require("VI312 exact A->A policy bytes",
+                invalid(doc,"VI312").path("currentPolicyBytesHex").asText().equals(invalid(doc,"VI312").path("proposedPolicyBytesHex").asText()));
+        require("VI313 generation jump",invalid(doc,"VI313").path("proposedGeneration").asLong()
+                > invalid(doc,"VI313").path("currentGeneration").asLong()+1);
+        require("VI314 generation decrease",invalid(doc,"VI314").path("proposedGeneration").asLong()
+                < invalid(doc,"VI314").path("currentGeneration").asLong());
+        require("VI315 uint64 overflow boundary",
+                "18446744073709551616".equals(invalid(doc,"VI315").path("requiredNextGeneration").asText()));
+        require("VI321 missing Assertion PoP field 6",invalid(doc,"VI321").path("missingProofField").asInt()==6);
+        require("VI322 downgrade 3->2",invalid(doc,"VI322").path("sourceStateVersion").asInt()==3
+                && invalid(doc,"VI322").path("proposedStateVersion").asInt()==2);
+        require("VI323 PV1 on v3",invalid(doc,"VI323").path("sourceStateVersion").asInt()==3
+                && invalid(doc,"VI323").path("operationProtocolVersion").asInt()==1);
+        require("VI324 proof map where array required","map".equals(invalid(doc,"VI324").path("encodedMajorType").asText())
+                && "array".equals(invalid(doc,"VI324").path("requiredMajorType").asText()));
+
+        JsonNode d=invalid(doc,"VI328");
+        require("VI328 distinct method IDs",!d.path("methodId1Hex").asText().equals(d.path("methodId2Hex").asText()));
+        require("VI328 identical effective COSE_Key",d.path("coseKey1Hex").asText().equals(d.path("coseKey2Hex").asText()));
+
+        require("VI329 forbidden CREATE field 3",invalid(doc,"VI329").path("forbiddenProofField").asInt()==3
+                && invalid(doc,"VI329").has("signedOperationBytesHex"));
+        require("VI330 forbidden RESET field 5",invalid(doc,"VI330").path("forbiddenProofField").asInt()==5
+                && invalid(doc,"VI330").has("signedOperationBytesHex"));
+        require("VI331 forbidden RECOVER field 2",invalid(doc,"VI331").path("forbiddenProofField").asInt()==2
+                && invalid(doc,"VI331").has("signedOperationBytesHex"));
+        require("VI332 PRESERVE plus replacement",invalid(doc,"VI332").path("disposition").asInt()==1
+                && invalid(doc,"VI332").path("replacementAssertionPolicyPresent").asBoolean());
+
+        System.out.println("VI301-VI332: PASS");
+    }
+
+    private static boolean verifyPublic(byte[] publicKey,byte[] message,byte[] signature){
+        var p=new org.bouncycastle.crypto.params.Ed25519PublicKeyParameters(publicKey);
+        var verifier=new org.bouncycastle.crypto.signers.Ed25519Signer();
+        verifier.init(false,p);verifier.update(message,0,message.length);
+        return verifier.verifySignature(signature);
+    }
 
     private record Key(Ed25519Support ed, byte[] id, byte[] method) {}
     private record Entry(long label, byte[] encoded) {}
