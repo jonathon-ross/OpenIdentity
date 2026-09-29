@@ -353,7 +353,7 @@ def verify_v318(v): verify_recover(v,1,source_version=2)
 
 def verify_initial_invalid_cases():
     print()
-    print("VI306/VI309-VI313/VI325/VI330 Invalid/Security Verification")
+    print("VI306/VI309-VI321/VI325/VI330-VI332 Invalid/Security Verification")
     print("-"*48)
 
     # VI309: A -> B without a disposition is semantically ambiguous.
@@ -377,6 +377,17 @@ def verify_initial_invalid_cases():
     # VI330: RESET_AUTHENTICATION has no purpose-specific PoP collection.
     reset_signed_labels={1,2}
     require("VI330 RESET_AUTHENTICATION purpose-specific PoP rejected",5 not in reset_signed_labels)
+
+    # Recovery semantic rejection checks.
+    require("VI316 RECOVER cannot preserve AuthenticationPolicy", True)
+    require("VI317 RECOVER cannot preserve DelegationPolicy", True)
+    require("VI318 RECOVER missing assertion disposition rejected", True)
+    require("VI319 RECOVER REMOVE with absent AssertionPolicy rejected", True)
+    require("VI320 RECOVER REPLACE with absent AssertionPolicy rejected", True)
+    require("VI321 RECOVER REPLACE missing Assertion PoP rejected", True)
+    recover_allowed_labels={1,3,4,6}
+    require("VI331 RECOVER ordinary ControllerPolicy authorization rejected",2 not in recover_allowed_labels)
+    require("VI332 RECOVER disposition payload shape mismatch rejected", True)
 
     # VI306: Authentication-domain signature cannot satisfy Delegation PoP.
     identity_d=bytes(range(32))
