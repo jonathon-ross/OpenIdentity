@@ -293,6 +293,64 @@ def verify_v312(v): verify_delegation_transition(v,"remove",gen_before=4,gen_aft
 def verify_v313(v): verify_delegation_transition(v,"reset",gen_before=9,gen_after=10)
 
 
+
+def recovery_policy(method):
+    return {1:1,2:1,3:[method]}
+
+
+def verify_recover(v, disposition, source_version=3, source_status=1, replace_assertion=False):
+    vid=v["id"]; identity=bytes(range(32))
+    _,_,_,oldcm=key(f"OpenIdentity protocol-v2 v3 {vid} old controller Ed25519 seed",0)
+    _,newcpub,newcid,newcm=key(f"OpenIdentity protocol-v2 v3 {vid} new controller Ed25519 seed",16)
+    _,rpub,rid,rm=key(f"OpenIdentity protocol-v2 v3 {vid} recovery Ed25519 seed",32)
+    _,_,oldaid,oldam=key(f"OpenIdentity protocol-v2 v3 {vid} assertion A Ed25519 seed",48)
+    _,newapub,newaid,newam=key(f"OpenIdentity protocol-v2 v3 {vid} assertion B Ed25519 seed",64)
+    _,_,_,authm=key(f"OpenIdentity protocol-v2 v3 {vid} authentication Ed25519 seed",80)
+    _,_,_,delm=key(f"OpenIdentity protocol-v2 v3 {vid} delegation Ed25519 seed",96)
+    oldcp,newcp=policy(oldcm),policy(newcm); oldap,newap=policy(oldam),policy(newam)
+    rp=recovery_policy(rm); rc=mh(enc(rp)); newrc=mh(enc(recovery_policy(newcm)))
+    previous={1:source_version,2:identity,3:5,4:source_status,5:oldcp,6:rc,7:oldap}
+    if source_version==3:
+        previous[8]={1:3,2:policy(authm)}; previous[9]={1:7,2:policy(delm)}
+    psb=enc(previous); psh=mh(psb)
+    require(f"{vid} previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require(f"{vid} previous StateHash",v["previousStateHashHex"]==psh.hex())
+    payload={1:newcp,2:rp,3:newrc,4:disposition}
+    if replace_assertion: payload[5]=newap
+    op={1:2,2:3,3:identity,4:6,5:psh,6:payload}; ob=enc(op)
+    require(f"{vid} OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(newcpub,v["controllerProofSignatureHex"],enc(["OpenIdentity Controller Proof",1,ob,newcid]))
+    require(f"{vid} replacement controller PoP verifies",True)
+    verify_signature(rpub,v["recoverySignatureHex"],enc(["OpenIdentity Recovery",1,ob,rid]))
+    require(f"{vid} recovery authorization verifies",True)
+    require(f"{vid} ordinary ControllerPolicy authorization absent",v["assertions"]["ordinaryAuthorizationPresent"] is False)
+    if replace_assertion:
+        verify_signature(newapub,v["assertionProofSignatureHex"],enc(["OpenIdentity Assertion Proof",1,ob,newaid]))
+        require(f"{vid} replacement AssertionPolicy PoP verifies",True)
+    resultap=oldap if disposition==1 else (newap if disposition==3 else None)
+    agen=1 if source_version==2 else 4; dgen=1 if source_version==2 else 8
+    state={1:3,2:identity,3:6,4:1,5:newcp,6:newrc,8:{1:agen},9:{1:dgen}}
+    if resultap is not None: state[7]=resultap
+    sb=enc(state)
+    require(f"{vid} resulting ACTIVE",state[4]==1)
+    require(f"{vid} AuthenticationPolicy removed",2 not in state[8])
+    require(f"{vid} DelegationPolicy removed",2 not in state[9])
+    require(f"{vid} authentication generation reset semantics",state[8][1]==agen)
+    require(f"{vid} delegation generation reset semantics",state[9][1]==dgen)
+    if disposition==1: require(f"{vid} AssertionPolicy preserved",enc(state[7])==enc(oldap))
+    if disposition==2: require(f"{vid} AssertionPolicy removed",7 not in state)
+    if disposition==3: require(f"{vid} AssertionPolicy replaced",enc(state[7])==enc(newap))
+    require(f"{vid} StateBytes",v["stateBytesHex"]==sb.hex())
+    require(f"{vid} StateHash",v["stateHashHex"]==mh(sb).hex())
+
+
+def verify_v314(v): verify_recover(v,1)
+def verify_v315(v): verify_recover(v,2)
+def verify_v316(v): verify_recover(v,3,replace_assertion=True)
+def verify_v317(v): verify_recover(v,1,source_status=2)
+def verify_v318(v): verify_recover(v,1,source_version=2)
+
+
 def verify_initial_invalid_cases():
     print()
     print("VI306/VI309-VI313/VI325/VI330 Invalid/Security Verification")
@@ -374,7 +432,7 @@ def main():
     require("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
     require("wire schema",data["wireSchema"]=="spec/cddl/openidentity-operation-v3.cddl")
     vectors={v["id"]:v for v in data["vectors"]}
-    require("vector IDs V301-V313",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313"})
+    require("vector IDs V301-V318",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308","V309","V310","V311","V312","V313","V314","V315","V316","V317","V318"})
     verify_v301(vectors["V301"])
     verify_v302(vectors["V302"])
     verify_v303(vectors["V303"])
@@ -388,10 +446,15 @@ def main():
     verify_v311(vectors["V311"])
     verify_v312(vectors["V312"])
     verify_v313(vectors["V313"])
+    verify_v314(vectors["V314"])
+    verify_v315(vectors["V315"])
+    verify_v316(vectors["V316"])
+    verify_v317(vectors["V317"])
+    verify_v318(vectors["V318"])
     verify_initial_invalid_cases()
     print()
     print("="*48)
-    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V313 VERIFIED")
+    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V318 VERIFIED")
     print("="*48)
 
 
