@@ -202,6 +202,6 @@ Historical v1/v2 StateHashes are unchanged.
 
 ## 14. Conformance priorities
 
-Positive vectors MUST cover CREATE variants, v1/v2->v3 upgrade, planned/security rotations, removals, resets, RECOVER assertion dispositions, recovery from DEACTIVATED, and registered delegation across preserved/invalidated generations.
+Positive vectors MUST cover CREATE variants, v1/v2->v3 upgrade, planned/security rotations, removals, resets, RECOVER assertion dispositions, recovery from DEACTIVATED, and delegation-generation preservation/invalidation semantics. DelegationGrant registration and backdating vectors are deferred to OI-014.
 
 Invalid vectors MUST cover cross-domain PoP substitution, missing/duplicate/unauthorized PoPs, invalid disposition combinations, generation decrease/jump/overflow, PV1-on-v3 downgrade attempts, duplicate effective keys inside one policy, RECOVER attempts to preserve authentication/delegation authority, structurally forbidden proof collections, and malformed RECOVER assertion-disposition shapes. Delegation backdating and registration vectors are deferred to OI-014.
