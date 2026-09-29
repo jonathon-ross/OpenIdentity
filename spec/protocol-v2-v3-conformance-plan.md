@@ -69,6 +69,7 @@ Coverage status: VI301-VI308 and VI325-VI327 contain concrete cryptographic proo
 - VI334 RESET_DELEGATIONS against IdentityState v1/v2 — reject with RESET_REQUIRES_IDENTITY_STATE_V3
 - VI335 ROTATE_CONTROLLER against DEACTIVATED IdentityState v3 — reject with OPERATION_NOT_PERMITTED_WHILE_DEACTIVATED
 - VI336 SET_AUTHENTICATION_POLICY against DEACTIVATED IdentityState v3 — reject with OPERATION_NOT_PERMITTED_WHILE_DEACTIVATED
+- VI337 predecessor sequence = 2^64-1 requires unrepresentable exact-next sequence — reject with SEQUENCE_OVERFLOW
 
 DelegationGrant registration, backdating, individual status, and generation-aware
 grant-validity vectors are deferred to OI-014, where the canonical DelegationGrant
@@ -82,4 +83,4 @@ Every implementation must independently reproduce identical StateBytes and State
 
 The previous byte-frozen candidate (125506 bytes, SHA-256 `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`) was intentionally invalidated by the final adversarial review after discovering ambiguity around RESET_AUTHENTICATION / RESET_DELEGATIONS as v1/v2-to-v3 upgrade operations.
 
-A new candidate checksum MUST NOT be established until V301-V324 / VI301-VI336 pass the Python and Java gates and all frozen v0.1 regressions remain green.
+A new candidate checksum MUST NOT be established until V301-V324 / VI301-VI337 pass the Python and Java gates and all frozen v0.1 regressions remain green.
