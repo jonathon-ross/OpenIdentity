@@ -27,6 +27,8 @@
 
 ## Invalid/security vectors
 
+Coverage status: VI301-VI308 and VI325-VI327 contain concrete cryptographic proof/domain attack artifacts. VI328 contains concrete duplicate effective-key material. VI309-VI324 and VI329-VI332 currently encode explicit adversarial conditions and expected stable errors, but are not yet byte-complete malformed SignedOperation/Operation artifacts. They MUST NOT be promoted as normative invalid wire vectors until those byte-complete artifacts are generated and independently rejected.
+
 - VI301 missing Authentication PoP
 - VI302 Authentication PoP signed under Controller domain
 - VI303 duplicate Authentication PoP
