@@ -8,8 +8,8 @@
 - V302 CREATE with AuthenticationPolicy — generator implemented; controller authorization + AuthenticationPolicy PoP independently reconstructed
 - V303 CREATE with all derived authorities — generator implemented; authentication/assertion/delegation purpose-specific PoPs independently reconstructed
 - V304 protocolVersion 2 operation upgrades v2 to v3 — generator implemented; exact historical v2 StateHash is carried into previousStateHash
-- V305 AuthenticationPolicy planned rotation / PRESERVE_EXISTING
-- V306 AuthenticationPolicy security rotation / INVALIDATE_EXISTING
+- V305 AuthenticationPolicy planned rotation / PRESERVE_EXISTING — generator + independent verifier implemented; generation preserved
+- V306 AuthenticationPolicy security rotation / INVALIDATE_EXISTING — generator + independent verifier implemented; generation increments exactly once
 - V307 remove AuthenticationPolicy
 - V308 RESET_AUTHENTICATION
 - V309 initial DelegationPolicy installation
@@ -35,11 +35,11 @@
 - VI306 Delegation PoP signed under Authentication domain
 - VI307 duplicate Delegation PoP
 - VI308 unauthorized Delegation method
-- VI309 A->B rotation missing required disposition
-- VI310 initial policy installation supplies forbidden disposition
+- VI309 A->B rotation missing required disposition — initial independent rejection check implemented
+- VI310 initial policy installation supplies forbidden disposition — initial independent rejection check implemented
 - VI311 policy removal attempts PRESERVE_EXISTING
-- VI312 exact A->A replacement
-- VI313 generation jump greater than one
+- VI312 exact A->A replacement — initial independent rejection check implemented
+- VI313 generation jump greater than one — initial independent rejection check implemented
 - VI314 generation decrease
 - VI315 generation overflow
 - VI316 RECOVER attempts to preserve AuthenticationPolicy
@@ -51,7 +51,7 @@
 - VI322 stateVersion 3 downgrade attempt
 - VI323 protocolVersion 1 operation applied to stateVersion 3
 - VI324 malformed protocolVersion 2 proof collection
-- VI325 Assertion PoP substituted for Authentication PoP
+- VI325 Assertion PoP substituted for Authentication PoP — cryptographic cross-domain rejection implemented
 - VI326 Delegation PoP substituted for Assertion PoP
 - VI327 Authentication PoP substituted for Delegation PoP
 - VI328 duplicate effective public key under different method IDs in one policy
