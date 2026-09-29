@@ -965,21 +965,38 @@ def build_remaining_invalid_vectors():
          coseKey1Hex=cbor(m1[2]).hex(),coseKey2Hex=cbor(m2[2]).hex(),
          policyBytesHex=cbor(dup_policy).hex())
 
-    # CREATE structurally forbids redundant Controller PoP.
+    # Byte-complete structurally forbidden SignedOperation envelopes.
+    cpriv,_,cid,cm=_ed25519("OpenIdentity protocol-v2 v3 VI329 controller Ed25519 seed",0)
+    cp=_single_policy(cm); op={1:2,2:1,3:identity,4:1,5:None,6:{1:cp}}; ob=cbor(op)
+    authsig=cpriv.sign(cbor(["OpenIdentity Operation",1,ob]))
+    popsig=cpriv.sign(cbor(["OpenIdentity Controller Proof",1,ob,cid]))
+    malformed={1:op,2:[{1:cid,2:authsig}],3:[{1:cid,2:popsig}]}
     item("VI329","MALFORMED_SIGNED_OPERATION","create-redundant-controller-pop",
-         operationType="CREATE",forbiddenProofField=3)
+         operationBytesHex=ob.hex(),signedOperationBytesHex=cbor(malformed).hex(),forbiddenProofField=3)
 
-    # RESET_AUTHENTICATION structurally forbids purpose-specific PoP.
+    cpriv,_,cid,cm=_ed25519("OpenIdentity protocol-v2 v3 VI330 controller Ed25519 seed",0)
+    apriv,_,aid,am=_ed25519("OpenIdentity protocol-v2 v3 VI330 authentication A Ed25519 seed",16)
+    cp=_single_policy(cm); ap=_single_policy(am)
+    prev={1:3,2:identity,3:1,4:1,5:cp,8:{1:7,2:ap},9:{1:0}}; psh=sha256_multihash(cbor(prev))
+    op={1:2,2:8,3:identity,4:2,5:psh,6:{}}; ob=cbor(op)
+    csig=cpriv.sign(cbor(["OpenIdentity Operation",1,ob])); asig=apriv.sign(cbor(["OpenIdentity Authentication Proof",1,ob,aid]))
+    malformed={1:op,2:[{1:cid,2:csig}],5:[{1:aid,2:asig}]}
     item("VI330","MALFORMED_SIGNED_OPERATION","reset-authentication-purpose-pop",
-         operationType="RESET_AUTHENTICATION",forbiddenProofField=5)
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=ob.hex(),
+         signedOperationBytesHex=cbor(malformed).hex(),forbiddenProofField=5)
 
-    # RECOVER structurally forbids ordinary controller authorization.
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI331"); ob=cbor(op)
+    oldpriv,_,oldcid,_=_ed25519("OpenIdentity protocol-v2 v3 VI331 old controller Ed25519 seed",0)
+    osig=oldpriv.sign(cbor(["OpenIdentity Operation",1,ob]))
+    malformed={1:op,2:[{1:oldcid,2:osig}],3:[{1:bytes(range(16,32)),2:bytes(64)}],4:[{1:bytes(range(32,48)),2:bytes(64)}]}
     item("VI331","MALFORMED_SIGNED_OPERATION","recover-ordinary-authorization",
-         operationType="RECOVER",forbiddenProofField=2)
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=ob.hex(),
+         signedOperationBytesHex=cbor(malformed).hex(),forbiddenProofField=2)
 
-    # RECOVER disposition / payload shape mismatch.
+    prev,op,newcp,newrc,oldap,newap=recovery_case("VI332",True,1,True)
     item("VI332","MALFORMED_RECOVERY_PAYLOAD","recover-shape-mismatch",
-         disposition="PRESERVE",replacementAssertionPolicyPresent=True)
+         previousStateBytesHex=cbor(prev).hex(),operationBytesHex=cbor(op).hex(),
+         payloadBytesHex=cbor(op[6]).hex(),disposition=1,replacementAssertionPolicyPresent=True)
     return out
 
 
