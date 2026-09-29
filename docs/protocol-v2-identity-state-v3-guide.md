@@ -3,7 +3,7 @@
 **Status:** Supporting documentation for the byte-frozen candidate; not independently normative  
 **Candidate specification:** `spec/protocol-v2-identity-state-v3.md`  
 **Normative structural schema:** `spec/cddl/openidentity-operation-v3.cddl`  
-**Candidate bundle SHA-256:** `5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92`
+**Candidate bundle SHA-256:** `3a5cf175f0b3fb72c7f6b363d169739fffa8102e61f8a37fba2992c3f3803b3c`
 
 This guide explains how the ProtocolVersion 2 / IdentityState v3 candidate fits together. When this guide and a normative source disagree, the specification, CDDL, frozen candidate vectors, and published checksum take precedence in that order.
 
@@ -236,8 +236,8 @@ In particular:
 The byte-frozen candidate contains:
 
 ```text
-V301-V320    successful state-transition vectors
-VI301-VI332  invalid/security vectors
+V301-V324    successful state-transition vectors
+VI301-VI337  invalid/security vectors
 ```
 
 The candidate is independently verified by Python and Java. Java reconstructs the positive state machine independently from deterministic seeds and checks the negative suite. Frozen v0.1 regression suites also pass.
@@ -247,7 +247,7 @@ Candidate integrity:
 ```text
 test-vectors/generated/protocol-v2-identity-state-v3.json
 125506 bytes
-SHA-256 5fc4613f4e51d449c3cc2fce4b0d4f3d6aebf2edce3f0729e0ca194ae4f40d92
+SHA-256 3a5cf175f0b3fb72c7f6b363d169739fffa8102e61f8a37fba2992c3f3803b3c
 ```
 
 The tracked checksum is:
@@ -286,7 +286,7 @@ For Protocol v2 / IdentityState v3 candidate questions, use:
 
 1. `spec/protocol-v2-identity-state-v3.md` for semantic requirements;
 2. `spec/cddl/openidentity-operation-v3.cddl` for structural wire validity;
-3. the byte-frozen V301-V320 / VI301-VI332 bundle and checksum for exact conformance bytes;
+3. the byte-frozen V301-V324 / VI301-VI337 bundle and checksum for exact conformance bytes;
 4. independent Python/Java verification behavior;
 5. this guide and other explanatory documentation.
 
