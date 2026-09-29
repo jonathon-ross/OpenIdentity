@@ -197,6 +197,52 @@ def verify_v306(v):
 
 
 
+
+def verify_v307(v):
+    identity=bytes(range(32))
+    _,cpub,cid,cm=key("OpenIdentity protocol-v2 v3 V307 controller Ed25519 seed",0)
+    _,apub,aid,am=key("OpenIdentity protocol-v2 v3 V307 authentication Ed25519 seed",16)
+    cp,ap=policy(cm),policy(am)
+    previous={1:3,2:identity,3:1,4:1,5:cp,8:{1:4,2:ap},9:{1:0}}
+    psb=enc(previous); psh=mh(psb)
+    require("V307 previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require("V307 previous StateHash",v["previousStateHashHex"]==psh.hex())
+    op={1:2,2:6,3:identity,4:2,5:psh,6:{1:None}}
+    ob=enc(op)
+    require("V307 OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(cpub,v["controllerSignatureHex"],enc(["OpenIdentity Operation",1,ob]))
+    require("V307 controller authorization verifies",True)
+    state={1:3,2:identity,3:2,4:1,5:cp,8:{1:5},9:{1:0}}
+    sb=enc(state)
+    require("V307 AuthenticationPolicy removed",2 not in state[8])
+    require("V307 generation increments exactly once",state[8][1]==previous[8][1]+1)
+    require("V307 StateBytes",v["stateBytesHex"]==sb.hex())
+    require("V307 StateHash",v["stateHashHex"]==mh(sb).hex())
+
+
+def verify_v308(v):
+    identity=bytes(range(32))
+    _,cpub,cid,cm=key("OpenIdentity protocol-v2 v3 V308 controller Ed25519 seed",0)
+    _,apub,aid,am=key("OpenIdentity protocol-v2 v3 V308 authentication Ed25519 seed",16)
+    cp,ap=policy(cm),policy(am)
+    previous={1:3,2:identity,3:7,4:1,5:cp,8:{1:9,2:ap},9:{1:0}}
+    psb=enc(previous); psh=mh(psb)
+    require("V308 previous StateBytes",v["previousStateBytesHex"]==psb.hex())
+    require("V308 previous StateHash",v["previousStateHashHex"]==psh.hex())
+    op={1:2,2:8,3:identity,4:8,5:psh,6:{}}
+    ob=enc(op)
+    require("V308 OperationBytes",v["operationBytesHex"]==ob.hex())
+    verify_signature(cpub,v["controllerSignatureHex"],enc(["OpenIdentity Operation",1,ob]))
+    require("V308 controller authorization verifies",True)
+    state={1:3,2:identity,3:8,4:1,5:cp,8:{1:10,2:ap},9:{1:0}}
+    sb=enc(state)
+    require("V308 AuthenticationPolicy preserved byte-for-byte",
+            enc(previous[8][2])==enc(state[8][2]))
+    require("V308 generation increments exactly once",state[8][1]==previous[8][1]+1)
+    require("V308 StateBytes",v["stateBytesHex"]==sb.hex())
+    require("V308 StateHash",v["stateHashHex"]==mh(sb).hex())
+
+
 def verify_initial_invalid_cases():
     print()
     print("VI309/VI310/VI312/VI313/VI325 Invalid/Security Verification")
@@ -250,17 +296,19 @@ def main():
     require("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
     require("wire schema",data["wireSchema"]=="spec/cddl/openidentity-operation-v3.cddl")
     vectors={v["id"]:v for v in data["vectors"]}
-    require("vector IDs V301-V306",set(vectors)=={"V301","V302","V303","V304","V305","V306"})
+    require("vector IDs V301-V308",set(vectors)=={"V301","V302","V303","V304","V305","V306","V307","V308"})
     verify_v301(vectors["V301"])
     verify_v302(vectors["V302"])
     verify_v303(vectors["V303"])
     verify_v304(vectors["V304"])
     verify_v305(vectors["V305"])
     verify_v306(vectors["V306"])
+    verify_v307(vectors["V307"])
+    verify_v308(vectors["V308"])
     verify_initial_invalid_cases()
     print()
     print("="*48)
-    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V306 VERIFIED")
+    print("PROTOCOL V2 / IDENTITYSTATE V3 V301-V308 VERIFIED")
     print("="*48)
 
 
