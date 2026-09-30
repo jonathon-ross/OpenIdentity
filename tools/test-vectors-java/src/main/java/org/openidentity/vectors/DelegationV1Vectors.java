@@ -240,14 +240,16 @@ public final class DelegationV1Vectors {
     }
 
     private static void verifyInvalids(JsonNode doc)throws Exception{
-        require("invalid vector count",doc.path("invalidVectors").size()==18);
+        require("invalid vector count",doc.path("invalidVectors").size()==24);
         String[] errors={"UNAUTHORIZED_GRANT_REGISTRATION","INVALID_DELEGATION_GENERATION","CROSS_DOMAIN_PROOF",
                 "INVALID_PREVIOUS_RECORD_HASH","CAPABILITY_ESCALATION","PARENT_GRANT_UNUSABLE",
                 "ROOT_GRANTOR_MISMATCH","ISSUER_PARENT_DELEGATE_MISMATCH","CHILD_TIME_WIDENING",
                 "REDELEGATION_NOT_AUTHORIZED","PROFILE_SUBSTITUTION","TERMINAL_GRANT_STATE",
                 "GRANT_EXPIRED_AT_REGISTRATION","INVALID_TIME_RANGE","INVALID_ROOT_STATE_HASH",
-                "CROSS_DOMAIN_PROOF","INVALID_GRANT_REVISION","REGISTRY_DOMAIN_MISMATCH"};
-        for(int i=1;i<=18;i++){
+                "CROSS_DOMAIN_PROOF","INVALID_GRANT_REVISION","REGISTRY_DOMAIN_MISMATCH",
+                "INVALID_REGISTRATION_PROOF","INVALID_ROOT_STATE_HASH","INVALID_AUTHENTICATION_GENERATION",
+                "INVALID_REGISTRATION_PROOF","INVALID_REGISTRATION_PROOF","CROSS_DOMAIN_PROOF"};
+        for(int i=1;i<=24;i++){
             String id=String.format("DGI%02d",i);
             require(id+" stable error",errors[i-1].equals(invalid(doc,id).path("error").asText()));
         }
@@ -349,6 +351,41 @@ public final class DelegationV1Vectors {
         JsonNode i18=invalid(doc,"DGI18");
         require("DGI18 registryDomain changes within record chain",
                 !i18.path("currentRegistryDomainHex").asText().equals(i18.path("attemptedRegistryDomainHex").asText()));
+
+        JsonNode i19=invalid(doc,"DGI19");
+        Ed25519Support controller19=new Ed25519Support(
+                sha("OpenIdentity OI-014 auth attack controller seed".getBytes(StandardCharsets.UTF_8)));
+        require("DGI19 ControllerPolicy signature cryptographically verifies",
+                controller19.verify(Hex.decode(i19.path("submittedSigningBytesHex").asText()),
+                        Hex.decode(i19.path("submittedSignatureHex").asText())));
+        require("DGI19 controller method is not AuthenticationPolicy method",
+                !i19.path("submittedMethodIdHex").asText().equals(i19.path("authenticationMethodIdHex").asText()));
+
+        JsonNode i20=invalid(doc,"DGI20");
+        Ed25519Support auth20=new Ed25519Support(
+                sha("OpenIdentity OI-014 auth attack authentication seed".getBytes(StandardCharsets.UTF_8)));
+        require("DGI20 historical AuthenticationPolicy proof verifies",
+                auth20.verify(Hex.decode(i20.path("submittedSigningBytesHex").asText()),
+                        Hex.decode(i20.path("submittedSignatureHex").asText())));
+        require("DGI20 delegate StateHash is stale",
+                !i20.path("historicalDelegateStateHashHex").asText().equals(i20.path("currentDelegateStateHashHex").asText()));
+
+        JsonNode i21=invalid(doc,"DGI21");
+        require("DGI21 authentication generation is stale",
+                i21.path("submittedAuthenticationGeneration").asInt()!=i21.path("currentAuthenticationGeneration").asInt());
+
+        JsonNode i22=invalid(doc,"DGI22");
+        require("DGI22 AuthenticationPolicy absent",!i22.path("authenticationPolicyPresent").asBoolean());
+
+        JsonNode i23=invalid(doc,"DGI23");
+        require("DGI23 delegate is DEACTIVATED","DEACTIVATED".equals(i23.path("delegateStatus").asText()));
+
+        JsonNode i24=invalid(doc,"DGI24");
+        byte[] sig24=Hex.decode(i24.path("submittedSignatureHex").asText());
+        require("DGI24 signature verifies in child domain",
+                auth20.verify(Hex.decode(i24.path("childSigningBytesHex").asText()),sig24));
+        require("DGI24 child signature rejected in relinquishment domain",
+                !auth20.verify(Hex.decode(i24.path("relinquishmentSigningBytesHex").asText()),sig24));
     }
 
     public static void main(String[] args)throws Exception{
@@ -395,7 +432,7 @@ public final class DelegationV1Vectors {
         verifyDG06(rootJson.path("vectors").get(5));
         verifyInvalids(rootJson);
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI18 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI24 VERIFIED");
         System.out.println("============================================");
     }
 }
