@@ -44,6 +44,17 @@ def tx04():
     return boundary_context([],[],[f"s{i:02d}".encode() for i in range(64)],"TX04")
 
 
+
+def tx05():
+    eid=mh(b"OpenIdentity OAuth TX05 evidence")
+    jkt=base64.urlsafe_b64encode(h(b"OpenIdentity OAuth TX05 DPoP")).rstrip(b"=")
+    ctx={1:1,2:b"urn:example:authorization-server",3:b"c",5:[],6:[],7:[],8:eid,9:jkt}
+    cb=enc(ctx)
+    return {"id":"TX05","description":"requested_token_type absent with empty semantic collections and non-HTTP absolute AS URI","expected":"PASS",
+      "requestedTokenTypePresent":False,"resourceCount":0,"audienceCount":0,"scopeCount":0,
+      "authorizationServer":"urn:example:authorization-server","clientId":"c","contextBytesHex":cb.hex(),"contextHashHex":mh(cb).hex()}
+
+
 def invalids():
     out=[]
     def add(i,e,a,**kw):out.append({"id":i,"expectedError":e,"attack":a,**kw})
@@ -107,10 +118,16 @@ def invalids():
     for i,e,a,kw in cases:
         add(i,e,a,originalContextHashHex=base_hash,substitutedContextHashHex=changed_hash(**kw))
 
+    add("TXI36","INVALID_AUTHORIZATION_SERVER","empty-authorization-server",length=0,minimum=1)
+    add("TXI37","INVALID_CLIENT_ID","empty-client-id",length=0,minimum=1)
+    add("TXI38","INVALID_REQUESTED_TOKEN_TYPE","empty-present-requested-token-type",present=True,length=0,minimum=1)
+    add("TXI39","INVALID_REQUESTED_TOKEN_TYPE","requested-token-type-not-uri",value="not a uri",uriValid=False)
+    add("TXI40","INVALID_AUTHORIZATION_SERVER","authorization-server-not-uri",value="relative/as",uriValid=False)
+
     return out
 
 def main():
-    d={"specification":"OpenIdentity OAuth Token Exchange Context v1","status":"DRAFT-NON-NORMATIVE","vectors":[tx01(),tx02(),tx03(),tx04()],"invalidVectors":invalids()}
+    d={"specification":"OpenIdentity OAuth Token Exchange Context v1","status":"DRAFT-NON-NORMATIVE","vectors":[tx01(),tx02(),tx03(),tx04(),tx05()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(d,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("TX01-TX04 GENERATED");print("TXI01-TXI35 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("TX01-TX05 GENERATED");print("TXI01-TXI40 GENERATED")
 if __name__=="__main__":main()
