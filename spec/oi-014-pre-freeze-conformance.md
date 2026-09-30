@@ -62,19 +62,48 @@ OI-014 now defines a canonical ProfileDescriptor envelope containing descriptorV
 
 DG01-DG08 and DGI01-DGI31 use the canonical descriptor envelope and independently reconstruct it in Python and Java.
 
-### G4 — PROFILE_PRINCIPAL proof envelope — DESIGN RESOLVED; VECTOR MIGRATION REQUIRED
+### G4 — PROFILE_PRINCIPAL proof envelope — RESOLVED
 
-OI-014 now defines a tagged DelegateProof union: OPENIDENTITY carries current StateHash/authentication generation/AuthenticationPolicy proofs; PROFILE_PRINCIPAL carries exact principal ProfileRef plus canonical profile-owned proofContext/proofBytes.
+The tagged DelegateProof union is implemented. DG06/DG07 exercise the OPENIDENTITY branch; DG09 exercises PROFILE_PRINCIPAL; DGI32 rejects profile/proof substitution. Python and Java independently verify the resulting bytes.
 
-Before G4 is fully closed, DG06/DG07 request bytes must migrate to the tagged OPENIDENTITY proof envelope and at least one PROFILE_PRINCIPAL positive/negative vector pair must prove the alternate branch.
+### G5 — stable error coverage / naming pass — RESOLVED
 
-### G5 — stable error coverage / naming pass
+Security-significant semantic gaps received concrete vectors through DGI39, including unknown/mismatched profiles, profile lifetime, resource widening, revision overflow, inactive rootGrantor, and absent DelegationPolicy.
 
-Several stable errors are defined but not yet exercised, including malformed GrantId/RecordHash/ProfileHash cases, unknown profile, duplicate capability set, resource widening, revision overflow, and hash-collision/integrity handling.
+Remaining stable errors are classified as follows:
 
-Not every parser error needs a dedicated frozen vector, but security-significant stable errors should either:
-- receive concrete vectors; or
-- be explicitly classified as structural/parser/profile-suite coverage outside the core cryptographic vector set.
+**Structural/parser validation**
+- INVALID_DELEGATION_GRANT
+- INVALID_GRANT_VERSION
+- INVALID_ROOT_GRANTOR
+- INVALID_ISSUER
+- INVALID_DELEGATE
+- INVALID_CAPABILITY_SET
+- INVALID_RESOURCE_CONSTRAINT
+- INVALID_NONCE
+- INVALID_GRANT_ID
+- INVALID_REGISTRY_DOMAIN
+- RECORD_HASH_MISMATCH
+- INVALID_REVOCATION_PROOF
+- INVALID_RELINQUISHMENT_PROOF
+
+These are tested by schema/parser/unit suites rather than requiring cryptographic semantic vectors.
+
+**Runtime lookup/state outcomes**
+- GRANT_ALREADY_REGISTERED
+- GRANT_REVOKED
+- GRANT_NOT_REGISTERED
+- PARENT_GRANT_REQUIRED
+- UNAUTHORIZED_REVOCATION
+- UNAUTHORIZED_RELINQUISHMENT
+
+Core semantic vectors already exercise the underlying authorization/state invariants; API/runtime suites map concrete lookup/action outcomes to these labels.
+
+**Fault-injection-only defensive branches**
+- GRANT_HASH_COLLISION
+- RECORD_HASH_COLLISION
+
+Conformance suites MUST NOT fabricate false SHA-256 collisions. Implementations should test these branches by dependency/fault injection while production behavior assumes SHA-256 collision resistance.
 
 ## 4. Important non-blocking integration coverage
 
@@ -90,16 +119,15 @@ These should not block the core OI-014 v1 semantic freeze if their boundaries re
 
 ## 5. Current freeze assessment
 
-**NOT READY TO BYTE-FREEZE YET.**
+**READY FOR PRE-FREEZE RELEASE GATE; NOT YET BYTE-FROZEN.**
 
-The core architecture is coherent and has strong cross-language evidence, but G1-G4 affect normative interoperability and should be resolved before candidate bytes are frozen.
+G1-G5 are resolved. DG01-DG09 and DGI01-DGI39 pass independent Python and Java verification.
 
-Recommended order:
+Next sequence:
 
-1. G1 delegate StateHash error naming.
-2. G2 DelegationPolicy revocation positive vector.
-3. G3 ProfileDescriptor canonical representation.
-4. G4 delegate-proof tagged union.
-5. G5 final security/error vector gap pass.
-6. Re-run Python + Java.
-7. Only then create a pre-freeze gate/checksum candidate.
+1. Run the unified OI-014 pre-freeze gate.
+2. Confirm no frozen v0.1 artifact/checksum changed.
+3. Confirm worktree contains only intentional OI-014 draft changes.
+4. Review exact generated OI-014 bundle diff.
+5. Only then create an OI-014 byte-freeze candidate/checksum.
+6. Re-run independent Python + Java verification against the candidate before any normative/frozen status change.
