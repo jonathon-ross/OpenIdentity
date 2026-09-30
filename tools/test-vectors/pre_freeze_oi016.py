@@ -40,12 +40,11 @@ def main():
     run("Generate draft OI-016 vectors",[sys.executable,"tools/test-vectors/generate_delegated_subject_v1.py"])
     run("Verify draft OI-016 vectors",[sys.executable,"tools/test-vectors/verify_delegated_subject_v1.py"])
     candidate=ROOT/"checksums"/"delegated-subject-v1.json.sha256"
-    if candidate.is_file():
-        run("Verify OI-016 byte-frozen candidate",
-            [sys.executable,"tools/test-vectors/verify_delegated_subject_v1_freeze_candidate.py"])
-    else:
-        print("\n[OI-016 freeze candidate]")
-        print("[INFO] No candidate checksum present; semantic pre-freeze checks continue.")
+    if not candidate.is_file():
+        print("\nOI-016 PRE-FREEZE GATE: FAIL (committed byte-frozen candidate checksum missing)")
+        raise SystemExit(1)
+    run("Verify committed OI-016 byte-frozen candidate",
+        [sys.executable,"tools/test-vectors/verify_delegated_subject_v1_freeze_candidate.py"])
     mvn=maven(a.maven)
     if not mvn:
         print("\nOI-016 PRE-FREEZE GATE: FAIL (Maven executable not found)")
@@ -63,6 +62,6 @@ def main():
     print("\n============================================================")
     print("OI-016 PRE-FREEZE RELEASE GATE: PASS")
     print("============================================================")
-    print("\nStatus: DS01-DS06 + DSI01-DSI28 verified in Python and Java; NOT BYTE-FROZEN; NOT NORMATIVE.")
-    print("Next: final design/CDDL review, clean-worktree check, then create a freeze candidate only if intentional.")
+    print("\nStatus: DS01-DS06 + DSI01-DSI28 verified in Python and Java; BYTE-FROZEN CANDIDATE; NOT YET NORMATIVE.")
+    print("Next: final normative spec/CDDL/documentation review before promotion.")
 if __name__=="__main__":main()
