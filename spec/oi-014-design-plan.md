@@ -1,6 +1,6 @@
 # OI-014 DelegationGrant Design and Conformance Plan
 
-**Status:** Design draft  
+**Status:** Historical design record — OI-014 v1 frozen normative  
 **Owning specification:** `spec/delegation-grants.md`
 
 ## Phase 1 — semantic decisions
