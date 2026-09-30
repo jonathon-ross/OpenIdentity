@@ -25,6 +25,7 @@ Attack the design for:
 
 - backdated grants from rotated-out keys;
 - registration races;
+- nonce/duplicate-registration replay and registeredAt refresh — addressed by one-time (registryDomain, GrantId) creation and immutable registeredAt;
 - revoke/register races;
 - generation rollback/substitution;
 - grantor StateHash substitution;
