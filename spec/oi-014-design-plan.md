@@ -82,7 +82,7 @@ Profiles must narrow/map OI-014 authority and must not redefine GrantId, generat
 ## Immediate decision order
 
 1. Registration/status ordering model — **RESOLVED:** per-(registryDomain, GrantId) revision chain; REGISTER = revision 1, ACTIVE -> REVOKED, REVOKED terminal; records and proofs are registryDomain-bound to prevent cross-registry replay.
-2. Revocation authorization — **RESOLVED:** current grantor ControllerPolicy or DelegationPolicy; delegate relinquishment is separately domain-separated.
+2. Revocation authorization — **RESOLVED:** current rootGrantor ControllerPolicy or DelegationPolicy; delegate relinquishment is separately domain-separated.
 3. Time model — **RESOLVED:** whole UTC Unix seconds; finite expiry required; profile-defined bounded skew and maximum lifetime.
 4. Capability/resource model — **RESOLVED:** profile-owned capability semantics with core exact identity/canonical set rules and deterministic attenuation.
 5. Delegate principal model — **RESOLVED:** principal identity separated from authentication proof; OPENIDENTITY native, other principals profile-defined.
