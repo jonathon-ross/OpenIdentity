@@ -126,13 +126,15 @@ public final class AuthenticationAssertionV1Vectors {
 
 
     static void verifyInvalids(JsonNode d)throws Exception{
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==17);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==23);
         String[] errors={"INVALID_STATE_HASH","INVALID_AUTHENTICATION_GENERATION","IDENTITY_NOT_ACTIVE","AUTHENTICATION_POLICY_ABSENT",
                 "AUDIENCE_MISMATCH","PURPOSE_MISMATCH","NONCE_MISMATCH","CONTEXT_HASH_MISMATCH","INVALID_TIME_RANGE","ASSERTION_LIFETIME_EXCEEDED",
                 "ASSERTION_EXPIRED","ASSERTION_NOT_YET_VALID","UNAUTHORIZED_AUTHENTICATION_PROOF","DUPLICATE_AUTHENTICATION_PROOF",
-                "UNAUTHORIZED_AUTHENTICATION_PROOF","INVALID_AUTHENTICATION_SIGNATURE","AUTHENTICATION_POLICY_NOT_SATISFIED"};
+                "UNAUTHORIZED_AUTHENTICATION_PROOF","INVALID_AUTHENTICATION_SIGNATURE","AUTHENTICATION_POLICY_NOT_SATISFIED",
+                "PURPOSE_MISMATCH","AUDIENCE_MISMATCH","INVALID_AUTHENTICATION_GENERATION","INVALID_AUTHENTICATION_ASSERTION",
+                "INVALID_AUTHENTICATION_ASSERTION","INVALID_AUTHENTICATION_ASSERTION"};
         Map<String,JsonNode> m=new HashMap<>();
-        for(int i=0;i<17;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
+        for(int i=0;i<23;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
         JsonNode i1=m.get("AAI01");Key k=new Key("OpenIdentity OI-015 invalid authentication seed");
         require("AAI01 historical signature cryptographically verifies",k.verify(hex(i1.path("signingBytesHex").asText()),hex(i1.path("signatureHex").asText())));
         require("AAI01 historical StateHash is not current",!i1.path("historicalStateHashHex").asText().equals(i1.path("currentStateHashHex").asText()));
@@ -155,6 +157,15 @@ public final class AuthenticationAssertionV1Vectors {
         require("AAI16 valid baseline signature verifies",ka.verify(hex(i16.path("signingBytesHex").asText()),hex(i16.path("validSignatureHex").asText())));
         require("AAI16 corrupted signature rejected",!ka.verify(hex(i16.path("signingBytesHex").asText()),hex(i16.path("invalidSignatureHex").asText())));
         JsonNode i17=m.get("AAI17");require("AAI17 threshold not satisfied",i17.path("submittedMethodIdsHex").size()<i17.path("threshold").asInt());
+        Key replay=new Key("OpenIdentity OI-015 replay authentication seed");
+        for(String id:new String[]{"AAI18","AAI19","AAI20"}){JsonNode x=m.get(id);require(id+" replay signature cryptographically valid",replay.verify(hex(x.path("signingBytesHex").asText()),hex(x.path("signatureHex").asText())));}
+        require("AAI18 purpose replay rejected",!m.get("AAI18").path("signedPurpose").asText().equals(m.get("AAI18").path("requestedPurpose").asText()));
+        require("AAI19 audience replay rejected",!m.get("AAI19").path("signedAudienceHex").asText().equals(m.get("AAI19").path("requestedAudienceHex").asText()));
+        require("AAI20 reset generation invalidates assertion",m.get("AAI20").path("assertedGeneration").asLong()!=m.get("AAI20").path("currentGeneration").asLong());
+        require("AAI20 post-reset StateHash differs",!m.get("AAI20").path("preResetStateHashHex").asText().equals(m.get("AAI20").path("postResetStateHashHex").asText()));
+        require("AAI21 purpose violates lowercase ASCII grammar",m.get("AAI21").path("purpose").asText().matches(".*[A-Z].*"));
+        require("AAI22 nonce below minimum",m.get("AAI22").path("nonceLength").asInt()<m.get("AAI22").path("minimumNonceLength").asInt());
+        require("AAI23 unsupported contextHash multihash",m.get("AAI23").path("submittedMultihashCode").asInt()!=m.get("AAI23").path("expectedMultihashCode").asInt());
     }
 
     static Path findVectorFile()throws Exception{
@@ -175,7 +186,7 @@ public final class AuthenticationAssertionV1Vectors {
         require("vector count",d.path("vectors").size()==3);
         verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 + AAI01-AAI17 VERIFIED");
+        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 + AAI01-AAI23 VERIFIED");
         System.out.println("============================================");
     }
 }
