@@ -224,8 +224,8 @@ def build_dg06():
     child_sign=enc(["OpenIdentity Delegation Child Grant",1,registry,child_b,parent_id,parent_rh,
                     delegate_sh,auth_generation,auth_id])
     child_sig=apriv.sign(child_sign)
-    child_req={1:registry,2:child,3:parent_id,4:parent_rh,5:delegate_sh,6:auth_generation,
-               7:[{1:auth_id,2:child_sig}]}
+    delegate_proof={1:1,2:delegate_sh,3:auth_generation,4:[{1:auth_id,2:child_sig}]}
+    child_req={1:registry,2:child,3:parent_id,4:parent_rh,5:delegate_proof}
     child_record={1:registry,2:child_id,3:1,4:None,5:1,6:root_h,7:generation,8:2000021000}
     child_rb=enc(child_record); child_rh=mh(child_rb)
 
@@ -272,7 +272,8 @@ def build_dg07():
     dsb=enc(delegate_state); dsh=mh(dsb)
     relsign=enc(["OpenIdentity Delegation Grant Relinquishment",1,registry,gid,r1h,2,dsh,agen,auth_id])
     relsig=apriv.sign(relsign)
-    relreq={1:registry,2:gid,3:r1h,4:2,5:dsh,6:agen,7:[{1:auth_id,2:relsig}]}
+    delegate_proof={1:1,2:dsh,3:agen,4:[{1:auth_id,2:relsig}]}
+    relreq={1:registry,2:gid,3:r1h,4:2,5:delegate_proof}
     r2={1:registry,2:gid,3:2,4:r1h,5:2,6:rsh,7:dgen,8:registered_at}
     r2b=enc(r2); r2h=mh(r2b)
     return {"id":"DG07","description":"OPENIDENTITY delegate relinquishes its ACTIVE grant using current AuthenticationAuthority","expected":"PASS",
