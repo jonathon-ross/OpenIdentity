@@ -43,6 +43,25 @@ public final class OAuthTokenExchangeContextV1Vectors {
         byte[] ctx=map(1,1,2,"https://as.example.test".getBytes(StandardCharsets.UTF_8),3,"agent-client-016".getBytes(StandardCharsets.UTF_8),
                 4,"urn:ietf:params:oauth:token-type:access_token".getBytes(StandardCharsets.UTF_8),5,E(arr(resources)),6,E(arr(audiences)),7,E(arr(scopes)),8,eid,9,jkt);
         require("TX01 context bytes",v.path("contextBytesHex").asText().equals(hx(ctx)));require("TX01 contextHash",v.path("contextHashHex").asText().equals(hx(mh(ctx))));
-        System.out.println("\n============================================");System.out.println("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 JAVA TX01 VERIFIED");System.out.println("============================================");
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==13);
+        String[] errors={"INVALID_CONTEXT_VERSION","DUPLICATE_SCOPE","NONCANONICAL_SCOPE_ORDER","DUPLICATE_RESOURCE","NONCANONICAL_RESOURCE_ORDER",
+                "INVALID_RESOURCE","INVALID_RESOURCE","DUPLICATE_AUDIENCE","NONCANONICAL_AUDIENCE_ORDER","INVALID_SCOPE",
+                "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT"};
+        Map<String,JsonNode> m=new HashMap<>();for(int i=0;i<xs.size();i++){JsonNode x=xs.get(i);String id=String.format("TXI%02d",i+1);
+            require(id+" stable error",id.equals(x.path("id").asText())&&errors[i].equals(x.path("expectedError").asText()));m.put(id,x);}
+        require("TXI01 unsupported version",m.get("TXI01").path("submittedVersion").asInt()!=m.get("TXI01").path("supportedVersion").asInt());
+        require("TXI02 duplicate scope",m.get("TXI02").path("scopes").get(0).asText().equals(m.get("TXI02").path("scopes").get(1).asText()));
+        require("TXI03 scope order noncanonical",!m.get("TXI03").path("scopes").toString().equals(m.get("TXI03").path("canonicalScopes").toString()));
+        require("TXI04 duplicate resource",m.get("TXI04").path("resources").get(0).asText().equals(m.get("TXI04").path("resources").get(1).asText()));
+        require("TXI05 resource order noncanonical",!m.get("TXI05").path("resources").toString().equals(m.get("TXI05").path("canonicalResources").toString()));
+        require("TXI06 relative resource rejected",m.get("TXI06").path("resource").asText().startsWith("/"));
+        require("TXI07 resource fragment rejected",m.get("TXI07").path("resource").asText().contains("#"));
+        require("TXI08 duplicate audience",m.get("TXI08").path("audiences").get(0).asText().equals(m.get("TXI08").path("audiences").get(1).asText()));
+        require("TXI09 audience order noncanonical",!m.get("TXI09").path("audiences").toString().equals(m.get("TXI09").path("canonicalAudiences").toString()));
+        require("TXI10 scope contains forbidden space",m.get("TXI10").path("scope").asText().contains(" "));
+        require("TXI11 wrong DelegationEvidenceId multihash",m.get("TXI11").path("submittedMultihashCode").asInt()!=m.get("TXI11").path("expectedMultihashCode").asInt());
+        require("TXI12 DPoP jkt mandatory",m.get("TXI12").path("required").asBoolean()&&!m.get("TXI12").path("dpopJktPresent").asBoolean());
+        require("TXI13 DPoP jkt exact length",m.get("TXI13").path("dpopJktLength").asInt()!=m.get("TXI13").path("requiredLength").asInt());
+        System.out.println("\n============================================");System.out.println("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 JAVA TX01 + TXI01-TXI13 VERIFIED");System.out.println("============================================");
     }
 }
