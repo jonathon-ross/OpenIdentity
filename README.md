@@ -377,3 +377,8 @@ Product development proceeds independently from the frozen protocol release. Imp
 ### OI-015 Authentication Assertion
 
 OI-015 Authentication Assertion v1 is FROZEN-NORMATIVE. See `spec/oi-015-authentication-assertion-design-plan.md` and `spec/cddl/openidentity-authentication-assertion-v1.cddl`.
+
+
+### OI-016 Delegated Subject Token
+
+OI-016 Delegated Subject Token v1 is FROZEN-NORMATIVE. It binds one exact frozen OI-014 delegation path to one exact frozen OI-015 actor assertion without introducing a third signature. See `spec/oi-016-delegated-subject-token-design-plan.md` and `spec/cddl/openidentity-delegated-subject-v1.cddl`.
