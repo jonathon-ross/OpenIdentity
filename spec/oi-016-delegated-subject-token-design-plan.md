@@ -219,19 +219,88 @@ RFC 8693 integration is a profile over frozen OI-016 and OI-015:
 
 The OAuth profile, not core OI-016, defines token-type identifiers, transport encoding, contextBytes, capability-to-scope mapping, resource mapping, JWT sub/act projection, DPoP policy, metadata, errors, and output-token lifetime.
 
-## 18. Questions before CDDL
+## 18. Pre-CDDL bounds — RESOLVED
 
-1. Exact v1 bounds for registryDomain, GrantBytes, path depth, and total evidence size.
-2. Exact frozen OI-014 registryDomain wire representation to reuse.
-3. Whether DelegationEvidenceId and DelegatedSubjectTokenId are both normative derived identifiers.
-4. Whether serialized GrantId beside derivable GrantBytes earns its redundancy.
-5. Whether OI-016 itself needs a signature; current direction is no.
-6. Whether actorAssertionId should bind OI-015 AssertionId or complete secured OI-015 bytes; current direction is AssertionId.
-7. Stable distinction between authoritative-state lookup failure and resolved-but-unusable delegation.
+OI-016 distinguishes frozen OI-014 semantic bounds from OI-016 transport/conformance ceilings.
 
-No OI-016 wire labels are frozen until these questions are resolved adversarially.
+### 18.1 registryDomain
 
-## 19. Freeze discipline
+OI-016 reuses the frozen OI-014 v1 representation exactly:
+
+    registryDomain = bstr .size (1..128)
+
+No normalization or reinterpretation is permitted.
+
+### 18.2 GrantBytes
+
+Frozen OI-014 v1 does not define one universal maximum encoded GrantBytes length. Its capability collection is non-empty but not globally count-bounded, while individual profile-owned fields have their own bounds.
+
+OI-016 therefore defines a v1 envelope ceiling:
+
+    len(grantBytes) <= 65,536 bytes
+
+This is an OI-016 interoperability/DoS bound, not a change to OI-014 semantics.
+
+An integration profile MAY impose a smaller ceiling. It MUST NOT enlarge the OI-016 v1 ceiling.
+
+A valid OI-014 grant larger than this remains a valid OI-014 grant but cannot be transported through OI-016 v1.
+
+### 18.3 Path depth
+
+OI-014 capability profiles already commit to maxDelegationDepth. OI-016 MUST enforce every applicable frozen OI-014 profile depth rule.
+
+In addition, OI-016 v1 defines a hard envelope ceiling:
+
+    1 <= grants.length <= 16
+
+The effective permitted depth is the minimum of:
+
+    OI-016 hard ceiling
+    all applicable OI-014 profile maxDelegationDepth values
+    any smaller integration-profile limit
+
+OI-016 MUST NOT use its ceiling to authorize a depth forbidden by OI-014.
+
+### 18.4 Total DelegationEvidenceBytes
+
+OI-016 v1 defines:
+
+    len(DelegationEvidenceBytes) <= 1,048,576 bytes
+
+This is checked on exact deterministic CBOR bytes.
+
+Profiles MAY impose smaller limits and SHOULD do so when their deployment does not require large grants.
+
+### 18.5 Why both per-grant and total limits
+
+A per-grant limit prevents one pathological grant from dominating parser/memory cost.
+
+A total evidence limit prevents a path of individually legal grants from creating an unbounded subject token.
+
+The path-count limit separately bounds verification work and authoritative registry lookups.
+
+### 18.6 Boundary behavior
+
+Exact maximum values are valid:
+
+    registryDomain length = 128
+    grantBytes length = 65,536
+    grants.length = 16
+    DelegationEvidenceBytes length = 1,048,576
+
+One unit above each applicable limit is invalid.
+
+Test vectors MUST pin exact-boundary and one-over-boundary behavior before freeze.
+
+## 19. Remaining questions before CDDL
+
+1. Should DelegationEvidenceId and DelegatedSubjectTokenId both be normative derived identifiers?
+2. Should GrantId remain serialized beside derivable GrantBytes?
+3. Does OI-016 itself need a signature? Current direction is no.
+4. Should actorAssertionId bind OI-015 AssertionId or complete secured OI-015 bytes? Current direction is AssertionId.
+5. What stable error distinguishes authoritative-state lookup failure from resolved-but-unusable delegation?
+
+## 20. Freeze discipline
 
 OI-016 development MUST NOT modify frozen Protocol v2 / IdentityState v3, OI-014 v1, or OI-015 v1 bytes.
 
