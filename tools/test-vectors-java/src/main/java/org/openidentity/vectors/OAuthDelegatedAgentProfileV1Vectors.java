@@ -22,7 +22,7 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         JsonNode d=JSON.readTree(Files.readString(find()));
         require("suite specification","OpenIdentity OAuth 2.0 Delegated Agent Profile v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
-        require("PX01 only",d.path("vectors").size()==1&&"PX01".equals(d.path("vectors").get(0).path("id").asText()));
+        require("vector IDs PX01-PX03",d.path("vectors").size()==3&&"PX01".equals(d.path("vectors").get(0).path("id").asText())&&"PX03".equals(d.path("vectors").get(2).path("id").asText()));
         JsonNode v=d.path("vectors").get(0),decision=v.path("expectedDecision"),jwt=v.path("expectedJwtProjection");
         byte[] root=seq(0,32),actor=seq(32,32);
         String jkt=Base64.getUrlEncoder().withoutPadding().encodeToString(sha("OpenIdentity PX01 DPoP key".getBytes(StandardCharsets.UTF_8)));
@@ -42,14 +42,16 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         require("PX01 JWT scope","records.read records.write".equals(jwt.path("scope").asText()));
         require("PX01 JWT cnf.jkt",jkt.equals(jwt.path("cnf").path("jkt").asText()));
         require("PX01 JWT exp",jwt.path("exp").asLong()==exp);
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==27);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==37);
         String[] errors={"INVALID_SUBJECT_TOKEN_TYPE","INVALID_ACTOR_TOKEN_TYPE","INVALID_SUBJECT_TOKEN_TRANSPORT","INVALID_ACTOR_TOKEN_TRANSPORT",
                 "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED",
                 "SCOPE_NOT_AUTHORIZED","TARGET_NOT_AUTHORIZED","TARGET_SCOPE_PAIR_NOT_AUTHORIZED","CAPABILITY_PROFILE_MAPPING_UNAVAILABLE",
                 "AMBIGUOUS_TARGET","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE","ACTOR_BINDING_MISMATCH","ASSERTION_CONTEXT_BINDING_MISMATCH",
                 "ACCESS_TOKEN_OUTLIVES_DELEGATION","ACCESS_TOKEN_LIFETIME_EXCEEDED","INVALID_SUBJECT_PROJECTION","INVALID_ACTOR_PROJECTION",
                 "OUTPUT_SCOPE_AMPLIFICATION","OUTPUT_AUDIENCE_AMPLIFICATION","MISSING_DPOP_CONFIRMATION","DPOP_TOKEN_BINDING_MISMATCH",
-                "REFRESH_TOKEN_NOT_ALLOWED","SENSITIVE_ERROR_DISCLOSURE"};
+                "REFRESH_TOKEN_NOT_ALLOWED","SENSITIVE_ERROR_DISCLOSURE","INVALID_GRANT_TYPE","CLIENT_AUTHENTICATION_REQUIRED","INVALID_OI015_PURPOSE",
+                "INVALID_OI015_AUDIENCE","ASSERTION_REPLAY","UNSUPPORTED_REQUESTED_TOKEN_TYPE","INVALID_PUBLIC_ERROR_PROJECTION",
+                "INVALID_DISCOVERY_METADATA","INVALID_DISCOVERY_METADATA","INVALID_DISCOVERY_METADATA"};
         Map<String,JsonNode> m=new HashMap<>();for(int i=0;i<xs.size();i++){JsonNode x=xs.get(i);String id=String.format("PXI%02d",i+1);
             require(id+" stable error",id.equals(x.path("id").asText())&&errors[i].equals(x.path("expectedError").asText()));m.put(id,x);}
         require("PXI01 exact subject token type required",!m.get("PXI01").path("submitted").asText().equals(m.get("PXI01").path("required").asText()));
@@ -82,8 +84,22 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         require("PXI25 output DPoP key mismatch",!m.get("PXI25").path("issuedJkt").asText().equals(m.get("PXI25").path("expectedJkt").asText()));
         require("PXI26 response refresh token prohibited",m.get("PXI26").path("refreshTokenPresent").asBoolean()&&!m.get("PXI26").path("refreshTokensAllowed").asBoolean());
         require("PXI27 public error leaks internal state",m.get("PXI27").path("publicErrorDescription").asText().contains(m.get("PXI27").path("forbiddenDisclosure").asText()));
+        require("PX02 DPoP advertised required",d.path("vectors").get(1).path("dpopRequired").asBoolean());
+        require("PX02 refresh advertised false",!d.path("vectors").get(1).path("refreshSupported").asBoolean());
+        require("PX02 lifetime advertised 300",d.path("vectors").get(1).path("maxLifetimeSeconds").asInt()==300);
+        require("PX03 safe public error","invalid_request".equals(d.path("vectors").get(2).path("publicError").asText())&&!d.path("vectors").get(2).path("publicDescription").asText().contains("REVOKED"));
+        require("PXI28 exact grant type required",!m.get("PXI28").path("submitted").asText().equals(m.get("PXI28").path("required").asText()));
+        require("PXI29 client authentication prerequisite",m.get("PXI29").path("required").asBoolean()&&!m.get("PXI29").path("authenticated").asBoolean());
+        require("PXI30 OI-015 purpose binding",!m.get("PXI30").path("submitted").asText().equals(m.get("PXI30").path("required").asText()));
+        require("PXI31 OI-015 audience binding",!m.get("PXI31").path("submitted").asText().equals(m.get("PXI31").path("required").asText()));
+        require("PXI32 assertion replay rejected",m.get("PXI32").path("alreadyConsumed").asBoolean());
+        require("PXI33 requested token type unsupported",!m.get("PXI33").path("supported").asBoolean());
+        require("PXI34 target failure projects invalid_target",!m.get("PXI34").path("publicError").asText().equals(m.get("PXI34").path("requiredPublicError").asText()));
+        require("PXI35 discovery DPoP mismatch",m.get("PXI35").path("advertised").asBoolean()!=m.get("PXI35").path("required").asBoolean());
+        require("PXI36 discovery refresh mismatch",m.get("PXI36").path("advertised").asBoolean()!=m.get("PXI36").path("required").asBoolean());
+        require("PXI37 advertised lifetime exceeds enforced",m.get("PXI37").path("advertised").asInt()>m.get("PXI37").path("enforced").asInt());
         System.out.println("\n============================================");
-        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01 + PXI01-PXI27 VERIFIED");
+        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01-PX03 + PXI01-PXI37 VERIFIED");
         System.out.println("============================================");
     }
 }
