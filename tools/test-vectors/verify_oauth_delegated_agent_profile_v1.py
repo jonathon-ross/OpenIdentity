@@ -24,5 +24,18 @@ def main():
     jwt=v["expectedJwtProjection"];req("PX01 JWT sub",jwt["sub"]==root.hex());req("PX01 JWT act.sub",jwt["act"]["sub"]==actor.hex())
     req("PX01 JWT audience",jwt["aud"]==[target]);req("PX01 JWT scope",jwt["scope"]=="records.read records.write")
     req("PX01 JWT cnf.jkt",jwt["cnf"]["jkt"]==jkt);req("PX01 JWT exp",jwt["exp"]==exp)
-    print("\n============================================");print("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 PX01 VERIFIED");print("============================================")
+    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs PXI01-PXI08",set(inv)=={f"PXI{i:02d}" for i in range(1,9)})
+    errors=["INVALID_SUBJECT_TOKEN_TYPE","INVALID_ACTOR_TOKEN_TYPE","INVALID_SUBJECT_TOKEN_TRANSPORT","INVALID_ACTOR_TOKEN_TRANSPORT",
+            "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED"]
+    req("PXI01-PXI08 stable errors",all(inv[f"PXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,9)))
+    req("PXI01 exact subject token type required",inv["PXI01"]["submitted"]!=inv["PXI01"]["required"])
+    req("PXI02 exact actor token type required",inv["PXI02"]["submitted"]!=inv["PXI02"]["required"])
+    req("PXI03 base64url padding rejected",inv["PXI03"]["paddingPresent"] is True and "=" in inv["PXI03"]["submitted"])
+    req("PXI04 non-base64url character rejected",inv["PXI04"]["invalidCharacter"] in inv["PXI04"]["submitted"])
+    req("PXI05 DPoP mandatory",inv["PXI05"]["required"] and not inv["PXI05"]["dpopPresent"])
+    req("PXI06 DPoP/context mismatch",inv["PXI06"]["contextDpopJkt"]!=inv["PXI06"]["validatedDpopJkt"])
+    req("PXI07 three-way DPoP binding mismatch",inv["PXI07"]["contextDpopJkt"]==inv["PXI07"]["validatedDpopJkt"]!=inv["PXI07"]["issuedTokenDpopJkt"])
+    req("PXI08 refresh token prohibited",inv["PXI08"]["refreshTokenRequestedOrIssued"] and not inv["PXI08"]["refreshTokensAllowed"])
+
+    print("\n============================================");print("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 PX01 + PXI01-PXI08 VERIFIED");print("============================================")
 if __name__=="__main__":main()
