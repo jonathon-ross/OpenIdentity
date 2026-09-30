@@ -1,8 +1,8 @@
 ; OpenIdentity Authentication Assertion Wire Format v1
 ; File: spec/cddl/openidentity-authentication-assertion-v1.cddl
-; STATUS: DRAFT-NON-NORMATIVE
+; STATUS: FROZEN-NORMATIVE v1
 ;
-; Candidate wire schema for OI-015. No labels are frozen.
+; Normative frozen wire schema for OI-015 Authentication Assertion v1.
 
 start = secured-authentication-assertion
 
