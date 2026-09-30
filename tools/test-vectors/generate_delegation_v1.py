@@ -95,6 +95,43 @@ def build_dg03():
       "recordHashAfterRotationHex":rh.hex(),"grantUsableAfterRotation":True}
 
 
+
+def build_dg04():
+    registry=b"openidentity:test:oi014:dg04"
+    root=bytes(range(192,224)); delegate=bytes(range(224,256))
+    controller_id=bytes(range(64,80)); delegation_id=bytes(range(80,96))
+    cpriv,_,cm=key("OpenIdentity OI-014 DG04 controller Ed25519 seed",controller_id)
+    dpriv,_,dm=key("OpenIdentity OI-014 DG04 delegation Ed25519 seed",delegation_id)
+    cp=policy(controller_id,cm); dp=policy(delegation_id,dm)
+    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.delete"],5:3600,6:2}
+    pbytes=enc(descriptor); ph=mh(pbytes)
+    grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
+           5:[{1:{1:{1:1,2:ph},2:b"document.delete"}}],
+           7:2000015000,9:seed("OpenIdentity OI-014 DG04 nonce")}
+    gb=enc(grant); gid=mh(gb)
+    generation=15
+    state={1:3,2:root,3:30,4:1,5:cp,8:{1:0},9:{1:generation,2:dp}}
+    sb=enc(state); sh=mh(sb)
+    regsign=enc(["OpenIdentity Delegation Grant",1,registry,gb,sh,generation,delegation_id])
+    regsig=dpriv.sign(regsign)
+    r1={1:registry,2:gid,3:1,4:None,5:1,6:sh,7:generation,8:2000010000}
+    r1b=enc(r1); r1h=mh(r1b)
+
+    revsign=enc(["OpenIdentity Delegation Grant Revocation",1,registry,gid,r1h,2,sh,controller_id])
+    revsig=cpriv.sign(revsign)
+    revreq={1:registry,2:gid,3:r1h,4:2,5:sh,6:1,7:[{1:controller_id,2:revsig}]}
+    r2={1:registry,2:gid,3:2,4:r1h,5:2,6:sh,7:generation,8:2000010000}
+    r2b=enc(r2); r2h=mh(r2b)
+    return {"id":"DG04","description":"Current ControllerPolicy individually revokes an ACTIVE registered grant","expected":"PASS",
+      "grantBytesHex":gb.hex(),"grantIdHex":gid.hex(),"currentStateBytesHex":sb.hex(),"currentStateHashHex":sh.hex(),
+      "registrationSigningBytesHex":regsign.hex(),"registrationSignatureHex":regsig.hex(),
+      "activeRecordBytesHex":r1b.hex(),"activeRecordHashHex":r1h.hex(),
+      "revocationSigningBytesHex":revsign.hex(),"revocationSignatureHex":revsig.hex(),
+      "revocationRequestBytesHex":enc(revreq).hex(),
+      "revokedRecordBytesHex":r2b.hex(),"revokedRecordHashHex":r2h.hex(),
+      "grantIdAfterRevocationHex":gid.hex(),"registeredAtBefore":2000010000,"registeredAtAfter":2000010000}
+
+
 def main():
     registry=b"openidentity:test:oi014:dg01"
     root=bytes(range(32))
@@ -137,11 +174,12 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03()]}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04()]}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
     print("DG01 VERIFIED")
     print("DG02 VERIFIED")
     print("DG03 VERIFIED")
+    print("DG04 VERIFIED")
 if __name__=="__main__": main()
