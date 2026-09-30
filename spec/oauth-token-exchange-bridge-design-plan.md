@@ -1,6 +1,6 @@
 # OpenIdentity OAuth 2.0 Token Exchange Bridge — Design Plan
 
-**Status:** Design draft; non-normative  
+**Status:** Historical design record; superseded by frozen Delegated Agent Profile v1  
 **Purpose:** map frozen OpenIdentity authentication and delegation evidence into standard OAuth 2.0 token exchange without redefining OAuth authorization semantics  
 **Depends on:** OI-014 DelegationGrant v1 (FROZEN-NORMATIVE), OI-015 Authentication Assertion v1 (FROZEN-NORMATIVE), RFC 8693, RFC 8707, RFC 9068 where JWT access tokens are used, RFC 9449 where DPoP sender constraint is used
 
@@ -117,7 +117,7 @@ Candidate context includes at least:
 
 This prevents a valid OI-015 assertion prepared for one token exchange from being replayed with broader/different OAuth parameters.
 
-The deterministic OAuthTokenExchangeContextV1 encoding is FROZEN-NORMATIVE v1 in `spec/cddl/openidentity-oauth-token-exchange-context-v1.cddl`. The broader OAuth bridge profile remains under design.
+The deterministic OAuthTokenExchangeContextV1 encoding is FROZEN-NORMATIVE v1 in `spec/cddl/openidentity-oauth-token-exchange-context-v1.cddl`. The resulting interoperability profile is FROZEN-NORMATIVE v1 in `spec/oauth-delegated-agent-profile-v1.md`.
 
 ## 6. subject_token — RESOLVED DIRECTION
 
