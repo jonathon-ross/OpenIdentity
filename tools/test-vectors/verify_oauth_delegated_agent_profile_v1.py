@@ -9,7 +9,7 @@ def req(n,v):
     print(" ",n+": PASS")
 def main():
     d=json.loads(P.read_text());req("suite specification",d["specification"]=="OpenIdentity OAuth 2.0 Delegated Agent Profile v1")
-    req("draft status",d["status"]=="DRAFT-NON-NORMATIVE");req("PX01 only",[x["id"] for x in d["vectors"]]==["PX01"])
+    req("draft status",d["status"]=="DRAFT-NON-NORMATIVE");req("vector IDs PX01-PX03",[x["id"] for x in d["vectors"]]==["PX01","PX02","PX03"])
     v=d["vectors"][0];root=bytes(range(32));actor=bytes(range(32,64))
     jkt=base64.urlsafe_b64encode(h(b"OpenIdentity PX01 DPoP key")).rstrip(b"=").decode()
     now=2004000000;parent=now+240;child=now+180;mx=300;exp=min(parent,child,now+mx)
@@ -24,15 +24,17 @@ def main():
     jwt=v["expectedJwtProjection"];req("PX01 JWT sub",jwt["sub"]==root.hex());req("PX01 JWT act.sub",jwt["act"]["sub"]==actor.hex())
     req("PX01 JWT audience",jwt["aud"]==[target]);req("PX01 JWT scope",jwt["scope"]=="records.read records.write")
     req("PX01 JWT cnf.jkt",jwt["cnf"]["jkt"]==jkt);req("PX01 JWT exp",jwt["exp"]==exp)
-    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs PXI01-PXI27",set(inv)=={f"PXI{i:02d}" for i in range(1,28)})
+    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs PXI01-PXI37",set(inv)=={f"PXI{i:02d}" for i in range(1,38)})
     errors=["INVALID_SUBJECT_TOKEN_TYPE","INVALID_ACTOR_TOKEN_TYPE","INVALID_SUBJECT_TOKEN_TRANSPORT","INVALID_ACTOR_TOKEN_TRANSPORT",
             "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED",
             "SCOPE_NOT_AUTHORIZED","TARGET_NOT_AUTHORIZED","TARGET_SCOPE_PAIR_NOT_AUTHORIZED","CAPABILITY_PROFILE_MAPPING_UNAVAILABLE",
             "AMBIGUOUS_TARGET","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE","ACTOR_BINDING_MISMATCH","ASSERTION_CONTEXT_BINDING_MISMATCH",
             "ACCESS_TOKEN_OUTLIVES_DELEGATION","ACCESS_TOKEN_LIFETIME_EXCEEDED","INVALID_SUBJECT_PROJECTION","INVALID_ACTOR_PROJECTION",
             "OUTPUT_SCOPE_AMPLIFICATION","OUTPUT_AUDIENCE_AMPLIFICATION","MISSING_DPOP_CONFIRMATION","DPOP_TOKEN_BINDING_MISMATCH",
-            "REFRESH_TOKEN_NOT_ALLOWED","SENSITIVE_ERROR_DISCLOSURE"]
-    req("PXI01-PXI27 stable errors",all(inv[f"PXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,28)))
+            "REFRESH_TOKEN_NOT_ALLOWED","SENSITIVE_ERROR_DISCLOSURE","INVALID_GRANT_TYPE","CLIENT_AUTHENTICATION_REQUIRED","INVALID_OI015_PURPOSE",
+            "INVALID_OI015_AUDIENCE","ASSERTION_REPLAY","UNSUPPORTED_REQUESTED_TOKEN_TYPE","INVALID_PUBLIC_ERROR_PROJECTION",
+            "INVALID_DISCOVERY_METADATA","INVALID_DISCOVERY_METADATA","INVALID_DISCOVERY_METADATA"]
+    req("PXI01-PXI37 stable errors",all(inv[f"PXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,38)))
     req("PXI01 exact subject token type required",inv["PXI01"]["submitted"]!=inv["PXI01"]["required"])
     req("PXI02 exact actor token type required",inv["PXI02"]["submitted"]!=inv["PXI02"]["required"])
     req("PXI03 base64url padding rejected",inv["PXI03"]["paddingPresent"] is True and "=" in inv["PXI03"]["submitted"])
@@ -63,5 +65,20 @@ def main():
     req("PXI26 response refresh token prohibited",inv["PXI26"]["refreshTokenPresent"] and not inv["PXI26"]["refreshTokensAllowed"])
     req("PXI27 public error leaks internal state",inv["PXI27"]["forbiddenDisclosure"] in inv["PXI27"]["publicErrorDescription"])
 
-    print("\n============================================");print("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 PX01 + PXI01-PXI27 VERIFIED");print("============================================")
+    req("PX02 DPoP advertised required",d["vectors"][1]["dpopRequired"] is True)
+    req("PX02 refresh advertised false",d["vectors"][1]["refreshSupported"] is False)
+    req("PX02 lifetime advertised 300",d["vectors"][1]["maxLifetimeSeconds"]==300)
+    req("PX03 safe public error",d["vectors"][2]["publicError"]=="invalid_request" and "REVOKED" not in d["vectors"][2]["publicDescription"])
+    req("PXI28 exact grant type required",inv["PXI28"]["submitted"]!=inv["PXI28"]["required"])
+    req("PXI29 client authentication prerequisite",inv["PXI29"]["required"] and not inv["PXI29"]["authenticated"])
+    req("PXI30 OI-015 purpose binding",inv["PXI30"]["submitted"]!=inv["PXI30"]["required"])
+    req("PXI31 OI-015 audience binding",inv["PXI31"]["submitted"]!=inv["PXI31"]["required"])
+    req("PXI32 assertion replay rejected",inv["PXI32"]["alreadyConsumed"] is True)
+    req("PXI33 requested token type unsupported",inv["PXI33"]["supported"] is False)
+    req("PXI34 target failure projects invalid_target",inv["PXI34"]["publicError"]!=inv["PXI34"]["requiredPublicError"])
+    req("PXI35 discovery DPoP mismatch",inv["PXI35"]["advertised"]!=inv["PXI35"]["required"])
+    req("PXI36 discovery refresh mismatch",inv["PXI36"]["advertised"]!=inv["PXI36"]["required"])
+    req("PXI37 advertised lifetime exceeds enforced",inv["PXI37"]["advertised"]>inv["PXI37"]["enforced"])
+
+    print("\n============================================");print("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 PX01-PX03 + PXI01-PXI37 VERIFIED");print("============================================")
 if __name__=="__main__":main()
