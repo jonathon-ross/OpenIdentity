@@ -932,3 +932,118 @@ Deployments requiring near-immediate revocation MUST use one or more of:
 - a deployment-specific revocation propagation mechanism.
 
 This limitation MUST be documented rather than implying that OI-014 revocation magically invalidates already-issued offline JWTs.
+
+
+## 27. Authorization-server metadata and error projection — DECISION
+
+### 27.1 Discovery uses RFC 8414
+
+OpenIdentity does not define a separate discovery endpoint.
+
+An authorization server advertises bridge support in its normal RFC 8414 authorization-server metadata document.
+
+grant_types_supported includes:
+
+    urn:ietf:params:oauth:grant-type:token-exchange
+
+Normal RFC 8414 token_endpoint, issuer, scopes_supported, client-authentication metadata, and other standard metadata continue to apply.
+
+RFC 9449 dpop_signing_alg_values_supported advertises supported DPoP proof algorithms.
+
+### 27.2 OpenIdentity-specific metadata
+
+The bridge defines additional RFC 8414 metadata members for its profile:
+
+    openidentity_token_exchange_profiles_supported
+
+A JSON array of profile identifiers. Initial value:
+
+    https://openidentity.org/oauth/profile/delegated-agent-v1
+
+    openidentity_subject_token_types_supported
+
+A JSON array including:
+
+    https://openidentity.org/oauth/token-type/delegated-subject-v1
+
+    openidentity_actor_token_types_supported
+
+A JSON array including:
+
+    https://openidentity.org/oauth/token-type/authentication-assertion-v1
+
+    openidentity_dpop_required
+
+For delegated-agent-v1 this value is true.
+
+    openidentity_refresh_tokens_supported
+
+For delegated-agent-v1 this value is false.
+
+    openidentity_max_access_token_lifetime_seconds
+
+The configured maximum delegated access-token lifetime for the advertised profile. A deployment may advertise a value less than or equal to its actual enforced maximum.
+
+Metadata MUST NOT imply support for an OpenIdentity profile/token type the server cannot validate.
+
+A future standards-registration effort may rename/register these metadata parameters; v1 private metadata names are profile-defined.
+
+### 27.3 Metadata is capability advertisement, not authorization
+
+Discovery metadata never grants authority.
+
+A client still must satisfy client authentication, OI-014/OI-016/OI-015 verification, DPoP, scope/resource mapping, and authorization-server policy.
+
+### 27.4 OAuth error projection
+
+Internal OpenIdentity verification errors are not returned directly by default.
+
+RFC 8693 invalid/unacceptable subject_token or actor_token conditions map to:
+
+    error = "invalid_request"
+
+This includes failures such as invalid OI-016 structure, GrantId mismatch, stale/revoked/unavailable delegation state, OI-015 failure, actor mismatch, context mismatch, and DPoP/OpenIdentity binding mismatch when the request cannot be accepted as a valid token-exchange request.
+
+Target-service failures use:
+
+    error = "invalid_target"
+
+when the authorization server is unwilling or unable to issue for a requested resource/audience target, consistent with RFC 8693.
+
+Standard OAuth errors remain available where independently appropriate, including client-authentication and malformed OAuth request failures.
+
+### 27.5 Scope/capability denial
+
+A requested scope/target pair that is syntactically valid but not authorized by the effective OI-014 authority is an authorization/policy denial.
+
+The external error MUST NOT reveal which private OI-014 capability, ancestor, or resource constraint caused the denial.
+
+The profile uses a generic OAuth token-endpoint denial consistent with applicable OAuth/RFC 8693 semantics. When the denial is specifically because a requested target cannot be issued, invalid_target is preferred.
+
+### 27.6 error_description
+
+error_description is optional and SHOULD remain generic for OpenIdentity verification failures.
+
+Safe examples include:
+
+    "The token exchange request could not be accepted."
+
+    "The requested target is not available for this exchange."
+
+The authorization server MUST NOT disclose by default:
+
+- whether a particular GrantId exists;
+- whether a grant is revoked or relinquished;
+- whether an identity is deactivated;
+- current delegation/authentication generations;
+- which ancestor failed;
+- whether authoritative state was unavailable versus conclusively unusable;
+- private capability/resource-constraint details.
+
+### 27.7 Internal diagnostics
+
+Implementations SHOULD retain the full stable OI-014/OI-015/OI-016 failure code internally for logs, metrics, tracing, and authorized support diagnostics.
+
+Internal diagnostics MUST be access-controlled and SHOULD avoid logging complete sensitive GrantBytes, OI-016 tokens, OI-015 assertions, DPoP private material, or bearer access tokens.
+
+A deployment may expose richer diagnostics only to an explicitly authenticated/authorized administrative surface, not through ordinary public OAuth token responses.
