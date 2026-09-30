@@ -33,16 +33,18 @@ public class AuthorizationServerConfig {
   return new InMemoryRegisteredClientRepository(client);
  }
 
- @Bean JWKSource<SecurityContext> jwkSource(){
+ @Bean RSAKey rsaKey(){
   try{
    KeyPairGenerator g=KeyPairGenerator.getInstance("RSA");g.initialize(2048);KeyPair kp=g.generateKeyPair();
-   RSAKey rsa=new RSAKey.Builder((RSAPublicKey)kp.getPublic()).privateKey((RSAPrivateKey)kp.getPrivate()).keyID(UUID.randomUUID().toString()).build();
-   return new ImmutableJWKSet<>(new JWKSet(rsa));
+   return new RSAKey.Builder((RSAPublicKey)kp.getPublic()).privateKey((RSAPrivateKey)kp.getPrivate()).keyID(UUID.randomUUID().toString()).build();
   }catch(Exception e){throw new IllegalStateException(e);}
  }
-
+ @Bean JWKSource<SecurityContext> jwkSource(RSAKey rsaKey){return new ImmutableJWKSet<>(new JWKSet(rsaKey));}
  @Bean JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource){return new NimbusJwtEncoder(jwkSource);}
- @Bean JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource){return org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);}
+ @Bean JwtDecoder jwtDecoder(RSAKey rsaKey){
+  try{return NimbusJwtDecoder.withPublicKey(rsaKey.toRSAPublicKey()).build();}
+  catch(com.nimbusds.jose.JOSEException e){throw new IllegalStateException(e);}
+ }
  @Bean JwtGenerator jwtGenerator(JwtEncoder encoder){
   JwtGenerator g=new JwtGenerator(encoder);g.setJwtCustomizer(new OpenIdentityJwtCustomizer());return g;
  }
