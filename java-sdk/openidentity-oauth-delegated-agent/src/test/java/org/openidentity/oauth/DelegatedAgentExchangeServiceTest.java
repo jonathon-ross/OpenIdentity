@@ -21,12 +21,12 @@ final class DelegatedAgentExchangeServiceTest {
         var subject=new VerifiedDelegatedSubject(root,delegate,aid,eid,now+180,List.of());
         var actor=new VerifiedAuthenticationAssertion(delegate,aid,OAuthTokenExchangeContextV1Encoder.contextHash(context),DelegatedAgentProfileVerifier.PURPOSE);
         var request=new DelegatedAgentExchangeRequest("https://as.example.test","client",null,
-                List.of("https://api.example.test/"),List.of(),List.of("read"),new byte[]{1},new byte[]{2},new ValidatedDpopProof(jkt()),now);
+                List.of("https://api.example.test/"),List.of(),List.of("read"),new byte[]{1},new byte[]{2},h("actor-nonce"),new ValidatedDpopProof(jkt()),now);
         return new Fixture(request,subject,actor);
     }
 
     DelegatedAgentExchangeService service(Fixture f,AssertionReplayStore replay,CapabilityMapper mapper){
-        return new DelegatedAgentExchangeService(b->f.subject(),b->f.actor(),x->x,mapper,replay,300);
+        return new DelegatedAgentExchangeService(b->f.subject(),r->f.actor(),x->x,mapper,replay,300);
     }
 
     @Test void successfulExchangeConsumesAssertionAndClipsExpiry(){
