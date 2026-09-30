@@ -326,11 +326,11 @@ OI-014 core treats capability meaning as profile-owned. The core protocol define
 A capability is identified by the pair:
 
     CapabilityRef {
-        profileId
+        profile: ProfileRef(CAPABILITY)
         capabilityId
     }
 
-`profileId` identifies the capability profile that owns the identifier space and semantics.
+`profile` is a cryptographically pinned ProfileRef(CAPABILITY) identifying the immutable descriptor that owns the capability identifier space and semantics.
 
 `capabilityId` is opaque to OI-014 core. Equality in the core protocol is exact canonical equality of both fields.
 
@@ -338,7 +338,7 @@ The final wire representation will use deterministic byte/text forms with explic
 
 A profile MUST define:
 
-- its stable profileId;
+- its immutable ProfileRef/profileHash;
 - every capabilityId it recognizes;
 - the authority represented by each capability;
 - whether any semantic implication relationships exist between its capabilities;
@@ -769,7 +769,7 @@ If a future migration profile needs destination-observation time, that value mus
 
 ## 6. Delegation authorization signature
 
-Registration requires DelegationPolicy authorization over the exact GrantBytes and the exact grantor state context.
+Direct registration requires the rootGrantor's current DelegationPolicy authorization over the exact GrantBytes, registryDomain, rootGrantor state context, and delegation generation. Child registration instead requires authenticated issuer authority derived from the exact usable parent grant and its explicit redelegation semantics.
 
 The signing input MUST be domain-separated from root operations and from DelegationPolicy proof of possession.
 
@@ -797,7 +797,7 @@ Historical DelegationPolicy membership is insufficient for new registration.
 
 A registration processor SHALL:
 
-1. obtain the current authoritative grantor IdentityState;
+1. obtain the current authoritative rootGrantor IdentityState;
 2. require IdentityState v3 and status ACTIVE;
 3. require a present DelegationPolicy;
 4. deterministically encode and validate GrantBytes;
@@ -809,31 +809,21 @@ A registration processor SHALL:
 10. for a direct grant, verify the complete current DelegationPolicy threshold;
 11. if parentGrantId is present, require rootGrantor equality with the parent, require issuer equality with the parent's delegate, authenticate that issuer, and validate parent redelegation/attenuation rules;
 12. atomically establish at most one authoritative registration record for that GrantId;
-13. bind the record to the current delegation generation and current grantor StateHash.
+13. bind the record to the current root delegation generation and current rootGrantor StateHash.
 
 Registration MUST NOT mutate IdentityState, consume root sequence, or change StateHash.
 
-## 8. RegisteredGrant record
+## 8. RegisteredGrantState
 
-Conceptually:
+OI-014 has one canonical logical authoritative registration/status object: `RegisteredGrantState`.
 
-    RegisteredGrant {
-        grantId
-        grantBytes
-        grantorStateHash
-        delegationGeneration
-        registeredAt
-        status
-        parentGrantId?
-    }
+It is intentionally a minimal commitment/status record. GrantBytes and parentGrantId remain in the immutable private/full grant committed by GrantId and are not duplicated in the canonical registration state.
 
-The authoritative network/registry representation may differ, but it MUST preserve these semantics.
-
-Initial statuses are expected to include ACTIVE and REVOKED. Additional terminal or suspension statuses require explicit semantics before inclusion.
+The complete logical fields and transition semantics are defined below.
 
 ## 8A. RegisteredGrant state history
 
-Authoritative grant registration/status uses a per-GrantId monotonic revision chain. It is independent of the grantor IdentityState sequence.
+Authoritative grant registration/status uses a per-(registryDomain, GrantId) monotonic revision chain. It is independent of the grantor IdentityState sequence.
 
 The canonical logical state is:
 
@@ -887,13 +877,13 @@ Revision MUST NOT wrap. If current revision is 2^64 - 1, no further grant-state 
 
 Grant revision:
 
-- is scoped to one GrantId;
+- is scoped to one (registryDomain, GrantId);
 - is not the grantor IdentityState sequence;
 - does not alter grantor StateHash;
 - does not alter DelegationAuthority.generation;
 - does not order records belonging to other GrantIds.
 
-A grantor may therefore have many independently evolving grant records without serializing all grant activity through the root identity state machine.
+A rootGrantor may therefore have many independently evolving grant records without serializing all grant activity through the root identity state machine.
 
 ## 8B. Privacy-preserving registration and disclosure
 
@@ -937,7 +927,7 @@ The privacy-preserving logical anchor is:
 
 GrantBytes are not required to be embedded in the public RegisteredGrantState.
 
-The grantor Identity ID, delegate identity, capabilities, resources, expiry, and parent relationship are already committed by GrantId through GrantBytes and therefore need not be duplicated in a public anchor merely for integrity.
+The rootGrantor Identity ID, issuer/delegate identities, capabilities, resources, expiry, and parent relationship are already committed by GrantId through GrantBytes and therefore need not be duplicated in a public anchor merely for integrity.
 
 A deployment MAY store additional indexed metadata privately or publicly, but such metadata is outside the canonical minimal registration state unless a future profile explicitly makes it canonical.
 
@@ -969,7 +959,7 @@ The verifier SHALL:
 2. recompute GrantId;
 3. require exact GrantId equality with the authoritative registration record;
 4. validate RecordHash/revision/status as applicable;
-5. validate the current grantor/delegation-generation usability conditions;
+5. validate the current rootGrantor/root-delegation-generation usability conditions;
 6. evaluate the disclosed grant semantics and delegate authentication.
 
 A party that possesses only a GrantId and registration anchor cannot infer or exercise undisclosed capabilities from core OI-014.
@@ -1134,7 +1124,7 @@ A registered grant is usable only if all of the following hold:
 - its registration is authoritative;
 - its status permits use;
 - the rootGrantor identity is currently ACTIVE;
-- the grant's bound delegation generation equals the grantor's current DelegationAuthority.generation;
+- the grant's bound delegation generation equals the rootGrantor's current DelegationAuthority.generation;
 - current time satisfies registration/notBefore/expiry constraints;
 - the requested capability is explicitly granted;
 - the requested resource is within the grant's resource constraints;
@@ -1181,12 +1171,12 @@ An ACTIVE grant may become REVOKED through either grantor revocation or delegate
 
 ### Grantor revocation
 
-Either of the following current authorities may revoke any ACTIVE grant whose grantor is the identity they currently govern:
+Either of the following current authorities may revoke any ACTIVE grant whose rootGrantor is the identity they currently govern:
 
-1. the grantor's current ControllerPolicy; or
-2. the grantor's current DelegationPolicy.
+1. the rootGrantor's current ControllerPolicy; or
+2. the rootGrantor's current DelegationPolicy.
 
-The grantor IdentityState MUST be current and authoritative. ControllerPolicy revocation provides a root/emergency path. DelegationPolicy revocation provides the ordinary delegation-management path.
+The rootGrantor IdentityState MUST be current and authoritative. ControllerPolicy revocation provides a root/emergency path. DelegationPolicy revocation provides the ordinary delegation-management path.
 
 If DelegationPolicy A registered grant G and later rotates to DelegationPolicy B with PRESERVE_EXISTING, G may remain usable, but B—not A—is the DelegationPolicy authority that may subsequently revoke G. A historical or rotated-out DelegationPolicy has no continuing revocation authority.
 
@@ -1196,7 +1186,7 @@ If the current DelegationPolicy is absent, ControllerPolicy remains able to revo
 
 The delegate MAY relinquish its own ACTIVE grant if the applicable delegate-principal profile defines a verifiable authentication/signature mechanism.
 
-Relinquishment only reduces the delegate's authority. It MUST NOT modify the grant, transfer authority, alter the grantor IdentityState, change delegation generation, or reactivate another grant.
+Relinquishment only reduces the delegate's authority. It MUST NOT modify the grant, transfer authority, alter the rootGrantor IdentityState, change delegation generation, or reactivate another grant.
 
 A parent delegate relinquishing its parent grant makes descendant grants unusable through the normal parent-usability rule.
 
@@ -1255,7 +1245,7 @@ A stale proof over an earlier RecordHash/revision cannot revoke a later grant-st
 
 Generation mismatch and individual REVOKED status are independent reasons a grant is unusable.
 
-A generation-invalid grant need not receive an individual REVOKED record merely to become unusable. The grantor MAY still record an explicit revocation for audit/finality, using current revocation authority.
+A generation-invalid grant need not receive an individual REVOKED record merely to become unusable. The rootGrantor MAY still record an explicit revocation for audit/finality, using current revocation authority.
 
 Neither generation changes nor deactivation may convert a REVOKED grant back to ACTIVE.
 
@@ -1412,7 +1402,7 @@ An AI-agent profile may define:
 - subdelegation prohibition;
 - audit metadata.
 
-Those constraints narrow a grant; they do not expand the grantor's underlying authority.
+Those constraints narrow a grant; they do not expand the rootGrantor's underlying authority.
 
 The core OI-014 model should therefore support AI agents without embedding model vendor, runtime, OAuth provider, blockchain, or payment-network assumptions into GrantBytes.
 
@@ -1446,16 +1436,16 @@ The following are release-blocking invariants:
 
 1. Offline signature alone never makes a grant authoritative.
 1a. Every grant has one immutable rootGrantor; child issuer authority derives only through an authoritative parent chain and cannot switch delegation roots.
-2. Registration always validates the current ACTIVE grantor state.
+2. Registration always validates the current ACTIVE rootGrantor state.
 3. Historical DelegationPolicy keys cannot create new authoritative grants.
 4. Grant registration never changes root IdentityState or sequence.
 5. GrantId commits to exact canonical GrantBytes.
-6. Registration binds to exact grantor StateHash and delegation generation.
+6. Registration binds to exact rootGrantor StateHash and root delegation generation.
 7. Generation invalidation cannot be bypassed by timestamps or historical-state references.
 8. Revoked grants cannot reactivate.
 9. Child grants cannot exceed parent authority or lifetime.
 10. Deactivation makes grants unusable; recovery cannot resurrect old-generation grants.
-11. Delegate authentication is distinct from grantor delegation authorization.
+11. Delegate authentication is distinct from rootGrantor/direct-registration or parent-issuer delegation authorization.
 12. Capability/resource profiles may narrow semantics but cannot expand core authority.
 
 ## 17. Required conformance work
@@ -1475,11 +1465,11 @@ Invalid/security:
 - registration signed by rotated-out delegation key;
 - historical-StateHash/backdating attempt;
 - wrong delegation generation;
-- wrong grantor;
+- wrong rootGrantor or child issuer;
 - wrong delegate authentication;
 - expired/not-yet-valid grant;
 - unauthorized capability/resource;
-- registration while grantor DEACTIVATED;
+- registration while rootGrantor DEACTIVATED;
 - registration with absent DelegationPolicy;
 - duplicate/unauthorized delegation authorization proofs;
 - cross-domain proof substitution;
@@ -1496,13 +1486,13 @@ Invalid/security:
 The following require deliberate decisions before assigning final CDDL labels:
 
 1. **RESOLVED:** uint64 whole Unix-epoch seconds UTC; required finite expiresAt; optional notBefore; interval is effectiveNotBefore <= t < expiresAt; profile-defined bounded skew may affect evaluation only;
-2. **RESOLVED:** capability identity is (profileId, capabilityId); capabilityId is opaque to core; no implicit textual hierarchy;
+2. **RESOLVED:** capability identity is (ProfileRef(CAPABILITY), capabilityId); capabilityId is opaque to core; no implicit textual hierarchy;
 3. **RESOLVED:** resources and deterministic coverage/subset semantics are profile-owned; core binds resource constraints to individual capabilities and fails closed when attenuation cannot be established;
 4. **RESOLVED:** core supports native OPENIDENTITY and extensible PROFILE_PRINCIPAL; AI agents/workloads are profile-defined, not core types; principal identity is separate from proof material;
 5. **RESOLVED:** core requires finite expiry but no universal maximum; every registration profile MUST define and enforce a maximum lifetime;
 6. **RESOLVED:** subdelegation is forbidden by default and requires explicit profile-defined redelegation authority for the capability/resource being passed; every profile defines finite maximum chain depth;
 7. authoritative registration/status transaction format;
-8. **RESOLVED:** current grantor ControllerPolicy or current DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
+8. **RESOLVED:** current rootGrantor ControllerPolicy or current rootGrantor DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
 9. **RESOLVED:** registration records use a per-GrantId uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
 10. **RESOLVED:** OI-014 v1 GrantId and RecordHash are exactly SHA2-256 Multihash (0x12 0x20 + 32-byte digest); alternate algorithms are invalid until a future protocol revision;
 11. **RESOLVED:** core separates private/full GrantBytes from a minimal authoritative registration anchor; public registries need not expose grantor/delegate/capability/resource/time/parent fields; GrantId commits to full semantics;
