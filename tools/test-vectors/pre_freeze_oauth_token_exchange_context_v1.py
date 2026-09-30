@@ -39,6 +39,13 @@ def main():
     a=args()
     run("Generate draft OAuth context vectors",[sys.executable,"tools/test-vectors/generate_oauth_token_exchange_context_v1.py"])
     run("Verify draft OAuth context vectors",[sys.executable,"tools/test-vectors/verify_oauth_token_exchange_context_v1.py"])
+    candidate=ROOT/"checksums"/"oauth-token-exchange-context-v1.json.sha256"
+    if candidate.is_file():
+        run("Verify OAuth context byte-frozen candidate",
+            [sys.executable,"tools/test-vectors/verify_oauth_token_exchange_context_v1_freeze_candidate.py"])
+    else:
+        print("\n[OAuth context freeze candidate]")
+        print("[INFO] No candidate checksum present; semantic pre-freeze checks continue.")
     mvn=maven(a.maven)
     if not mvn:
         print("\nOAUTH CONTEXT v1 PRE-FREEZE GATE: FAIL (Maven executable not found)");raise SystemExit(1)
