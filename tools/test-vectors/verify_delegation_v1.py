@@ -194,7 +194,7 @@ def main():
     req("DG06 depth 2",v6["childDepth"]==2)
 
     invalid={x["id"]:x for x in data["invalidVectors"]}
-    req("invalid vector IDs DGI01-DGI24",set(invalid)=={f"DGI{i:02d}" for i in range(1,25)})
+    req("invalid vector IDs DGI01-DGI31",set(invalid)=={f"DGI{i:02d}" for i in range(1,32)})
     expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
               "DGI03":"CROSS_DOMAIN_PROOF","DGI04":"INVALID_PREVIOUS_RECORD_HASH",
               "DGI05":"CAPABILITY_ESCALATION","DGI06":"PARENT_GRANT_UNUSABLE",
@@ -206,8 +206,12 @@ def main():
               "DGI17":"INVALID_GRANT_REVISION","DGI18":"REGISTRY_DOMAIN_MISMATCH",
               "DGI19":"INVALID_REGISTRATION_PROOF","DGI20":"INVALID_ROOT_STATE_HASH",
               "DGI21":"INVALID_AUTHENTICATION_GENERATION","DGI22":"INVALID_REGISTRATION_PROOF",
-              "DGI23":"INVALID_REGISTRATION_PROOF","DGI24":"CROSS_DOMAIN_PROOF"}
-    req("DGI01-DGI24 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
+              "DGI23":"INVALID_REGISTRATION_PROOF","DGI24":"CROSS_DOMAIN_PROOF",
+              "DGI25":"PARENT_GRANT_NOT_FOUND","DGI26":"PARENT_GRANT_NOT_FOUND",
+              "DGI27":"REGISTRY_DOMAIN_MISMATCH","DGI28":"PARENT_GRANT_UNUSABLE",
+              "DGI29":"PARENT_GRANT_UNUSABLE","DGI30":"DELEGATION_DEPTH_EXCEEDED",
+              "DGI31":"DELEGATION_CYCLE"}
+    req("DGI01-DGI31 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
 
     i1=invalid["DGI01"]
     oldpub=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DGI01 old delegation seed")).public_key()
@@ -319,7 +323,35 @@ def main():
     except Exception:
         wrong24=True
     req("DGI24 child signature rejected in relinquishment domain",wrong24)
+
+    i25=invalid["DGI25"]
+    req("DGI25 required parent material unavailable",i25["parentGrantBytesAvailable"] is False)
+
+    i26=invalid["DGI26"]
+    req("DGI26 supplied parent bytes do not satisfy committed parentGrantId",
+        i26["suppliedParentGrantIdHex"]!=i26["committedParentGrantIdHex"] and
+        mh(bytes.fromhex(i26["suppliedParentGrantBytesHex"])).hex()==i26["suppliedParentGrantIdHex"])
+
+    i27=invalid["DGI27"]
+    req("DGI27 parent record belongs to wrong registryDomain",
+        i27["childRegistryDomainHex"]!=i27["parentRegistryDomainHex"])
+
+    i28=invalid["DGI28"]
+    req("DGI28 ancestor root delegation generation invalidated",
+        i28["boundDelegationGeneration"]!=i28["currentDelegationGeneration"])
+
+    i29=invalid["DGI29"]
+    req("DGI29 ancestor expired at exclusive upper boundary",
+        i29["evaluationTime"]>=i29["ancestorExpiresAt"])
+
+    i30=invalid["DGI30"]
+    req("DGI30 proposed depth exceeds profile maximum",
+        i30["proposedDepth"]>i30["profileMaximumDepth"])
+
+    i31=invalid["DGI31"]
+    req("DGI31 proposed GrantId already appears in ancestor chain",
+        i31["proposedGrantIdHex"] in i31["ancestorGrantIdsHex"])
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI24 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI31 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
