@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 final class OpenIdentityTokenEndpointHttpContractTest {
  static String b64(byte[] b){return Base64.getUrlEncoder().withoutPadding().encodeToString(b);}
  static String jkt(){return b64(new byte[32]);}
+ static ValidatedDpopProofResult dpop(){return new ValidatedDpopProofResult(jkt(),org.springframework.security.oauth2.jwt.Jwt.withTokenValue("proof").header("alg","none").header("jwk",Map.of("kty","oct","k","AA")).claim("jti","test").build());}
 
  @Test void httpFormBecomesExactOpenIdentityGrantAuthentication(){
   MockHttpServletRequest r=new MockHttpServletRequest("POST","/oauth2/token");
@@ -33,7 +34,7 @@ final class OpenIdentityTokenEndpointHttpContractTest {
   var client=new TestingAuthenticationToken("agent-client","",List.of());client.setAuthenticated(true);
   SecurityContextHolder.getContext().setAuthentication(client);
   try{
-   var converter=new OpenIdentityTokenExchangeAuthenticationConverter(req->jkt(),req->new byte[32]);
+   var converter=new OpenIdentityTokenExchangeAuthenticationConverter(req->dpop(),req->new byte[32]);
    var a=(OpenIdentityTokenExchangeAuthenticationToken)converter.convert(r);
    assertNotNull(a);assertArrayEquals(new byte[]{1,2,3},a.subjectToken());assertArrayEquals(new byte[]{4,5,6},a.actorToken());
    assertEquals(List.of("https://api.example.test/"),a.resources());assertEquals(List.of("records-service"),a.audiences());
@@ -46,7 +47,7 @@ final class OpenIdentityTokenEndpointHttpContractTest {
   r.setParameter("grant_type","urn:ietf:params:oauth:grant-type:token-exchange");
   r.setParameter("subject_token_type","urn:ietf:params:oauth:token-type:access_token");
   r.setParameter("actor_token_type","urn:ietf:params:oauth:token-type:access_token");
-  var converter=new OpenIdentityTokenExchangeAuthenticationConverter(req->jkt(),req->new byte[32]);
+  var converter=new OpenIdentityTokenExchangeAuthenticationConverter(req->dpop(),req->new byte[32]);
   assertNull(converter.convert(r));
  }
 
