@@ -115,7 +115,7 @@ def main():
     req("AA06 OAuth purpose",v6["purpose"]=="openidentity.oauth.token-exchange")
 
     invalid={x["id"]:x for x in d["invalidVectors"]}
-    req("invalid vector IDs AAI01-AAI23",set(invalid)=={f"AAI{i:02d}" for i in range(1,24)})
+    req("invalid vector IDs AAI01-AAI31",set(invalid)=={f"AAI{i:02d}" for i in range(1,32)})
     expected={"AAI01":"INVALID_STATE_HASH","AAI02":"INVALID_AUTHENTICATION_GENERATION","AAI03":"IDENTITY_NOT_ACTIVE",
               "AAI04":"AUTHENTICATION_POLICY_ABSENT","AAI05":"AUDIENCE_MISMATCH","AAI06":"PURPOSE_MISMATCH",
               "AAI07":"NONCE_MISMATCH","AAI08":"CONTEXT_HASH_MISMATCH","AAI09":"INVALID_TIME_RANGE",
@@ -124,8 +124,11 @@ def main():
               "AAI15":"UNAUTHORIZED_AUTHENTICATION_PROOF","AAI16":"INVALID_AUTHENTICATION_SIGNATURE",
               "AAI17":"AUTHENTICATION_POLICY_NOT_SATISFIED","AAI18":"PURPOSE_MISMATCH","AAI19":"AUDIENCE_MISMATCH",
               "AAI20":"INVALID_AUTHENTICATION_GENERATION","AAI21":"INVALID_AUTHENTICATION_ASSERTION",
-              "AAI22":"INVALID_AUTHENTICATION_ASSERTION","AAI23":"INVALID_AUTHENTICATION_ASSERTION"}
-    req("AAI01-AAI23 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+              "AAI22":"INVALID_AUTHENTICATION_ASSERTION","AAI23":"INVALID_AUTHENTICATION_ASSERTION",
+              "AAI24":"INVALID_ASSERTION_VERSION","AAI25":"IDENTITY_MISMATCH","AAI26":"INVALID_PROOF_SET",
+              "AAI27":"INVALID_AUTHENTICATION_ASSERTION","AAI28":"INVALID_AUTHENTICATION_ASSERTION",
+              "AAI29":"INVALID_AUTHENTICATION_ASSERTION","AAI30":"INVALID_TIME_RANGE","AAI31":"ASSERTION_LIFETIME_EXCEEDED"}
+    req("AAI01-AAI31 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
     i1=invalid["AAI01"];ik=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 invalid authentication seed"))
     ik.public_key().verify(bytes.fromhex(i1["signatureHex"]),bytes.fromhex(i1["signingBytesHex"]))
     req("AAI01 historical signature cryptographically verifies",True)
@@ -168,8 +171,18 @@ def main():
     req("AAI22 nonce below minimum",invalid["AAI22"]["nonceLength"]<invalid["AAI22"]["minimumNonceLength"])
     req("AAI23 unsupported contextHash multihash",invalid["AAI23"]["submittedMultihashCode"]!=invalid["AAI23"]["expectedMultihashCode"])
 
+    req("AAI24 unsupported assertion version",invalid["AAI24"]["assertionVersion"]!=invalid["AAI24"]["supportedVersion"])
+    req("AAI25 identity mismatch",invalid["AAI25"]["assertedIdentityHex"]!=invalid["AAI25"]["currentStateIdentityHex"])
+    ids26=[bytes.fromhex(x) for x in invalid["AAI26"]["submittedMethodIdsHex"]]
+    req("AAI26 proof order noncanonical",ids26!=sorted(ids26))
+    req("AAI27 nonce above maximum",invalid["AAI27"]["nonceLength"]>invalid["AAI27"]["maximumNonceLength"])
+    req("AAI28 audience above maximum",invalid["AAI28"]["audienceLength"]>invalid["AAI28"]["maximumAudienceLength"])
+    req("AAI29 unsupported StateHash multihash",invalid["AAI29"]["submittedMultihashCode"]!=invalid["AAI29"]["expectedMultihashCode"])
+    req("AAI30 uint64 maximum zero range",invalid["AAI30"]["expiresAt"]<=invalid["AAI30"]["issuedAt"])
+    req("AAI31 exact uint64-safe lifetime is 301",invalid["AAI31"]["expiresAt"]-invalid["AAI31"]["issuedAt"]==invalid["AAI31"]["exactLifetime"]==301)
+
     print("\n============================================")
-    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA06 + AAI01-AAI23 VERIFIED")
+    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA06 + AAI01-AAI31 VERIFIED")
     print("============================================")
 
 if __name__=="__main__":main()
