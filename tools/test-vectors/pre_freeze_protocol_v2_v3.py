@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pre-freeze release gate for OpenIdentity Protocol v2 / IdentityState v3.
+"""Frozen-normative release gate for OpenIdentity Protocol v2 / IdentityState v3.
 
 Runs the draft v3 generator/verifier and every existing independent Python
 conformance verifier. Java remains an explicit separate Maven gate because
@@ -43,7 +43,7 @@ def main() -> None:
     args = parser.parse_args()
     tools = ROOT / "tools" / "test-vectors"
     print("OpenIdentity Protocol v2 / IdentityState v3")
-    print("Pre-Freeze Python Release Gate")
+    print("Frozen-Normative Python Release Gate")
     print("=" * 60)
     for check in CHECKS:
         label, filename, *check_args = check
@@ -59,7 +59,7 @@ def main() -> None:
 
     print("\n" + "=" * 60)
     print("PYTHON CANDIDATE-REFRESH REGRESSION GATE: PASS" if args.refresh_candidate
-          else "PYTHON PRE-FREEZE RELEASE GATE: PASS")
+          else "PROTOCOL V2 / IDENTITYSTATE V3 FROZEN-NORMATIVE PYTHON GATE: PASS")
     print("=" * 60)
     print()
     print("Required independent Java gates:")
