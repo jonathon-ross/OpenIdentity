@@ -433,12 +433,191 @@ The actor relationship is established only when:
 
     OI-015 actor identity == verified terminalDelegate
 
-## 20. Remaining questions before assigning a new OI number
+## 20. Exchange binding — DECISION
+
+A direct two-way hash between the final Delegated Subject Token ID and OI-015 AssertionId would be circular:
+
+    subjectTokenId -> AssertionId -> contextHash -> subjectTokenId
+
+OI-016 MUST NOT rely on recursive/fixed-point hashing.
+
+The bridge instead separates immutable delegation evidence identity from the final exchange-bound subject token.
+
+### 20.1 DelegationEvidenceBytes
+
+Define a deterministic pre-exchange evidence object containing exactly the selected OI-014 root-to-terminal chain material required by Section 18.
+
+Conceptually:
+
+    DelegationEvidence {
+        version
+        registryDomain
+        chainEvidence[]
+    }
+
+    DelegationEvidenceBytes =
+        deterministicCBOR(DelegationEvidence)
+
+    DelegationEvidenceId =
+        SHA2-256-Multihash(DelegationEvidenceBytes)
+
+DelegationEvidenceId is stable for those exact submitted immutable chain bytes. It does not assert current usability.
+
+### 20.2 OI-015 exchange context
+
+The OI-015 actor assertion for token exchange uses:
+
+    purpose = "openidentity.oauth.token-exchange"
+
+Its profile-defined contextBytes MUST commit to:
+
+    bridge context version
+    authorization-server identifier
+    OAuth client identifier
+    requested_token_type
+    requested resource value(s)
+    requested audience value(s), when present
+    requested scope representation
+    DelegationEvidenceId
+    DPoP JWK thumbprint, when DPoP is requested/required
+    other profile-defined security-critical exchange parameters
+
+Then:
+
+    OI-015.contextHash =
+        SHA2-256-Multihash(contextBytes)
+
+This prevents delegation-evidence swapping and OAuth-request widening after actor authentication.
+
+### 20.3 Final delegated subject token
+
+After the OI-015 assertion exists, construct:
+
+    OpenIdentityDelegatedSubjectToken {
+        version
+        delegationEvidence
+        actorAssertionId
+    }
+
+where:
+
+    actorAssertionId = OI-015 AssertionId
+
+The final token therefore binds the exact delegation evidence to the exact actor authentication ceremony.
+
+A verifier MUST require:
+
+    subjectToken.actorAssertionId
+        == derived AssertionId(actor_token)
+
+and:
+
+    actor_token.contextHash
+        == hash(reconstructed exchange context containing
+                DelegationEvidenceId(subjectToken.delegationEvidence))
+
+This is bidirectional transaction binding without a circular hash.
+
+### 20.4 Attack analysis
+
+**Delegation swapping**
+
+An attacker pairs a valid OI-015 actor assertion with different OI-014 evidence.
+
+Result:
+
+    DelegationEvidenceId changes
+        -> reconstructed OI-015 contextHash changes
+        -> actor assertion no longer matches
+
+Reject.
+
+**Authentication swapping**
+
+An attacker pairs a valid delegated subject token with a different valid OI-015 assertion from the same actor.
+
+Result:
+
+    AssertionId changes
+        -> subjectToken.actorAssertionId mismatch
+
+Reject.
+
+**OAuth request swapping**
+
+An attacker changes requested scope, resource, audience, requested_token_type, client, authorization server, or bound DPoP key.
+
+Result:
+
+    reconstructed contextBytes changes
+        -> contextHash mismatch
+
+Reject.
+
+**Evidence byte substitution with same semantic story**
+
+Changing exact embedded grant/record bytes changes DelegationEvidenceBytes and therefore DelegationEvidenceId. Additionally OI-014 GrantId/RecordHash reconstruction must still succeed.
+
+Reject.
+
+### 20.5 What is deliberately not bound twice
+
+The final subject token does not need to serialize rootGrantor or terminalDelegate merely for exchange binding. They remain derived from verified delegation evidence.
+
+OAuth scope/resource strings are not copied into the subject token. They are committed through OI-015 contextHash and remain OAuth request semantics.
+
+The DPoP proof itself is not embedded. The context commits to the expected DPoP public-key thumbprint, while normal RFC 9449 processing validates the actual DPoP proof.
+
+### 20.6 Replay consequence
+
+This construction binds evidence pieces together but does not by itself make an exchange single-use.
+
+OI-015 nonce issuance/consumption and authorization-server replay policy remain required. The authorization server SHOULD reject replay of an already-consumed OI-015 AssertionId for token-exchange profiles.
+
+The final OAuth token lifetime and refresh-token policy remain separate authorization-server decisions constrained by Section 22 questions.
+
+## 21. Candidate logical layering
+
+    OI-014 exact chain evidence
+            |
+            v
+    DelegationEvidenceBytes
+            |
+            v
+    DelegationEvidenceId
+            |
+            +-----------------------------+
+            |                             |
+            v                             |
+    OI-015 contextBytes                   |
+    + OAuth request parameters            |
+    + optional DPoP thumbprint            |
+            |                             |
+            v                             |
+    OI-015 AuthenticationAssertion        |
+            |                             |
+            v                             |
+       AssertionId                        |
+            |                             |
+            +----------+                  |
+                       v                  |
+          DelegatedSubjectToken           |
+          { evidence, AssertionId } <------+
+                       |
+                       v
+             RFC 8693 subject_token
+
+    OI-015 SecuredAuthenticationAssertion
+                       |
+                       v
+             RFC 8693 actor_token
+
+## 22. Remaining questions before assigning a new OI number
 
 1. What exact OI-014 record bytes must be embedded for each chain element versus retrieved by RecordHash?
-2. Should registryDomain appear once at token level when OI-014 already requires chain-wide equality, or be purely derived from the records?
-3. What is exchangeBinding: a hash of the OI-015/OAuth exchange context, the OI-015 AssertionId, or both?
-4. What exact deterministic exchange-context structure is hashed by OI-015?
+2. Should registryDomain appear once in DelegationEvidence when OI-014 already requires chain-wide equality, or be purely derived?
+3. What exact deterministic CBOR schema defines DelegationEvidence and DelegatedSubjectToken?
+4. What exact canonical representation/order is used for OAuth scope, resource, and audience collections inside contextBytes?
 5. How should OpenIdentity token-type URIs be named before/after any IANA registration effort?
 6. How are OI-014 capabilities mapped to OAuth scopes without a global capability/scope registry?
 7. How are OI-014 resource constraints mapped to RFC 8707 absolute resource URIs?
