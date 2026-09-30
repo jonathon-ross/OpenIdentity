@@ -22,7 +22,7 @@ def main():
     d=json.loads(P.read_text())
     req("suite specification",d["specification"]=="OpenIdentity OI-015 Authentication Assertion v1")
     req("draft status",d["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs AA01-AA03",[x["id"] for x in d["vectors"]]==["AA01","AA02","AA03"] and d["invalidVectors"]==[])
+    req("vector IDs AA01-AA03",[x["id"] for x in d["vectors"]]==["AA01","AA02","AA03"])
     v=d["vectors"][0]
     identity=bytes(range(32));mid=bytes(range(32,48))
     k=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA01 authentication seed"))
@@ -88,8 +88,26 @@ def main():
     k3.public_key().verify(sig3,sign3);req("AA03 signature verifies",True)
     req("AA03 secured assertion bytes",v3["securedAssertionBytesHex"]==enc({1:assertion3,2:[{1:mid3,2:sig3}]}).hex())
 
+    invalid={x["id"]:x for x in d["invalidVectors"]}
+    req("invalid vector IDs AAI01-AAI08",set(invalid)=={f"AAI{i:02d}" for i in range(1,9)})
+    expected={"AAI01":"INVALID_STATE_HASH","AAI02":"INVALID_AUTHENTICATION_GENERATION","AAI03":"IDENTITY_NOT_ACTIVE",
+              "AAI04":"AUTHENTICATION_POLICY_ABSENT","AAI05":"AUDIENCE_MISMATCH","AAI06":"PURPOSE_MISMATCH",
+              "AAI07":"NONCE_MISMATCH","AAI08":"CONTEXT_HASH_MISMATCH"}
+    req("AAI01-AAI08 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+    i1=invalid["AAI01"];ik=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 invalid authentication seed"))
+    ik.public_key().verify(bytes.fromhex(i1["signatureHex"]),bytes.fromhex(i1["signingBytesHex"]))
+    req("AAI01 historical signature cryptographically verifies",True)
+    req("AAI01 historical StateHash is not current",i1["historicalStateHashHex"]!=i1["currentStateHashHex"])
+    i2=invalid["AAI02"];req("AAI02 authentication generation stale",i2["assertedGeneration"]!=i2["currentGeneration"])
+    req("AAI03 identity DEACTIVATED",invalid["AAI03"]["currentStatus"]=="DEACTIVATED")
+    req("AAI04 AuthenticationPolicy absent",invalid["AAI04"]["authenticationPolicyPresent"] is False)
+    req("AAI05 audience mismatch",invalid["AAI05"]["expectedAudienceHex"]!=invalid["AAI05"]["assertedAudienceHex"])
+    req("AAI06 purpose mismatch",invalid["AAI06"]["expectedPurpose"]!=invalid["AAI06"]["assertedPurpose"])
+    req("AAI07 nonce mismatch",invalid["AAI07"]["expectedNonceHex"]!=invalid["AAI07"]["assertedNonceHex"])
+    req("AAI08 contextHash mismatch",invalid["AAI08"]["expectedContextHashHex"]!=invalid["AAI08"]["assertedContextHashHex"])
+
     print("\n============================================")
-    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 VERIFIED")
+    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 + AAI01-AAI08 VERIFIED")
     print("============================================")
 
 if __name__=="__main__":main()
