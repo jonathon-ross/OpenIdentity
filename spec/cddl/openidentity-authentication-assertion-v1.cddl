@@ -1,0 +1,70 @@
+; OpenIdentity Authentication Assertion Wire Format v1
+; File: spec/cddl/openidentity-authentication-assertion-v1.cddl
+; STATUS: DRAFT-NON-NORMATIVE
+;
+; Candidate wire schema for OI-015. No labels are frozen.
+
+start = secured-authentication-assertion
+
+; SHA2-256 Multihash: multicodec sha2-256 (0x12), digest length 32 (0x20),
+; followed by the 32-byte digest.
+sha256-multihash = bstr .size 34
+
+identity-id = bstr .size 32
+verification-method-id = bstr .size 16
+
+authentication-assertion-version = 1
+
+authentication-assertion = {
+    1 => authentication-assertion-version,
+    2 => identity-id,
+    3 => sha256-multihash,            ; exact current StateHash
+    4 => uint64,                      ; authenticationGeneration
+    5 => bstr .size (1..2048),        ; opaque audience bytes
+    6 => purpose,
+    7 => uint64,                      ; issuedAt Unix seconds
+    8 => uint64,                      ; expiresAt Unix seconds
+    9 => bstr .size (16..128),        ; verifier-supplied nonce
+    10 => sha256-multihash             ; contextHash
+}
+
+; Semantic validation additionally restricts purpose to 1..255 lowercase
+; ASCII letters, digits, ".", "-", "_" with alphanumeric first/last chars.
+purpose = tstr .size (1..255)
+
+authentication-proof = {
+    1 => verification-method-id,
+    2 => bstr .size (1..65535)        ; signature bytes; algorithm from current policy method
+}
+
+secured-authentication-assertion = {
+    1 => authentication-assertion,
+    2 => [+ authentication-proof]
+}
+
+; AssertionBytes = deterministic RFC 8949 CBOR(authentication-assertion)
+; AssertionId    = 0x12 || 0x20 || SHA-256(AssertionBytes)
+;
+; Each proof signs deterministic CBOR of:
+;
+; [
+;   "OpenIdentity Authentication Assertion",
+;   1,
+;   AssertionBytes,
+;   verificationMethodId
+; ]
+;
+; Semantic rules:
+; - identity MUST equal the exact current authoritative IdentityState identity.
+; - current identity status MUST be ACTIVE.
+; - field 3 MUST equal exact current StateHash.
+; - field 4 MUST equal current AuthenticationAuthority.generation.
+; - current AuthenticationPolicy MUST be present.
+; - issuedAt < expiresAt.
+; - expiresAt - issuedAt MUST be <= 300 seconds.
+; - audience, purpose, nonce, and contextHash MUST equal verifier expectations.
+; - contextHash is SHA2-256 Multihash of exact profile-defined context bytes.
+; - proofs MUST be sorted by verificationMethodId.
+; - duplicate method IDs are invalid.
+; - every supplied proof MUST be authorized and cryptographically valid.
+; - current AuthenticationPolicy MUST be satisfied.
