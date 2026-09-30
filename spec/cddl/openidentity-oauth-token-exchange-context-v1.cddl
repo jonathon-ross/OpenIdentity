@@ -1,0 +1,51 @@
+; OpenIdentity OAuth Token Exchange Context v1
+; STATUS: DRAFT-NON-NORMATIVE
+; Integration profile over frozen OI-014/OI-015/OI-016.
+;
+; OAuthTokenExchangeContextV1 is deterministic CBOR committed by
+; OI-015 AuthenticationAssertion.contextHash.
+
+start = oauth-token-exchange-context-v1
+
+context-version = 1
+sha256-multihash = bstr .size 34
+
+; Exact UTF-8 bytes after profile/OAuth processing.
+authorization-server = bstr .size (1..2048)
+client-id = bstr .size (1..512)
+token-type-uri = bstr .size (1..2048)
+resource-uri = bstr .size (1..2048)
+audience = bstr .size (1..1024)
+
+; RFC 6749 scope-token ASCII grammar:
+; 1*( %x21 / %x23-5B / %x5D-7E )
+; CDDL cannot fully express this byte grammar; semantic validation is mandatory.
+scope-token = bstr .size (1..256)
+
+; RFC 9449 jkt = base64url-no-pad encoding of 32-byte SHA-256 JWK Thumbprint.
+; SHA-256 base64url-no-pad is exactly 43 ASCII characters.
+dpop-jkt = bstr .size 43
+
+oauth-token-exchange-context-v1 = {
+    1 => context-version,
+    2 => authorization-server,
+    3 => client-id,
+    ? 4 => token-type-uri,             ; requested_token_type
+    5 => [*16 resource-uri],           ; sorted unsigned-byte lexicographic
+    6 => [*16 audience],               ; sorted unsigned-byte lexicographic
+    7 => [*64 scope-token],            ; sorted unsigned-byte lexicographic
+    8 => sha256-multihash,             ; OI-016 DelegationEvidenceId
+    9 => dpop-jkt                       ; mandatory in delegated-agent-v1
+}
+
+; Semantic rules:
+; - deterministic RFC 8949 CBOR.
+; - collections contain no duplicates and are strictly ascending by unsigned bytes.
+; - resources are valid RFC 8707 absolute URI values with no fragment.
+; - audiences are exact RFC 8693 logical target values.
+; - scope-token obeys RFC 6749 Section 3.3 grammar and is case-sensitive.
+; - requested_token_type, when present, is the exact RFC 8693 URI identifier.
+; - authorization-server is profile-configured/trusted, not derived from Host.
+; - DelegationEvidenceId is recomputed from exact verified OI-016 evidence.
+; - dpop-jkt is derived from the validated RFC 9449 DPoP proof public JWK.
+; - absence of requested_token_type is distinct from an explicit value.
