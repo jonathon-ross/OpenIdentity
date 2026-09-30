@@ -14,6 +14,23 @@ def h(b): return hashlib.sha256(b).digest()
 def mh(b): return b"\x12\x20"+h(b)
 def enc(x): return cbor2.dumps(x,canonical=True)
 def seed(label): return h(label.encode())
+
+# OI-014 v1 canonical ProfileDescriptor test fixtures.
+# These exact UTF-8 bytes stand in for immutable normative semantic specifications.
+EXACT_SPEC = b"OpenIdentity OI-014 Test Profile: exact-capability v1\nSemantics: exact capability equality; no resources; no redelegation.\n"
+REDELEGATION_SPEC = b"OpenIdentity OI-014 Test Profile: redelegation v1\nSemantics: exact capabilities; explicit redelegate.document.read authorizes redelegation of document.read; no resources.\n"
+
+def profile_descriptor(kind, semantic_spec, max_lifetime, max_depth, params=b""):
+    return {1:1,2:kind,3:mh(semantic_spec),4:max_lifetime,5:max_depth,6:params}
+
+def exact_profile(capabilities, max_lifetime, max_depth):
+    # Parameter bytes are deterministic CBOR of the sorted capability byte strings.
+    params=enc(sorted(capabilities))
+    return profile_descriptor(1,EXACT_SPEC,max_lifetime,max_depth,params)
+
+def redelegation_profile(max_lifetime, max_depth):
+    params=enc([b"document.read",b"redelegate.document.read"])
+    return profile_descriptor(1,REDELEGATION_SPEC,max_lifetime,max_depth,params)
 def key(label,method_id):
     priv=Ed25519PrivateKey.from_private_bytes(seed(label))
     pub=priv.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
@@ -32,7 +49,7 @@ def build_dg02():
     b,_,mb=key("OpenIdentity OI-014 DG02 delegation B Ed25519 seed",mid_b)
     # Deliberately supply B,A; canonical policy must serialize A,B.
     dp=threshold_policy([(mid_b,mb),(mid_a,ma)],2)
-    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.write"],5:1800,6:2}
+    descriptor=exact_profile([b"document.write"],1800,2)
     profile_bytes=enc(descriptor); profile_hash=mh(profile_bytes)
     cap={1:{1:{1:1,2:profile_hash},2:b"document.write"}}
     grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},5:[cap],
@@ -65,7 +82,7 @@ def build_dg03():
     a,_,ma=key("OpenIdentity OI-014 DG03 delegation A Ed25519 seed",mid_a)
     b,_,mb=key("OpenIdentity OI-014 DG03 delegation B Ed25519 seed",mid_b)
     pa=policy(mid_a,ma); pb=policy(mid_b,mb)
-    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:7200,6:3}
+    descriptor=exact_profile([b"document.read"],7200,3)
     pbytes=enc(descriptor); ph=mh(pbytes)
     grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
            5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],
@@ -103,7 +120,7 @@ def build_dg04():
     cpriv,_,cm=key("OpenIdentity OI-014 DG04 controller Ed25519 seed",controller_id)
     dpriv,_,dm=key("OpenIdentity OI-014 DG04 delegation Ed25519 seed",delegation_id)
     cp=policy(controller_id,cm); dp=policy(delegation_id,dm)
-    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.delete"],5:3600,6:2}
+    descriptor=exact_profile([b"document.delete"],3600,2)
     pbytes=enc(descriptor); ph=mh(pbytes)
     grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
            5:[{1:{1:{1:1,2:ph},2:b"document.delete"}}],
@@ -140,7 +157,7 @@ def build_dg05():
     a,_,ma=key("OpenIdentity OI-014 DG05 delegation A Ed25519 seed",mid_a)
     b,_,mb=key("OpenIdentity OI-014 DG05 delegation B Ed25519 seed",mid_b)
     pa=policy(mid_a,ma); pb=policy(mid_b,mb)
-    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.admin"],5:3600,6:2}
+    descriptor=exact_profile([b"document.admin"],3600,2)
     pbytes=enc(descriptor); ph=mh(pbytes)
     grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
            5:[{1:{1:{1:1,2:ph},2:b"document.admin"}}],
@@ -179,8 +196,7 @@ def build_dg06():
     apriv,_,am=key("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed",auth_id)
     dp=policy(delegation_id,dm); ap=policy(auth_id,am)
 
-    descriptor={1:1,2:"openidentity.test.redelegation",3:1,
-                4:[b"document.read",b"redelegate.document.read"],5:7200,6:3}
+    descriptor=redelegation_profile(7200,3)
     pbytes=enc(descriptor); ph=mh(pbytes); pref={1:1,2:ph}
     read_cap={1:{1:pref,2:b"document.read"}}
     redelegate_cap={1:{1:pref,2:b"redelegate.document.read"}}
@@ -237,7 +253,7 @@ def build_dg07():
     dpriv,_,dm=key("OpenIdentity OI-014 DG07 root delegation Ed25519 seed",delegation_id)
     apriv,_,am=key("OpenIdentity OI-014 DG07 delegate authentication Ed25519 seed",auth_id)
     dp=policy(delegation_id,dm); ap=policy(auth_id,am)
-    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:3600,6:2}
+    descriptor=exact_profile([b"document.read"],3600,2)
     pbytes=enc(descriptor); ph=mh(pbytes)
     grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
            5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],
@@ -281,7 +297,7 @@ def build_dg08():
     oldpriv,_,oldm=key("OpenIdentity OI-014 DG08 old delegation Ed25519 seed",old_id)
     newpriv,_,newm=key("OpenIdentity OI-014 DG08 new delegation Ed25519 seed",new_id)
     oldp=policy(old_id,oldm); newp=policy(new_id,newm)
-    desc={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:7200,6:2}; ph=mh(enc(desc))
+    desc=exact_profile([b"document.read"],7200,2); ph=mh(enc(desc))
     grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
            5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],7:2000700000,9:seed("OpenIdentity OI-014 DG08 nonce")}
     gb=enc(grant); gid=mh(gb); gen=44
@@ -319,7 +335,7 @@ def build_invalids():
     ida=bytes(range(1,17)); idb=bytes(range(17,33))
     a,_,ma=key("OpenIdentity OI-014 DGI01 old delegation seed",ida); _,_,mb=key("OpenIdentity OI-014 DGI01 new delegation seed",idb)
     pa=policy(ida,ma); pb=policy(idb,mb); gen=5
-    desc={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:3600,6:2}; ph=mh(enc(desc))
+    desc=exact_profile([b"document.read"],3600,2); ph=mh(enc(desc))
     g={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],7:2000100000,9:seed("DGI01 nonce")}
     gb=enc(g)
     hist={1:3,2:root,3:5,4:1,5:pa,8:{1:0},9:{1:gen,2:pa}}; hb=enc(hist); hh=mh(hb)
@@ -351,7 +367,7 @@ def build_invalids():
     # Shared parent for DGI04-DGI06.
     preg=b"openidentity:test:oi014:invalid-child"; proot=bytes(range(97,129)); pdel=bytes(range(129,161)); cdel=bytes(range(161,193))
     pcap={1:{1:{1:1,2:ph},2:b"document.read"}}
-    redesc={1:1,2:"openidentity.test.redelegation",3:1,4:[b"document.read",b"redelegate.document.read"],5:3600,6:3}; rph=mh(enc(redesc))
+    redesc=redelegation_profile(3600,3); rph=mh(enc(redesc))
     read={1:{1:{1:1,2:rph},2:b"document.read"}}; redel={1:{1:{1:1,2:rph},2:b"redelegate.document.read"}}
     parent={1:1,2:proot,3:{1:1,2:proot},4:{1:1,2:pdel},5:[read,redel],7:2000200000,9:seed("DGI parent nonce")}
     pgb=enc(parent); pgid=mh(pgb); pstatehash=mh(enc({1:3,2:proot,3:1,4:1,5:{1:1,2:[]},8:{1:0},9:{1:3}}))
@@ -412,8 +428,8 @@ def build_invalids():
         parentCapabilities=["document.read"],requestedChildCapabilities=["document.read"])
 
     # Same human-readable capability ID, different pinned profile hash.
-    other_desc={1:1,2:"openidentity.test.redelegation.changed",3:1,
-                4:[b"document.read",b"redelegate.document.read"],5:3600,6:3}
+    other_spec=b"OpenIdentity OI-014 Test Profile: redelegation changed v1\nSemantics: intentionally distinct profile for substitution attack.\n"
+    other_desc=profile_descriptor(1,other_spec,3600,3,enc([b"document.read",b"redelegate.document.read"]))
     other_ph=mh(enc(other_desc))
     substituted_read={1:{1:{1:1,2:other_ph},2:b"document.read"}}
     profile_child={1:1,2:proot,3:{1:1,2:pdel},4:{1:1,2:cdel},5:[substituted_read],
@@ -538,8 +554,7 @@ def build_invalids():
     # DGI25-DGI31: recursive ancestry verification attacks.
     chain_reg=b"openidentity:test:oi014:chain-attacks"
     chain_root=bytes(range(120,152)); chain_a=bytes(range(152,184)); chain_b=bytes(range(184,216))
-    chain_desc={1:1,2:"openidentity.test.redelegation",3:1,
-                4:[b"document.read",b"redelegate.document.read"],5:7200,6:2}
+    chain_desc=redelegation_profile(7200,2)
     chain_ph=mh(enc(chain_desc)); chain_pref={1:1,2:chain_ph}
     chain_read={1:{1:chain_pref,2:b"document.read"}}
     chain_redel={1:{1:chain_pref,2:b"redelegate.document.read"}}
@@ -606,8 +621,7 @@ def main():
 
     # Minimal deterministic capability profile descriptor for DG01.
     # Candidate descriptor labels are vector-local until profile descriptor CDDL freezes.
-    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,
-                4:[b"document.read"],5:3600,6:4}
+    descriptor=exact_profile([b"document.read"],3600,4)
     profile_bytes=enc(descriptor); profile_hash=mh(profile_bytes)
     profile_ref={1:1,2:profile_hash}
     capability_ref={1:profile_ref,2:b"document.read"}
