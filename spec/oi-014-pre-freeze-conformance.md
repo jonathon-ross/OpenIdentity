@@ -1,7 +1,7 @@
 # OI-014 Pre-Freeze Conformance Matrix
 
-**Status:** DRAFT — pre-freeze review  
-**Scope:** OI-014 DelegationGrant v1 core semantics and candidate wire schema  
+**Status:** RELEASE RECORD — OI-014 v1 FROZEN-NORMATIVE  
+**Scope:** OI-014 DelegationGrant v1 frozen core semantics and wire schema  
 **Cross-language checkpoint:** DG01-DG07 and DGI01-DGI31 independently verified in Python and Java
 
 ## 1. Positive-path coverage
@@ -119,11 +119,11 @@ These should not block the core OI-014 v1 semantic freeze if their boundaries re
 
 ## 5. Current freeze assessment
 
-**READY FOR PRE-FREEZE RELEASE GATE; NOT YET BYTE-FROZEN.**
+**FROZEN-NORMATIVE v1.**
 
 G1-G5 are resolved. DG01-DG09 and DGI01-DGI39 pass independent Python and Java verification.
 
-Next sequence:
+Release evidence:
 
 1. Run the unified OI-014 pre-freeze gate.
 2. Confirm no frozen v0.1 artifact/checksum changed.
