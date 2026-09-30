@@ -106,6 +106,24 @@ public final class AuthenticationAssertionV1Vectors {
         require("AA02 secured assertion bytes",v.path("securedAssertionBytesHex").asText().equals(hx(secured)));
     }
 
+
+    static void verifyAA03(JsonNode v)throws Exception{
+        byte[] identity=seq(160,32),mid=seq(80,16);Key auth=new Key("OpenIdentity OI-015 AA03 authentication seed");
+        byte[] ap=singlePolicy(mid,auth.pub());
+        byte[] ctrlid=seq(96,16);Key ctrl=new Key("OpenIdentity OI-015 AA03 controller seed");byte[] cp=singlePolicy(ctrlid,ctrl.pub());
+        byte[] state=map(1,3,2,identity,3,55,4,1,5,E(cp),8,E(map(1,19,2,E(ap))),9,E(map(1,0)));byte[] sh=mh(state);
+        require("AA03 StateBytes",v.path("stateBytesHex").asText().equals(hx(state)));require("AA03 StateHash",v.path("stateHashHex").asText().equals(hx(sh)));
+        long issued=2001002000L,expires=issued+300L;byte[] ctx="OpenIdentity OI-015 AA03 exact lifetime boundary".getBytes(StandardCharsets.UTF_8);
+        byte[] assertion=map(1,1,2,identity,3,sh,4,19,5,"lifetime-boundary-verifier".getBytes(StandardCharsets.UTF_8),
+                6,"openidentity.authentication",7,issued,8,expires,9,seq(192,32),10,mh(ctx));
+        require("AA03 AssertionBytes",v.path("assertionBytesHex").asText().equals(hx(assertion)));require("AA03 AssertionId",v.path("assertionIdHex").asText().equals(hx(mh(assertion))));
+        require("AA03 exact 300-second lifetime",expires-issued==300L);
+        byte[] signing=arr("OpenIdentity Authentication Assertion",1,assertion,mid),sig=hex(v.path("signatureHex").asText());
+        require("AA03 signature verifies",auth.verify(signing,sig));
+        byte[] secured=map(1,E(assertion),2,E(arr(E(map(1,mid,2,sig)))));
+        require("AA03 secured assertion bytes",v.path("securedAssertionBytesHex").asText().equals(hx(secured)));
+    }
+
     static Path findVectorFile()throws Exception{
         Path dir=Paths.get("").toAbsolutePath().normalize();
         for(int i=0;i<8 && dir!=null;i++,dir=dir.getParent()){
@@ -121,10 +139,10 @@ public final class AuthenticationAssertionV1Vectors {
         JsonNode d=JSON.readTree(Files.readString(p));
         require("suite specification","OpenIdentity OI-015 Authentication Assertion v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
-        require("vector count",d.path("vectors").size()==2);
-        verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));
+        require("vector count",d.path("vectors").size()==3);
+        verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));
         System.out.println("\n============================================");
-        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA02 VERIFIED");
+        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 VERIFIED");
         System.out.println("============================================");
     }
 }
