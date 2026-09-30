@@ -31,6 +31,30 @@ public final class DelegationV1Vectors {
         w.writeUnsigned(1);w.writeUnsigned(1);w.writeUnsigned(3);w.writeSigned(-8);w.writeUnsigned(4);w.writeSigned(-1);w.writeUnsigned(6);w.writeByteString(pub);return w.toByteArray();
     }
     private static byte[] policy(byte[] mid,byte[] m){return map(1,1,2,E(arr(E(map(1,mid,2,E(m))))));}
+    private static final byte[] EXACT_SPEC=("OpenIdentity OI-014 Test Profile: exact-capability v1\n"+
+            "Semantics: exact capability equality; no resources; no redelegation.\n").getBytes(StandardCharsets.UTF_8);
+    private static final byte[] REDELEGATION_SPEC=("OpenIdentity OI-014 Test Profile: redelegation v1\n"+
+            "Semantics: exact capabilities; explicit redelegate.document.read authorizes redelegation of document.read; no resources.\n").getBytes(StandardCharsets.UTF_8);
+
+    private static byte[] profileDescriptor(int kind,byte[] spec,long maxLifetime,long maxDepth,byte[] params)throws Exception{
+        return map(1,1,2,kind,3,mh(spec),4,maxLifetime,5,maxDepth,6,params);
+    }
+    private static byte[] exactProfile(byte[][] caps,long maxLifetime,long maxDepth)throws Exception{
+        byte[][] copy=caps.clone();
+        Arrays.sort(copy,(a,b)->{
+            int n=Math.min(a.length,b.length);
+            for(int i=0;i<n;i++){int ai=a[i]&255,bi=b[i]&255;if(ai!=bi)return Integer.compare(ai,bi);}
+            return Integer.compare(a.length,b.length);
+        });
+        Object[] xs=new Object[copy.length];
+        for(int i=0;i<copy.length;i++)xs[i]=copy[i];
+        return profileDescriptor(1,EXACT_SPEC,maxLifetime,maxDepth,arr(xs));
+    }
+    private static byte[] redelegationProfile(long maxLifetime,long maxDepth)throws Exception{
+        return profileDescriptor(1,REDELEGATION_SPEC,maxLifetime,maxDepth,
+                arr("document.read".getBytes(StandardCharsets.UTF_8),"redelegate.document.read".getBytes(StandardCharsets.UTF_8)));
+    }
+
     private static String hx(JsonNode v,String n){return v.path(n).asText();}
 
     private static void verifyDG02(JsonNode v)throws Exception{
@@ -42,8 +66,7 @@ public final class DelegationV1Vectors {
         byte[] entries=arr(E(map(1,ma,2,E(mtha))),E(map(1,mb,2,E(mthb))));
         byte[] dp=map(1,2,2,2,3,E(entries));
 
-        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
-                4,E(arr("document.write".getBytes(StandardCharsets.UTF_8))),5,1800,6,2);
+        byte[] descriptor=exactProfile(new byte[][]{"document.write".getBytes(StandardCharsets.UTF_8)},1800L,2L);
         byte[] ph=mh(descriptor);
         require("DG02 ProfileDescriptor bytes",hx(v,"profileDescriptorBytesHex").equals(Hex.encode(descriptor)));
         require("DG02 ProfileHash",hx(v,"profileHashHex").equals(Hex.encode(ph)));
@@ -87,8 +110,7 @@ public final class DelegationV1Vectors {
         Ed25519Support a=new Ed25519Support(sha("OpenIdentity OI-014 DG03 delegation A Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         Ed25519Support b=new Ed25519Support(sha("OpenIdentity OI-014 DG03 delegation B Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         byte[] pa=policy(ida,method2(a.publicKey())),pb=policy(idb,method2(b.publicKey()));
-        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
-                4,E(arr("document.read".getBytes(StandardCharsets.UTF_8))),5,7200,6,3);
+        byte[] descriptor=exactProfile(new byte[][]{"document.read".getBytes(StandardCharsets.UTF_8)},7200L,3L);
         byte[] ph=mh(descriptor),pref=map(1,1,2,ph),cref=map(1,E(pref),2,"document.read".getBytes(StandardCharsets.UTF_8)),dc=map(1,E(cref));
         byte[] grant=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,delegate)),
                 5,E(arr(E(dc))),7,2000010000L,9,sha("OpenIdentity OI-014 DG03 nonce".getBytes(StandardCharsets.UTF_8)));
@@ -122,8 +144,7 @@ public final class DelegationV1Vectors {
         Ed25519Support controller=new Ed25519Support(sha("OpenIdentity OI-014 DG04 controller Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         Ed25519Support delegation=new Ed25519Support(sha("OpenIdentity OI-014 DG04 delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         byte[] cp=policy(cid,method2(controller.publicKey())),dp=policy(did,method2(delegation.publicKey()));
-        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
-                4,E(arr("document.delete".getBytes(StandardCharsets.UTF_8))),5,3600,6,2);
+        byte[] descriptor=exactProfile(new byte[][]{"document.delete".getBytes(StandardCharsets.UTF_8)},3600L,2L);
         byte[] ph=mh(descriptor),pref=map(1,1,2,ph),cref=map(1,E(pref),2,"document.delete".getBytes(StandardCharsets.UTF_8)),dc=map(1,E(cref));
         byte[] grant=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,delegate)),
                 5,E(arr(E(dc))),7,2000015000L,9,sha("OpenIdentity OI-014 DG04 nonce".getBytes(StandardCharsets.UTF_8)));
@@ -160,8 +181,7 @@ public final class DelegationV1Vectors {
         Ed25519Support a=new Ed25519Support(sha("OpenIdentity OI-014 DG05 delegation A Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         Ed25519Support b=new Ed25519Support(sha("OpenIdentity OI-014 DG05 delegation B Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         byte[] pa=policy(ida,method2(a.publicKey())),pb=policy(idb,method2(b.publicKey()));
-        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
-                4,E(arr("document.admin".getBytes(StandardCharsets.UTF_8))),5,3600,6,2);
+        byte[] descriptor=exactProfile(new byte[][]{"document.admin".getBytes(StandardCharsets.UTF_8)},3600L,2L);
         byte[] ph=mh(descriptor),pref=map(1,1,2,ph),cref=map(1,E(pref),2,"document.admin".getBytes(StandardCharsets.UTF_8)),dc=map(1,E(cref));
         byte[] grant=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,delegate)),
                 5,E(arr(E(dc))),7,2000020000L,9,sha("OpenIdentity OI-014 DG05 nonce".getBytes(StandardCharsets.UTF_8)));
@@ -194,8 +214,7 @@ public final class DelegationV1Vectors {
         Ed25519Support delegation=new Ed25519Support(sha("OpenIdentity OI-014 DG06 root delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         Ed25519Support auth=new Ed25519Support(sha("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         byte[] dp=policy(delegationId,method2(delegation.publicKey())),ap=policy(authId,method2(auth.publicKey()));
-        byte[] descriptor=map(1,1,2,"openidentity.test.redelegation",3,1,
-                4,E(arr("document.read".getBytes(StandardCharsets.UTF_8),"redelegate.document.read".getBytes(StandardCharsets.UTF_8))),5,7200,6,3);
+        byte[] descriptor=redelegationProfile(7200L,3L);
         byte[] ph=mh(descriptor),pref=map(1,1,2,ph);
         byte[] read=map(1,E(map(1,E(pref),2,"document.read".getBytes(StandardCharsets.UTF_8))));
         byte[] redelegate=map(1,E(map(1,E(pref),2,"redelegate.document.read".getBytes(StandardCharsets.UTF_8))));
@@ -241,8 +260,7 @@ public final class DelegationV1Vectors {
         Ed25519Support delegation=new Ed25519Support(sha("OpenIdentity OI-014 DG07 root delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         Ed25519Support auth=new Ed25519Support(sha("OpenIdentity OI-014 DG07 delegate authentication Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         byte[] dp=policy(delegationId,method2(delegation.publicKey())),ap=policy(authId,method2(auth.publicKey()));
-        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
-                4,E(arr("document.read".getBytes(StandardCharsets.UTF_8))),5,3600,6,2);
+        byte[] descriptor=exactProfile(new byte[][]{"document.read".getBytes(StandardCharsets.UTF_8)},3600L,2L);
         byte[] ph=mh(descriptor),pref=map(1,1,2,ph),read=map(1,E(map(1,E(pref),2,"document.read".getBytes(StandardCharsets.UTF_8))));
         byte[] grant=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,delegate)),
                 5,E(arr(E(read))),7,2000600000L,9,sha("OpenIdentity OI-014 DG07 nonce".getBytes(StandardCharsets.UTF_8)));
@@ -287,8 +305,7 @@ public final class DelegationV1Vectors {
         Ed25519Support oldKey=new Ed25519Support(sha("OpenIdentity OI-014 DG08 old delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         Ed25519Support newKey=new Ed25519Support(sha("OpenIdentity OI-014 DG08 new delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         byte[] oldPolicy=policy(oldId,method2(oldKey.publicKey())),newPolicy=policy(newId,method2(newKey.publicKey()));
-        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
-                4,E(arr("document.read".getBytes(StandardCharsets.UTF_8))),5,7200,6,2);
+        byte[] descriptor=exactProfile(new byte[][]{"document.read".getBytes(StandardCharsets.UTF_8)},7200L,2L);
         byte[] ph=mh(descriptor),pref=map(1,1,2,ph),read=map(1,E(map(1,E(pref),2,"document.read".getBytes(StandardCharsets.UTF_8))));
         byte[] grant=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,delegate)),
                 5,E(arr(E(read))),7,2000700000L,9,sha("OpenIdentity OI-014 DG08 nonce".getBytes(StandardCharsets.UTF_8)));
@@ -526,7 +543,7 @@ public final class DelegationV1Vectors {
         Ed25519Support ed=new Ed25519Support(sha("OpenIdentity OI-014 DG01 delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
         byte[] m=method2(ed.publicKey()),dp=policy(mid,m);
 
-        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,4,E(arr("document.read".getBytes(StandardCharsets.UTF_8))),5,3600,6,4);
+        byte[] descriptor=exactProfile(new byte[][]{"document.read".getBytes(StandardCharsets.UTF_8)},3600L,4L);
         byte[] ph=mh(descriptor);
         require("DG01 ProfileDescriptor bytes",hx(v,"profileDescriptorBytesHex").equals(Hex.encode(descriptor)));
         require("DG01 ProfileHash",hx(v,"profileHashHex").equals(Hex.encode(ph)));
