@@ -22,11 +22,11 @@ public final class OpenIdentityTokenExchangeAuthenticationConverter implements A
   Authentication client=SecurityContextHolder.getContext().getAuthentication();if(client==null||!client.isAuthenticated())throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.INVALID_REQUEST));
   byte[] subject=decode(one(request,"subject_token",true)),actor=decode(one(request,"actor_token",true));
   byte[] expectedNonce=nonce.resolve(request);if(expectedNonce==null||expectedNonce.length==0)throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.INVALID_REQUEST));
-  String jkt=dpop.resolve(request);if(jkt==null)throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.DPOP_REQUIRED));
+  ValidatedDpopProofResult validatedDpop=dpop.resolve(request);if(validatedDpop==null)throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.DPOP_REQUIRED));
   String requested=one(request,"requested_token_type",false);
   List<String> resources=many(request,"resource"),audiences=many(request,"audience");
   List<String> scopes=splitScopes(one(request,"scope",false));
-  return new OpenIdentityTokenExchangeAuthenticationToken(client,subject,actor,expectedNonce,requested,jkt,resources,audiences,scopes);
+  return new OpenIdentityTokenExchangeAuthenticationToken(client,subject,actor,expectedNonce,requested,validatedDpop,resources,audiences,scopes);
  }
  private static String one(HttpServletRequest r,String n,boolean required){
   String[] v=r.getParameterValues(n);if(v==null||v.length==0){if(required)bad();return null;}if(v.length!=1||v[0]==null||v[0].isEmpty())bad();return v[0];
