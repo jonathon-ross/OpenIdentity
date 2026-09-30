@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified pre-freeze gate for OpenIdentity OAuth Delegated Agent Profile v1."""
+"""Frozen-normative release gate for OpenIdentity OAuth Delegated Agent Profile v1."""
 from __future__ import annotations
 import argparse,os,shutil,subprocess,sys
 from pathlib import Path
@@ -23,7 +23,7 @@ PROTECTED=[
 def run(label,cmd,cwd=ROOT):
     print(f"\n[{label}]");p=subprocess.run(cmd,cwd=cwd)
     if p.returncode:
-        print(f"\nDELEGATED AGENT PROFILE v1 PRE-FREEZE GATE: FAIL ({label})");raise SystemExit(p.returncode)
+        print(f"\nDELEGATED AGENT PROFILE v1 FROZEN-NORMATIVE GATE: FAIL ({label})");raise SystemExit(p.returncode)
     print(f"[PASS] {label}")
 def args():
     p=argparse.ArgumentParser();p.add_argument("--maven",help="Path/name of Maven launcher. Overrides DELEGATED_AGENT_MAVEN and PATH.");return p.parse_args()
@@ -60,8 +60,8 @@ def main():
         print("\nDELEGATED AGENT PROFILE v1 PRE-FREEZE GATE: FAIL (previously frozen commitment/artifact changed)");raise SystemExit(1)
     print("[PASS] Previously frozen commitments/artifacts unchanged")
     print("\n============================================================")
-    print("OAUTH DELEGATED AGENT PROFILE v1 PRE-FREEZE RELEASE GATE: PASS")
+    print("OAUTH DELEGATED AGENT PROFILE v1 FROZEN-NORMATIVE RELEASE GATE: PASS")
     print("============================================================")
-    print("\nStatus: PX01-PX03 + PXI01-PXI37 verified in Python and Java; BYTE-FROZEN CANDIDATE; NOT YET NORMATIVE.")
-    print("Next: final normative profile/specification review before promotion. Frozen dependencies remain unchanged.")
+    print("\nStatus: Delegated Agent Profile v1 frozen-normative PX01-PX03 + PXI01-PXI37 and committed conformance checksum verified.")
+    print("Frozen profile semantics/bundle MUST NOT change without explicit profile/version evolution. Frozen dependencies remain unchanged.")
 if __name__=="__main__":main()
