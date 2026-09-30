@@ -86,7 +86,7 @@ def main():
     print("OI-014 PRE-FREEZE RELEASE GATE: PASS")
     print("============================================================")
     print("\nStatus: semantic vectors verified; committed byte-frozen candidate verified when present; NOT YET NORMATIVE.")
-    print("Next: inspect git status/diff, then create a freeze candidate only if intentional.")
+    print("Next: perform final normative spec/CDDL/documentation review before promotion.")
 
 if __name__=="__main__":
     main()
