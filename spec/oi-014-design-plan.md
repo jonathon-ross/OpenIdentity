@@ -39,8 +39,9 @@ Attack the design for:
 - excessive chain depth / denial of service;
 - delegate identity/key substitution;
 - deactivation/recovery resurrection;
-- replay across identities, registries, or profiles — registry replay addressed by registryDomain-bound records/proofs;
-- public-registry privacy leakage.
+- replay across identities, registries, or profiles — registry replay addressed by registryDomain-bound records/proofs; profile substitution addressed by content-addressed ProfileRef semantics;
+- public-registry privacy leakage;
+- profile substitution / semantic drift across registries or implementations — addressed by SHA2-256 content-addressed ProfileRef descriptors.
 
 ## Phase 3 — canonical wire model
 
