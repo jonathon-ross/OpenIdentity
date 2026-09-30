@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
+ <parent><groupId>org.openidentity</groupId><artifactId>openidentity-java-sdk</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../pom.xml</relativePath></parent>
+ <artifactId>openidentity-spring-authorization-server</artifactId><name>OpenIdentity Spring Authorization Server Adapter</name>
+ <properties><spring-security.version>7.1.1</spring-security.version></properties>
+ <dependencies>
+  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-oauth-delegated-agent</artifactId><version>${project.version}</version></dependency>
+  <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-oauth2-authorization-server</artifactId><version>${spring-security.version}</version></dependency>
+  <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-config</artifactId><version>${spring-security.version}</version></dependency>
+  <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><version>7.0.5</version></dependency>
+  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+ </dependencies>
+</project>
