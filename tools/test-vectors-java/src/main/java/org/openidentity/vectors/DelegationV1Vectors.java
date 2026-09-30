@@ -186,13 +186,80 @@ public final class DelegationV1Vectors {
         require("DG05 grant unusable solely by generation mismatch",!v.path("grantUsableAfterInvalidation").asBoolean()&&generation!=(generation+1));
     }
 
+
+    private static void verifyDG06(JsonNode v)throws Exception{
+        byte[] registry="openidentity:test:oi014:dg06".getBytes(StandardCharsets.UTF_8);
+        byte[] root=seq(80,32),parentDelegate=seq(112,32),childDelegate=seq(144,32);
+        byte[] delegationId=seq(128,16),issuerAuthId=seq(144,16);
+        Ed25519Support delegation=new Ed25519Support(sha("OpenIdentity OI-014 DG06 root delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
+        Ed25519Support issuerAuth=new Ed25519Support(sha("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
+        byte[] dp=policy(delegationId,method2(delegation.publicKey()));
+
+        byte[] descriptor=map(1,1,2,"openidentity.test.redelegation",3,1,
+                4,E(arr("document.read".getBytes(StandardCharsets.UTF_8),
+                        "redelegate.document.read".getBytes(StandardCharsets.UTF_8))),5,7200,6,3);
+        byte[] ph=mh(descriptor),pref=map(1,1,2,ph);
+        byte[] read=map(1,E(map(1,E(pref),2,"document.read".getBytes(StandardCharsets.UTF_8))));
+        byte[] redelegate=map(1,E(map(1,E(pref),2,"redelegate.document.read".getBytes(StandardCharsets.UTF_8))));
+
+        byte[] parent=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,parentDelegate)),
+                5,E(arr(E(read),E(redelegate))),7,2000030000L,9,
+                sha("OpenIdentity OI-014 DG06 parent nonce".getBytes(StandardCharsets.UTF_8)));
+        byte[] parentId=mh(parent);int generation=30;
+        byte[] rootState=map(1,3,2,root,3,50,4,1,5,E(dp),8,E(map(1,0)),9,E(map(1,generation,2,E(dp))));
+        byte[] rootHash=mh(rootState);
+        require("DG06 ProfileDescriptor bytes",hx(v,"profileDescriptorBytesHex").equals(Hex.encode(descriptor)));
+        require("DG06 ProfileHash",hx(v,"profileHashHex").equals(Hex.encode(ph)));
+        require("DG06 root StateBytes",hx(v,"rootStateBytesHex").equals(Hex.encode(rootState)));
+        require("DG06 root StateHash",hx(v,"rootStateHashHex").equals(Hex.encode(rootHash)));
+
+        byte[] parentSigning=arr("OpenIdentity Delegation Grant",1,registry,parent,rootHash,generation,delegationId);
+        byte[] parentSig=delegation.sign(parentSigning);
+        require("DG06 parent GrantBytes",hx(v,"parentGrantBytesHex").equals(Hex.encode(parent)));
+        require("DG06 parent GrantId",hx(v,"parentGrantIdHex").equals(Hex.encode(parentId)));
+        require("DG06 parent registration signature",hx(v,"parentRegistrationSignatureHex").equals(Hex.encode(parentSig)));
+        require("DG06 parent registration verifies",delegation.verify(parentSigning,parentSig));
+
+        byte[] parentRecord=map(1,registry,2,parentId,3,1,4,null,5,1,6,rootHash,7,generation,8,2000020000L);
+        byte[] parentRecordHash=mh(parentRecord);
+        require("DG06 parent RecordBytes",hx(v,"parentRecordBytesHex").equals(Hex.encode(parentRecord)));
+        require("DG06 parent RecordHash",hx(v,"parentRecordHashHex").equals(Hex.encode(parentRecordHash)));
+
+        byte[] child=map(1,1,2,root,3,E(map(1,1,2,parentDelegate)),4,E(map(1,1,2,childDelegate)),
+                5,E(arr(E(read))),7,2000028000L,8,parentId,9,
+                sha("OpenIdentity OI-014 DG06 child nonce".getBytes(StandardCharsets.UTF_8)));
+        byte[] childId=mh(child);
+        byte[] childSigning=arr("OpenIdentity Delegation Child Grant",1,registry,child,parentId,parentRecordHash);
+        byte[] childSig=issuerAuth.sign(childSigning);
+        require("DG06 child GrantBytes",hx(v,"childGrantBytesHex").equals(Hex.encode(child)));
+        require("DG06 child GrantId",hx(v,"childGrantIdHex").equals(Hex.encode(childId)));
+        require("DG06 child issuer method id",hx(v,"childIssuerAuthenticationMethodIdHex").equals(Hex.encode(issuerAuthId)));
+        require("DG06 child signing bytes",hx(v,"childSigningBytesHex").equals(Hex.encode(childSigning)));
+        require("DG06 child issuer proof",hx(v,"childIssuerProofHex").equals(Hex.encode(childSig)));
+        require("DG06 child issuer proof verifies",issuerAuth.verify(childSigning,childSig));
+
+        byte[] childReq=map(1,registry,2,E(child),3,parentId,4,parentRecordHash,5,childSig);
+        require("DG06 child registration request bytes",hx(v,"childRegistrationRequestBytesHex").equals(Hex.encode(childReq)));
+        byte[] childRecord=map(1,registry,2,childId,3,1,4,null,5,1,6,rootHash,7,generation,8,2000021000L);
+        byte[] childRecordHash=mh(childRecord);
+        require("DG06 child RecordBytes",hx(v,"childRecordBytesHex").equals(Hex.encode(childRecord)));
+        require("DG06 child RecordHash",hx(v,"childRecordHashHex").equals(Hex.encode(childRecordHash)));
+
+        require("DG06 rootGrantor preserved",v.path("rootGrantorPreserved").asBoolean()&&Arrays.equals(root,root));
+        require("DG06 issuer equals parent delegate",v.path("issuerEqualsParentDelegate").asBoolean());
+        require("DG06 capability attenuated",v.path("capabilityAttenuated").asBoolean());
+        require("DG06 lifetime attenuated",v.path("lifetimeAttenuated").asBoolean()&&2000028000L<2000030000L);
+        require("DG06 parent redelegation authorized",v.path("parentRedelegationAuthorized").asBoolean());
+        require("DG06 depth 2",v.path("childDepth").asInt()==2);
+    }
+
     public static void main(String[] args)throws Exception{
         Path file=Path.of("..","..","test-vectors","generated","delegation-v1.json");
         JsonNode rootJson=new ObjectMapper().readTree(Files.readString(file));
         require("suite specification","OpenIdentity OI-014 DelegationGrant v1".equals(rootJson.path("suite").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(rootJson.path("status").asText()));
         JsonNode v=rootJson.path("vectors").get(0);require("DG01 id","DG01".equals(v.path("id").asText()));
-        require("vector count",rootJson.path("vectors").size()==5);
+        require("vector count",rootJson.path("vectors").size()==6);
 
         byte[] registry="openidentity:test:oi014:dg01".getBytes(StandardCharsets.UTF_8), root=seq(0,32), delegate=seq(32,32), mid=seq(0,16);
         Ed25519Support ed=new Ed25519Support(sha("OpenIdentity OI-014 DG01 delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
@@ -227,8 +294,9 @@ public final class DelegationV1Vectors {
         verifyDG03(rootJson.path("vectors").get(2));
         verifyDG04(rootJson.path("vectors").get(3));
         verifyDG05(rootJson.path("vectors").get(4));
+        verifyDG06(rootJson.path("vectors").get(5));
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG05 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 VERIFIED");
         System.out.println("============================================");
     }
 }
