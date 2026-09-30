@@ -143,6 +143,27 @@ def invalids():
         terminalDelegateHex=ds["terminalDelegateHex"],tokenActorAssertionIdHex=expected_aid.hex(),
         substitutedActorAssertionIdHex=fresh_aid.hex(),substitutedAssertionBytesHex=fresh_ab.hex())
 
+    # DSI20-DSI22: envelope size, path splicing, and cycle/duplicate defenses.
+    add("DSI20","DELEGATION_EVIDENCE_TOO_LARGE","evidence-one-byte-over-ceiling",
+        delegationEvidenceLength=1048577,maximumDelegationEvidenceLength=1048576)
+
+    path_a=ds02()
+    # Independent valid direct grant/path B; individually valid but unrelated to path A.
+    root_b=bytes(range(1,33));delegate_b=bytes(range(33,65))
+    ph_b=mh(b"OI-016 DSI21 independent profile");pr_b={1:1,2:ph_b};cr_b={1:pr_b,2:b"other.read"}
+    grant_b={1:1,2:root_b,3:{1:1,2:root_b},4:{1:1,2:delegate_b},5:[{1:cr_b}],
+             7:2002020000,9:h(b"OpenIdentity OI-016 DSI21 nonce")}
+    gb_b=enc(grant_b);gid_b=mh(gb_b)
+    add("DSI21","INVALID_DELEGATION_EVIDENCE","independent-valid-paths-spliced",
+        pathARootGrantorHex=path_a["rootGrantorHex"],pathBRootGrantorHex=root_b.hex(),
+        pathALastGrantIdHex=path_a["childGrantIdHex"],splicedNextGrantIdHex=gid_b.hex(),
+        splicedNextParentGrantIdPresent=False,individualPathBGrantIdValid=(gid_b==mh(gb_b)))
+
+    duplicate_id=path_a["parentGrantIdHex"]
+    add("DSI22","INVALID_DELEGATION_EVIDENCE","duplicate-path-element-cycle",
+        submittedGrantIdsHex=[duplicate_id,path_a["childGrantIdHex"],duplicate_id],
+        duplicateGrantIdHex=duplicate_id)
+
     return out
 
 def main():
@@ -150,5 +171,5 @@ def main():
           "vectors":[ds01(),ds02()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI19 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI22 GENERATED")
 if __name__=="__main__":main()
