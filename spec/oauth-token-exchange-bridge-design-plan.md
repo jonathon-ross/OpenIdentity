@@ -790,3 +790,145 @@ Normal authorization-server default scopes may be used only when deployment/prof
 ### 24.10 Output scope
 
 The issued token contains only the requested/default scopes that passed mapping. Under the v1 atomic model, any unauthorized requested scope or target causes the exchange to fail rather than silently narrow.
+
+
+## 25. JWT projection, token lifetime, and refresh policy — DECISION
+
+### 25.1 Delegation semantics
+
+The OpenIdentity bridge uses RFC 8693 delegation semantics, not impersonation semantics.
+
+For an issued JWT access token:
+
+    sub = verified OI-016 rootGrantor subject identifier
+
+    act = {
+        sub = verified OI-016 terminalDelegate actor identifier
+    }
+
+The authorization server defines the exact string projection from OpenIdentity IdentityId bytes to JWT subject identifiers. That projection MUST be deterministic, collision-resistant/unambiguous within the issuer, and documented by the integration profile.
+
+The top-level sub remains the party on whose behalf authority is exercised. The outermost act identifies the current actor.
+
+### 25.2 Delegation history
+
+RFC 8693 permits nested act claims, with the outermost act representing the current actor and nested act claims representing prior actors.
+
+OpenIdentity OAuth profile v1 does NOT require projection of the complete OI-014 path into nested act claims.
+
+By default, v1 emits only the current actor:
+
+    "sub": rootGrantor
+    "act": { "sub": terminalDelegate }
+
+An authorization server MAY include nested actor history only when deployment policy requires it and privacy/disclosure policy permits it.
+
+Nested historical actors are informational only. Resource-server authorization MUST NOT depend on historical nested act entries.
+
+OI-014 remains the authoritative delegation provenance evaluated by the authorization server at exchange time.
+
+### 25.3 RFC 9068 access-token claims
+
+When the output token is an RFC 9068 JWT access token, the authorization server follows RFC 9068, including required iss, exp, aud, sub and applicable client/scope claims.
+
+The issued scope set contains only scopes authorized by Section 24 mapping.
+
+Every scope in the issued token MUST have defined meaning for every audience represented by the token.
+
+The access token does not need to embed OI-014 GrantBytes, OI-016 bytes, or OI-015 proof material merely to preserve authorization provenance.
+
+### 25.4 Access-token lifetime
+
+OI-015 freshness and OAuth access-token lifetime are separate concepts.
+
+OI-015 proves that the actor authenticated recently enough for the token-exchange ceremony. Its maximum assertion lifetime does NOT automatically impose the same maximum on the resulting OAuth access token.
+
+However, issued OAuth authority MUST NOT outlive the delegated authority that justified issuance.
+
+Define:
+
+    now = authorization-server issuance time
+
+    delegationExpiry =
+        earliest expiration among every effective OI-014 grant/ancestor
+        required for the selected path
+
+    profileMaxExpiry =
+        now + applicable bridge/deployment maximum access-token lifetime
+
+    requestedExpiry =
+        any smaller output-token lifetime required by authorization-server policy
+
+Then:
+
+    accessToken.exp <= min(
+        delegationExpiry,
+        profileMaxExpiry,
+        requestedExpiry when applicable
+    )
+
+The authorization server MUST re-evaluate OI-014 current usability immediately before issuance.
+
+If the remaining delegated lifetime is too short for server policy, issuance fails rather than extending authority.
+
+Revocation after access-token issuance is not automatically propagated into a self-contained JWT unless the deployment uses introspection, revocation-aware resource-server checks, short lifetimes, or another explicit mechanism. Deployments SHOULD therefore keep delegated access tokens short-lived.
+
+### 25.5 Default maximum lifetime
+
+Core OAuth does not prescribe one universal access-token lifetime.
+
+This OpenIdentity bridge profile therefore requires each deployment/integration profile to publish/configure a maximum delegated access-token lifetime.
+
+The initial recommended default is:
+
+    maximum delegated access-token lifetime = 300 seconds
+
+A deployment MAY choose a shorter value.
+
+A deployment MAY choose a longer value only after explicit risk analysis and MUST still obey the earliest OI-014 delegation/ancestor expiration.
+
+The 300-second recommendation intentionally limits the window during which a self-contained token can remain usable after an OI-014 revocation that occurred after issuance.
+
+### 25.6 Refresh tokens — v1 prohibition
+
+OI-016 OAuth Token Exchange Profile v1 MUST NOT issue refresh tokens for delegated OpenIdentity exchanges.
+
+Rationale:
+
+A refresh token capable of minting new access tokens without a fresh OI-016 + OI-015 exchange risks bypassing OpenIdentity current-state guarantees after:
+
+- OI-014 revocation;
+- relinquishment;
+- RESET_DELEGATIONS / generation invalidation;
+- root deactivation/recovery;
+- ancestor invalidation;
+- actor AuthenticationAuthority reset;
+- actor deactivation;
+- changed OAuth request context.
+
+The v1 renewal mechanism is a fresh RFC 8693 token exchange with newly verified OI-016 and fresh OI-015 evidence.
+
+This is intentionally stricter than generic OAuth refresh-token rules.
+
+A future profile MAY define refresh tokens only if every refresh performs equivalent current OI-014/OI-015 authorization revalidation and preserves sender/scope/resource bindings. That is explicit profile evolution, not v1 behavior.
+
+### 25.7 Sender constraint
+
+Access tokens SHOULD be sender-constrained when supported, consistent with current OAuth security best practice.
+
+The DPoP policy decision in the next section determines when sender constraint becomes mandatory for OpenIdentity agent/workload profiles.
+
+### 25.8 Revocation-window consequence
+
+The bridge guarantees current OpenIdentity authority at issuance time.
+
+For a self-contained access token, it does not by itself guarantee immediate post-issuance propagation of later OpenIdentity revocation.
+
+Deployments requiring near-immediate revocation MUST use one or more of:
+
+- very short access-token lifetimes;
+- opaque/reference access tokens with introspection;
+- resource-server current-state checks;
+- a deployment-specific revocation propagation mechanism.
+
+This limitation MUST be documented rather than implying that OI-014 revocation magically invalidates already-issued offline JWTs.
