@@ -326,6 +326,52 @@ def build_dg08():
       "revokedRecordBytesHex":r2b.hex(),"revokedRecordHashHex":r2h.hex()}
 
 
+
+def build_dg09():
+    registry=b"openidentity:test:oi014:dg09"
+    root=bytes(range(140,172)); child_delegate=bytes(range(172,204))
+    delegation_id=bytes(range(124,140))
+    dpriv,_,dm=key("OpenIdentity OI-014 DG09 root delegation Ed25519 seed",delegation_id)
+    dp=policy(delegation_id,dm)
+
+    capdesc=redelegation_profile(7200,3); caphash=mh(enc(capdesc)); capref={1:1,2:caphash}
+    read={1:{1:capref,2:b"document.read"}}; redel={1:{1:capref,2:b"redelegate.document.read"}}
+
+    principal_spec=b"OpenIdentity OI-014 Test Principal Profile: ed25519-agent v1\\nSemantics: principalId is 32-byte Ed25519 public key; proofBytes is Ed25519 over coreActionBytes concatenated with proofContext.\\n"
+    principal_params=enc({1:32,2:b"ed25519",3:b"coreActionBytes||proofContext"})
+    principal_desc=profile_descriptor(2,principal_spec,0,0,principal_params)
+    principal_desc_b=enc(principal_desc); principal_hash=mh(principal_desc_b); principal_ref={1:2,2:principal_hash}
+    agent_priv=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-014 DG09 profile principal seed"))
+    agent_pub=agent_priv.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    parent_delegate={1:2,2:agent_pub,3:principal_ref}
+
+    parent={1:1,2:root,3:{1:1,2:root},4:parent_delegate,5:[read,redel],
+            7:2000800000,9:seed("OpenIdentity OI-014 DG09 parent nonce")}
+    pb=enc(parent); pid=mh(pb); dgen=55
+    root_state={1:3,2:root,3:80,4:1,5:dp,8:{1:0},9:{1:dgen,2:dp}}
+    rsb=enc(root_state); rsh=mh(rsb)
+    preg=enc(["OpenIdentity Delegation Grant",1,registry,pb,rsh,dgen,delegation_id]); psig=dpriv.sign(preg)
+    prec={1:registry,2:pid,3:1,4:None,5:1,6:rsh,7:dgen,8:2000790000}; precb=enc(prec); prech=mh(precb)
+
+    child={1:1,2:root,3:parent_delegate,4:{1:1,2:child_delegate},5:[read],
+           7:2000798000,8:pid,9:seed("OpenIdentity OI-014 DG09 child nonce")}
+    cb=enc(child); cid=mh(cb)
+    core_action=enc(["OpenIdentity Delegation Child Grant",1,registry,cb,pid,prech])
+    proof_context=b"oi014-test-audience:dg09/session:1"
+    proof_bytes=agent_priv.sign(core_action+proof_context)
+    delegate_proof={1:2,2:principal_ref,3:proof_context,4:proof_bytes}
+    creq={1:registry,2:child,3:pid,4:prech,5:delegate_proof}
+    crec={1:registry,2:cid,3:1,4:None,5:1,6:rsh,7:dgen,8:2000791000}; crecb=enc(crec)
+    return {"id":"DG09","description":"PROFILE_PRINCIPAL parent delegate issues valid attenuated child using tagged profile proof","expected":"PASS",
+      "principalSemanticSpecBytesHex":principal_spec.hex(),"principalSemanticSpecHashHex":mh(principal_spec).hex(),
+      "principalProfileDescriptorBytesHex":principal_desc_b.hex(),"principalProfileHashHex":principal_hash.hex(),
+      "principalIdHex":agent_pub.hex(),"proofContextHex":proof_context.hex(),
+      "parentGrantBytesHex":pb.hex(),"parentGrantIdHex":pid.hex(),"parentRecordHashHex":prech.hex(),
+      "childGrantBytesHex":cb.hex(),"childGrantIdHex":cid.hex(),"profileCoreActionBytesHex":core_action.hex(),
+      "profileProofBytesHex":proof_bytes.hex(),"childRegistrationRequestBytesHex":enc(creq).hex(),
+      "childRecordBytesHex":crecb.hex(),"childRecordHashHex":mh(crecb).hex()}
+
+
 def build_invalids():
     out=[]
     def add(i,error,attack,**kw): out.append({"id":i,"expected":"REJECT","error":error,"attack":attack,**kw})
@@ -653,7 +699,7 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06(),build_dg07(),build_dg08()],"invalidVectors":build_invalids()}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06(),build_dg07(),build_dg08(),build_dg09()],"invalidVectors":build_invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
@@ -665,5 +711,6 @@ def main():
     print("DG06 VERIFIED")
     print("DG07 VERIFIED")
     print("DG08 VERIFIED")
+    print("DG09 VERIFIED")
     print("DGI01-DGI06 GENERATED")
 if __name__=="__main__": main()
