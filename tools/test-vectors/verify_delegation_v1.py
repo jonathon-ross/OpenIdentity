@@ -21,7 +21,7 @@ def main():
     data=json.loads(FILE.read_text())
     req("suite specification",data["suite"]=="OpenIdentity OI-014 DelegationGrant v1")
     req("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs DG01-DG03",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03"])
+    req("vector IDs DG01-DG04",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04"])
     v=data["vectors"][0]
     registry=b"openidentity:test:oi014:dg01"; root=bytes(range(32)); delegate=bytes(range(32,64)); mid=bytes(range(16))
     priv=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG01 delegation Ed25519 seed"))
@@ -104,7 +104,37 @@ def main():
     req("DG03 post-rotation StateBytes",v3["postRotationStateBytesHex"]==ab3.hex())
     req("DG03 registration record unchanged",v3["recordHashAfterRotationHex"]==rh3.hex())
     req("DG03 grant remains generation-compatible",v3["grantUsableAfterRotation"] is True and rec3[7]==after3[9][1])
+
+    v4=data["vectors"][3]
+    reg4=b"openidentity:test:oi014:dg04"; root4=bytes(range(192,224)); del4=bytes(range(224,256))
+    cid4=bytes(range(64,80)); did4=bytes(range(80,96))
+    kc=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG04 controller Ed25519 seed"))
+    kd=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG04 delegation Ed25519 seed"))
+    pc=kc.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); pd=kd.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    cp4={1:1,2:[{1:cid4,2:{1:1,3:-8,4:-1,6:pc}}]}; dp4={1:1,2:[{1:did4,2:{1:1,3:-8,4:-1,6:pd}}]}
+    desc4={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.delete"],5:3600,6:2}; ph4=mh(enc(desc4))
+    g4={1:1,2:root4,3:{1:1,2:root4},4:{1:1,2:del4},5:[{1:{1:{1:1,2:ph4},2:b"document.delete"}}],
+        7:2000015000,9:sk("OpenIdentity OI-014 DG04 nonce")}
+    gb4=enc(g4); gid4=mh(gb4); gen4=15
+    st4={1:3,2:root4,3:30,4:1,5:cp4,8:{1:0},9:{1:gen4,2:dp4}}; sb4=enc(st4); sh4=mh(sb4)
+    kd.public_key().verify(bytes.fromhex(v4["registrationSignatureHex"]),enc(["OpenIdentity Delegation Grant",1,reg4,gb4,sh4,gen4,did4]))
+    req("DG04 original registration signature verifies",True)
+    r1={1:reg4,2:gid4,3:1,4:None,5:1,6:sh4,7:gen4,8:2000010000}; r1b=enc(r1); r1h=mh(r1b)
+    req("DG04 ACTIVE RecordHash",v4["activeRecordHashHex"]==r1h.hex())
+    revsign=enc(["OpenIdentity Delegation Grant Revocation",1,reg4,gid4,r1h,2,sh4,cid4])
+    revsig=bytes.fromhex(v4["revocationSignatureHex"]); kc.public_key().verify(revsig,revsign)
+    req("DG04 ControllerPolicy revocation signature verifies",True)
+    req("DG04 revocation signing bytes",v4["revocationSigningBytesHex"]==revsign.hex())
+    revreq={1:reg4,2:gid4,3:r1h,4:2,5:sh4,6:1,7:[{1:cid4,2:revsig}]}
+    req("DG04 revocation request bytes",v4["revocationRequestBytesHex"]==enc(revreq).hex())
+    r2={1:reg4,2:gid4,3:2,4:r1h,5:2,6:sh4,7:gen4,8:2000010000}; r2b=enc(r2); r2h=mh(r2b)
+    req("DG04 exact next revision",r2[3]==r1[3]+1)
+    req("DG04 previous RecordHash binding",r2[4]==r1h)
+    req("DG04 REVOKED terminal state",r2[5]==2)
+    req("DG04 GrantId unchanged",v4["grantIdAfterRevocationHex"]==gid4.hex())
+    req("DG04 registeredAt unchanged",v4["registeredAtBefore"]==v4["registeredAtAfter"]==2000010000)
+    req("DG04 revoked RecordBytes",v4["revokedRecordBytesHex"]==r2b.hex());req("DG04 revoked RecordHash",v4["revokedRecordHashHex"]==r2h.hex())
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG03 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG04 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
