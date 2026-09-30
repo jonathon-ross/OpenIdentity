@@ -29,7 +29,7 @@ final class Oi014Oi016UseTimeTest {
   return map(1,1,2,new Raw(evidence),3,assertionId);
  }
 
- static final class ExactProfile implements CapabilityProfile {
+ static class ExactProfile implements CapabilityProfile {
   final byte[] hash;ExactProfile(byte[] hash){this.hash=hash.clone();}
   public byte[] profileHash(){return hash.clone();}public long maximumGrantLifetimeSeconds(){return 7200;}public int maximumDelegationDepth(){return 3;}
   public boolean permitsChild(List<CapabilityRef> parent,List<CapabilityRef> child){
