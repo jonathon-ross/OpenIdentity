@@ -368,19 +368,143 @@ High-priority invalids:
 - AAI19 cross-audience replay;
 - AAI20 recovery/reset invalidates previously prepared assertion.
 
-## 16. Questions to resolve before CDDL
+## 16. Pre-CDDL design decisions — RESOLVED
 
-1. Should the accepted time rule be exactly `issuedAt <= now < expiresAt`, with clock skew applied only as verifier policy, or should skew semantics be normative?
-2. Should assertion lifetime maximum 300 seconds be core normative or profile-controlled with a core upper ceiling?
-3. Should purpose be constrained to ASCII rather than arbitrary UTF-8 to remove Unicode-equivalence hazards?
-4. Should audience remain arbitrary opaque bytes or receive an optional typed envelope in v1?
-5. Should contextHash permit only SHA2-256 Multihash in v1, matching current StateHash discipline?
-6. Should AssertionId be normative even though verification does not require it?
-7. Do we need a separate verifier-challenge object, or is out-of-band nonce issuance intentionally sufficient for v1?
+The seven wire-shaping questions were reviewed adversarially against OpenIdentity's deterministic-state model and established OAuth/DPoP conventions.
 
-No OI-015 wire labels are frozen until these questions are resolved adversarially.
+### D1 — Time acceptance and clock skew
 
-## 17. Freeze discipline
+**Decision:** the signed validity interval is normative and exact:
+
+    issuedAt <= verificationTime < expiresAt
+
+The assertion itself does not encode clock skew.
+
+A verifier MAY apply a locally configured clock-skew allowance when determining verificationTime acceptance, but:
+
+- skew is verifier policy, not signed assertion semantics;
+- skew MUST NOT change issuedAt, expiresAt, AssertionBytes, or AssertionId;
+- skew MUST NOT make the signed interval longer than the core lifetime ceiling;
+- profiles MAY require zero skew or a smaller allowance.
+
+Rationale: established assertion systems allow deployment clock-skew handling, but encoding skew into the assertion would let claimants influence verifier freshness policy. Server-provided nonce challenges remain the stronger defense when clocks are unreliable.
+
+### D2 — Maximum assertion lifetime
+
+**Decision:** 300 seconds is a normative core upper ceiling for v1.
+
+    0 < expiresAt - issuedAt <= 300
+
+Profiles MAY require a smaller maximum and SHOULD do so when practical. They MUST NOT enlarge the v1 ceiling.
+
+Rationale: OI-015 is an authentication ceremony, not a reusable credential. A core ceiling gives all verifiers a common worst-case replay window while retaining profile flexibility below it.
+
+### D3 — Purpose character repertoire
+
+**Decision:** purpose is restricted to visible lowercase ASCII domain-style identifiers rather than arbitrary Unicode.
+
+Candidate grammar:
+
+    purpose = 1*255(
+        %x61-7A / DIGIT / "." / "-" / "_"
+    )
+
+Additional rules:
+
+- first and last character MUST be lowercase ASCII letter or digit;
+- consecutive "." components SHOULD be meaningful domain-style namespaces;
+- comparison is exact byte equality;
+- no Unicode normalization or case folding occurs.
+
+Examples:
+
+    openidentity.authentication
+    openidentity.oauth.token-exchange
+    openidentity.workload-federation
+
+Rationale: purpose is a security domain separator, not human-facing prose. Restricting it to ASCII removes Unicode equivalence/confusable ambiguity.
+
+### D4 — Audience representation
+
+**Decision:** v1 audience remains opaque bounded bytes.
+
+    audience = bstr .size (1..2048)
+
+No type tag is added in v1.
+
+Profiles define canonical conversion from their native verifier identifier into exact audience bytes. Core compares exact bytes only.
+
+Rationale: OAuth commonly uses URI-like audiences, but workload, local-service, federation, and future verifier namespaces need not. A typed union would move external naming systems into core without improving cryptographic binding.
+
+An OAuth integration profile can require UTF-8 bytes of one configured authorization-server identifier and can apply its own URI rules before constructing the assertion. Core performs no URI normalization.
+
+### D5 — contextHash algorithm
+
+**Decision:** OI-015 v1 contextHash is restricted to the same SHA2-256 Multihash form used by current OpenIdentity StateHash discipline:
+
+    0x12 || 0x20 || SHA-256(contextBytes)
+
+Hash agility, if needed, requires explicit future protocol/profile evolution. Verifiers MUST reject unsupported multihash codes/lengths rather than silently reinterpret them.
+
+Rationale: algorithm agility inside the first assertion version adds parsing and downgrade surface without a current interoperability requirement.
+
+### D6 — AssertionId
+
+**Decision:** AssertionId is normative as a derived identifier but is NOT serialized inside AuthenticationAssertion or SecuredAuthenticationAssertion.
+
+    AssertionId =
+        0x12 || 0x20 || SHA-256(AssertionBytes)
+
+Uses include diagnostics, replay caches, audit correlation, test vectors, and protocol bindings.
+
+AssertionId MUST NOT substitute for nonce validation, current-state validation, time validation, or context binding.
+
+Rationale: content identity is useful and free to derive, but serializing it would duplicate a value already committed by AssertionBytes and create a self-consistency field with no additional authority.
+
+### D7 — verifier challenge object
+
+**Decision:** OI-015 v1 does NOT define a separate core challenge object.
+
+Nonce issuance is intentionally out of band and profile/transport specific.
+
+The verifier supplies 16..128 opaque nonce bytes. The claimant copies those exact bytes into the assertion. The verifier requires exact equality and enforces its replay/consumption policy.
+
+Profiles MUST define:
+
+- how nonce bytes are delivered;
+- how long they remain acceptable;
+- whether they are single-use;
+- how replay state is coordinated when multiple verifier nodes exist;
+- noninteractive federation semantics, if supported.
+
+Rationale: a signed challenge envelope would duplicate transport/profile concerns and introduce another protocol object without strengthening the assertion's cryptographic binding. Existing proof-of-possession systems successfully use server-provided opaque nonces without requiring a universal challenge wire object.
+
+## 17. Consequences for candidate CDDL
+
+The initial CDDL should therefore encode:
+
+    authentication-assertion = {
+        1 => 1,                       ; version
+        2 => identity-id,             ; 32 bytes
+        3 => state-hash,              ; SHA2-256 Multihash
+        4 => uint64,                  ; authenticationGeneration
+        5 => bstr .size (1..2048),    ; audience
+        6 => purpose,
+        7 => uint64,                  ; issuedAt Unix seconds
+        8 => uint64,                  ; expiresAt Unix seconds
+        9 => bstr .size (16..128),    ; verifier nonce
+        10 => state-hash              ; contextHash, same SHA2-256 Multihash shape
+    }
+
+    purpose = tstr .size (1..255)
+
+The CDDL shape alone cannot express every ASCII/first-last-character rule; semantic validation MUST enforce the D3 grammar.
+
+The secured envelope should contain exactly one assertion and a non-empty canonical AuthenticationPolicy proof collection.
+
+No audience type tag, challenge object, serialized AssertionId, hash-algorithm selector, or clock-skew field belongs in OI-015 v1.
+
+## 18. Freeze discipline
 
 OI-015 development MUST NOT modify frozen Protocol v2 / IdentityState v3 or OI-014 v1 bytes.
 
