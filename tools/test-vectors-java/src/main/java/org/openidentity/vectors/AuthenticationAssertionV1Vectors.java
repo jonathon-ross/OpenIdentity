@@ -2,7 +2,6 @@ package org.openidentity.vectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.upokecenter.cbor.CBORObject;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
@@ -16,29 +15,37 @@ public final class AuthenticationAssertionV1Vectors {
     static byte[] sha(byte[] b)throws Exception{return MessageDigest.getInstance("SHA-256").digest(b);}
     static byte[] mh(byte[] b)throws Exception{byte[] d=sha(b),o=new byte[34];o[0]=0x12;o[1]=0x20;System.arraycopy(d,0,o,2,32);return o;}
     static byte[] seq(int start,int n){byte[] b=new byte[n];for(int i=0;i<n;i++)b[i]=(byte)(start+i);return b;}
-    static final class E{final byte[] b;E(byte[] b){this.b=b;}}
+    record E(byte[] b){}
     static E E(byte[] b){return new E(b);}
-    static byte[] enc(Object x){
-        CBORObject o=toCbor(x);
-        return o.EncodeToBytes(new com.upokecenter.cbor.CBOREncodeOptions("ctap2canonical=true"));
-    }
-    static CBORObject toCbor(Object x){
-        if(x instanceof E)return CBORObject.DecodeFromBytes(((E)x).b);
-        if(x instanceof byte[])return CBORObject.FromObject((byte[])x);
-        if(x instanceof String)return CBORObject.FromObject((String)x);
-        if(x instanceof Integer)return CBORObject.FromObject((Integer)x);
-        if(x instanceof Long)return CBORObject.FromObject((Long)x);
-        if(x==null)return CBORObject.Null;
-        if(x instanceof Object[]){CBORObject a=CBORObject.NewArray();for(Object v:(Object[])x)a.Add(toCbor(v));return a;}
-        throw new IllegalArgumentException("unsupported "+x);
-    }
     static byte[] map(Object... kv){
-        CBORObject m=CBORObject.NewMap();
-        for(int i=0;i<kv.length;i+=2)m.set(CBORObject.FromObject((Integer)kv[i]),toCbor(kv[i+1]));
-        return m.EncodeToBytes(new com.upokecenter.cbor.CBOREncodeOptions("ctap2canonical=true"));
+        DeterministicCborWriter w=new DeterministicCborWriter();
+        w.writeMapHeader(kv.length/2);
+        for(int i=0;i<kv.length;i+=2){w.writeUnsigned((Integer)kv[i]);write(w,kv[i+1]);}
+        return w.toByteArray();
     }
-    static byte[] arr(Object... xs){return enc(xs);}
-    static byte[] method(byte[] pub){return map(1,1,3,-8,4,-1,6,pub);}
+    static byte[] arr(Object... xs){
+        DeterministicCborWriter w=new DeterministicCborWriter();
+        w.writeArrayHeader(xs.length);
+        for(Object x:xs)write(w,x);
+        return w.toByteArray();
+    }
+    static void write(DeterministicCborWriter w,Object x){
+        if(x==null)w.writeNull();
+        else if(x instanceof Integer i)w.writeUnsigned(i);
+        else if(x instanceof Long l)w.writeUnsigned(l);
+        else if(x instanceof String t)w.writeTextString(t);
+        else if(x instanceof byte[] bytes)w.writeByteString(bytes);
+        else if(x instanceof E e)w.writeEncoded(e.b);
+        else throw new IllegalArgumentException(x.getClass().toString());
+    }
+    static byte[] method(byte[] pub){
+        DeterministicCborWriter w=new DeterministicCborWriter();w.writeMapHeader(4);
+        w.writeUnsigned(1);w.writeUnsigned(1);
+        w.writeUnsigned(3);w.writeSigned(-8);
+        w.writeUnsigned(4);w.writeSigned(-1);
+        w.writeUnsigned(6);w.writeByteString(pub);
+        return w.toByteArray();
+    }
     static byte[] singlePolicy(byte[] id,byte[] pub){return map(1,1,2,E(arr(E(map(1,id,2,E(method(pub)))))));}
     static byte[] thresholdPolicy(byte[][] ids,byte[][] pubs,int threshold){
         Integer[] ix=new Integer[ids.length];for(int i=0;i<ix.length;i++)ix[i]=i;
