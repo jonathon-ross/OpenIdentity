@@ -131,11 +131,21 @@ def invalids():
         publicError="invalid_request",
         publicErrorDescription="GrantId abc is REVOKED",
         forbiddenDisclosure="REVOKED")
+    add("PXI28","INVALID_GRANT_TYPE","wrong-grant-type",submitted="authorization_code",required="urn:ietf:params:oauth:grant-type:token-exchange")
+    add("PXI29","CLIENT_AUTHENTICATION_REQUIRED","client-authentication-missing",required=True,authenticated=False)
+    add("PXI30","INVALID_OI015_PURPOSE","oi015-purpose-mismatch",submitted="openidentity.other",required="openidentity.oauth.token-exchange")
+    add("PXI31","INVALID_OI015_AUDIENCE","oi015-audience-mismatch",submitted="other-as",required="this-as")
+    add("PXI32","ASSERTION_REPLAY","assertion-already-consumed",alreadyConsumed=True)
+    add("PXI33","UNSUPPORTED_REQUESTED_TOKEN_TYPE","unsupported-output-token-type",supported=False)
+    add("PXI34","INVALID_PUBLIC_ERROR_PROJECTION","target-failure-wrong-public-error",publicError="invalid_request",requiredPublicError="invalid_target")
+    add("PXI35","INVALID_DISCOVERY_METADATA","dpop-advertised-false",advertised=False,required=True)
+    add("PXI36","INVALID_DISCOVERY_METADATA","refresh-advertised-true",advertised=True,required=False)
+    add("PXI37","INVALID_DISCOVERY_METADATA","advertised-lifetime-too-large",advertised=600,enforced=300)
     return out
 
 def main():
     d={"specification":"OpenIdentity OAuth 2.0 Delegated Agent Profile v1","status":"DRAFT-NON-NORMATIVE",
        "vectors":[px01(),px02(),px03()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(d,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("PX01 GENERATED");print("PXI01-PXI27 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("PX01-PX03 GENERATED");print("PXI01-PXI37 GENERATED")
 if __name__=="__main__":main()
