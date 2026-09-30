@@ -106,6 +106,22 @@ public final class DelegatedSubjectV1Vectors {
     }
 
 
+
+    static void verifyDS03to06(JsonNode d)throws Exception{
+        JsonNode v3=d.path("vectors").get(2);require("DS03 exact 16-grant hard ceiling",v3.path("pathLength").asInt()==16&&v3.path("grantIdsHex").size()==16);
+        Set<String> ids3=new HashSet<>();for(JsonNode x:v3.path("grantIdsHex"))ids3.add(x.asText());require("DS03 no duplicate GrantIds",ids3.size()==16);
+        JsonNode v4=d.path("vectors").get(3);require("DS04 16 grants",v4.path("grantCount").asInt()==16);
+        require("DS04 evidence within 1 MiB",v4.path("delegationEvidenceLength").asLong()<=v4.path("maximumDelegationEvidenceLength").asLong());
+        require("DS04 all GrantBytes within 64 KiB",v4.path("allGrantBytesWithinLimit").asBoolean());
+        JsonNode v5=d.path("vectors").get(4);require("DS05 exact 128-byte registryDomain",v5.path("registryDomainLength").asInt()==128&&HexFormat.of().parseHex(v5.path("registryDomainHex").asText()).length==128);
+        JsonNode v6=d.path("vectors").get(5);byte[] eid=HexFormat.of().parseHex(v6.path("delegationEvidenceIdHex").asText());
+        byte[] ctx=map(1,1,2,"https://as.example.test".getBytes(StandardCharsets.UTF_8),3,"client-016".getBytes(StandardCharsets.UTF_8),
+                4,eid,5,"https://api.example.test".getBytes(StandardCharsets.UTF_8),6,"records.read".getBytes(StandardCharsets.UTF_8));
+        require("DS06 context bytes",v6.path("contextBytesHex").asText().equals(hx(ctx)));
+        require("DS06 contextHash",v6.path("contextHashHex").asText().equals(hx(mh(ctx))));
+        require("DS06 token-exchange purpose","openidentity.oauth.token-exchange".equals(v6.path("purpose").asText()));
+    }
+
     static void verifyInvalids(JsonNode d)throws Exception{
         JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==22);
         String[] errors={"INVALID_DELEGATED_SUBJECT_VERSION","EMPTY_DELEGATION_PATH","DELEGATION_PATH_TOO_DEEP","GRANT_ID_MISMATCH",
@@ -157,10 +173,10 @@ public final class DelegatedSubjectV1Vectors {
         JsonNode d=JSON.readTree(Files.readString(p));
         require("suite specification","OpenIdentity OI-016 Delegated Subject Token v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
-        require("vector IDs DS01-DS02",d.path("vectors").size()==2&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS02".equals(d.path("vectors").get(1).path("id").asText()));
-        verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));verifyInvalids(d);
+        require("vector IDs DS01-DS06",d.path("vectors").size()==6&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS06".equals(d.path("vectors").get(5).path("id").asText()));
+        verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));verifyDS03to06(d);verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI22 VERIFIED");
+        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS06 + DSI01-DSI22 VERIFIED");
         System.out.println("============================================");
     }
 }
