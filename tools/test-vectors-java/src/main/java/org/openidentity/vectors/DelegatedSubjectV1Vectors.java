@@ -73,15 +73,47 @@ public final class DelegatedSubjectV1Vectors {
         require("DS01 token id",v.path("delegatedSubjectTokenIdHex").asText().equals(hx(mh(token))));
         require("DS01 actor equals terminal delegate",v.path("terminalDelegateHex").asText().equals(hx(delegate)));
     }
+
+    static void verifyDS02(JsonNode v)throws Exception{
+        byte[] root=seq(96,32),d1=seq(128,32),d2=seq(160,32);
+        byte[] ph=mh("OI-016 DS02 capability profile".getBytes(StandardCharsets.UTF_8));
+        byte[] pr=map(1,1,2,ph),cr=map(1,E(pr),2,"records.read".getBytes(StandardCharsets.UTF_8));
+        byte[] rp=map(1,1,2,root),d1p=map(1,1,2,d1),d2p=map(1,1,2,d2);
+        byte[] parent=map(1,1,2,root,3,E(rp),4,E(d1p),5,E(arr(E(map(1,E(cr),2,"tenant/alpha/*".getBytes(StandardCharsets.UTF_8))))),
+                7,2002013600L,9,sha("OpenIdentity OI-016 DS02 parent nonce".getBytes(StandardCharsets.UTF_8)));
+        byte[] pid=mh(parent);
+        byte[] child=map(1,1,2,root,3,E(d1p),4,E(d2p),5,E(arr(E(map(1,E(cr),2,"tenant/alpha/record/42".getBytes(StandardCharsets.UTF_8))))),
+                7,2002011800L,8,pid,9,sha("OpenIdentity OI-016 DS02 child nonce".getBytes(StandardCharsets.UTF_8)));
+        byte[] cid=mh(child);
+        require("DS02 parent GrantId",v.path("parentGrantIdHex").asText().equals(hx(pid)));
+        require("DS02 child GrantId",v.path("childGrantIdHex").asText().equals(hx(cid)));
+        require("DS02 child parentGrantId links parent",v.path("childParentGrantIdHex").asText().equals(hx(pid)));
+        require("DS02 child issuer equals parent delegate",v.path("childIssuerHex").asText().equals(v.path("parentDelegateHex").asText())&&v.path("parentDelegateHex").asText().equals(hx(d1)));
+        require("DS02 rootGrantor preserved",v.path("rootGrantorHex").asText().equals(hx(root)));
+        byte[] evidence=map(1,1,2,"openidentity:test:oi016:ds02".getBytes(StandardCharsets.UTF_8),
+                3,E(arr(E(map(1,parent,2,pid)),E(map(1,child,2,cid)))));
+        byte[] eid=mh(evidence);
+        require("DS02 DelegationEvidenceBytes",v.path("delegationEvidenceBytesHex").asText().equals(hx(evidence)));
+        require("DS02 DelegationEvidenceId",v.path("delegationEvidenceIdHex").asText().equals(hx(eid)));
+        byte[] actor=map(1,1,2,d2,3,mh("OI-016 DS02 actor state".getBytes(StandardCharsets.UTF_8)),4,11,
+                5,"oi016-ds02-verifier".getBytes(StandardCharsets.UTF_8),6,"openidentity.authentication",
+                7,2002010000L,8,2002010120L,9,seq(192,32),10,mh(eid));
+        byte[] aid=mh(actor);require("DS02 actorAssertionId",v.path("actorAssertionIdHex").asText().equals(hx(aid)));
+        require("DS02 actor equals terminal delegate",v.path("terminalDelegateHex").asText().equals(hx(d2)));
+        byte[] token=map(1,1,2,E(evidence),3,aid);
+        require("DS02 token bytes",v.path("delegatedSubjectTokenBytesHex").asText().equals(hx(token)));
+        require("DS02 token id",v.path("delegatedSubjectTokenIdHex").asText().equals(hx(mh(token))));
+    }
+
     public static void main(String[] args)throws Exception{
         Path p=findVectorFile();System.out.println("Using vectors: "+p);
         JsonNode d=JSON.readTree(Files.readString(p));
         require("suite specification","OpenIdentity OI-016 Delegated Subject Token v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
-        require("DS01 only",d.path("vectors").size()==1&&"DS01".equals(d.path("vectors").get(0).path("id").asText()));
-        verifyDS01(d.path("vectors").get(0));
+        require("vector IDs DS01-DS02",d.path("vectors").size()==2&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS02".equals(d.path("vectors").get(1).path("id").asText()));
+        verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));
         System.out.println("\n============================================");
-        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01 VERIFIED");
+        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 VERIFIED");
         System.out.println("============================================");
     }
 }
