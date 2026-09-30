@@ -240,7 +240,7 @@ public final class DelegationV1Vectors {
     }
 
     private static void verifyInvalids(JsonNode doc)throws Exception{
-        require("invalid vector count",doc.path("invalidVectors").size()==24);
+        require("invalid vector count",doc.path("invalidVectors").size()==31);
         String[] errors={"UNAUTHORIZED_GRANT_REGISTRATION","INVALID_DELEGATION_GENERATION","CROSS_DOMAIN_PROOF",
                 "INVALID_PREVIOUS_RECORD_HASH","CAPABILITY_ESCALATION","PARENT_GRANT_UNUSABLE",
                 "ROOT_GRANTOR_MISMATCH","ISSUER_PARENT_DELEGATE_MISMATCH","CHILD_TIME_WIDENING",
@@ -248,8 +248,10 @@ public final class DelegationV1Vectors {
                 "GRANT_EXPIRED_AT_REGISTRATION","INVALID_TIME_RANGE","INVALID_ROOT_STATE_HASH",
                 "CROSS_DOMAIN_PROOF","INVALID_GRANT_REVISION","REGISTRY_DOMAIN_MISMATCH",
                 "INVALID_REGISTRATION_PROOF","INVALID_ROOT_STATE_HASH","INVALID_AUTHENTICATION_GENERATION",
-                "INVALID_REGISTRATION_PROOF","INVALID_REGISTRATION_PROOF","CROSS_DOMAIN_PROOF"};
-        for(int i=1;i<=24;i++){
+                "INVALID_REGISTRATION_PROOF","INVALID_REGISTRATION_PROOF","CROSS_DOMAIN_PROOF",
+                "PARENT_GRANT_NOT_FOUND","PARENT_GRANT_NOT_FOUND","REGISTRY_DOMAIN_MISMATCH",
+                "PARENT_GRANT_UNUSABLE","PARENT_GRANT_UNUSABLE","DELEGATION_DEPTH_EXCEEDED","DELEGATION_CYCLE"};
+        for(int i=1;i<=31;i++){
             String id=String.format("DGI%02d",i);
             require(id+" stable error",errors[i-1].equals(invalid(doc,id).path("error").asText()));
         }
@@ -386,6 +388,40 @@ public final class DelegationV1Vectors {
                 auth20.verify(Hex.decode(i24.path("childSigningBytesHex").asText()),sig24));
         require("DGI24 child signature rejected in relinquishment domain",
                 !auth20.verify(Hex.decode(i24.path("relinquishmentSigningBytesHex").asText()),sig24));
+
+        JsonNode i25=invalid(doc,"DGI25");
+        require("DGI25 required parent material unavailable",
+                !i25.path("parentGrantBytesAvailable").asBoolean());
+
+        JsonNode i26=invalid(doc,"DGI26");
+        byte[] suppliedParent=Hex.decode(i26.path("suppliedParentGrantBytesHex").asText());
+        byte[] suppliedParentId=mh(suppliedParent);
+        require("DGI26 supplied parent bytes hash to supplied GrantId",
+                Hex.encode(suppliedParentId).equals(i26.path("suppliedParentGrantIdHex").asText()));
+        require("DGI26 supplied parent does not satisfy committed parentGrantId",
+                !i26.path("suppliedParentGrantIdHex").asText().equals(i26.path("committedParentGrantIdHex").asText()));
+
+        JsonNode i27=invalid(doc,"DGI27");
+        require("DGI27 parent record belongs to wrong registryDomain",
+                !i27.path("childRegistryDomainHex").asText().equals(i27.path("parentRegistryDomainHex").asText()));
+
+        JsonNode i28=invalid(doc,"DGI28");
+        require("DGI28 ancestor root delegation generation invalidated",
+                i28.path("boundDelegationGeneration").asInt()!=i28.path("currentDelegationGeneration").asInt());
+
+        JsonNode i29=invalid(doc,"DGI29");
+        require("DGI29 ancestor expired at exclusive upper boundary",
+                i29.path("evaluationTime").asLong()>=i29.path("ancestorExpiresAt").asLong());
+
+        JsonNode i30=invalid(doc,"DGI30");
+        require("DGI30 proposed depth exceeds profile maximum",
+                i30.path("proposedDepth").asInt()>i30.path("profileMaximumDepth").asInt());
+
+        JsonNode i31=invalid(doc,"DGI31");
+        boolean cycle=false;
+        for(JsonNode id:i31.path("ancestorGrantIdsHex"))
+            if(i31.path("proposedGrantIdHex").asText().equals(id.asText()))cycle=true;
+        require("DGI31 proposed GrantId already appears in ancestor chain",cycle);
     }
 
     public static void main(String[] args)throws Exception{
@@ -432,7 +468,7 @@ public final class DelegationV1Vectors {
         verifyDG06(rootJson.path("vectors").get(5));
         verifyInvalids(rootJson);
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI24 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI31 VERIFIED");
         System.out.println("============================================");
     }
 }
