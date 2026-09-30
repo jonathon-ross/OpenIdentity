@@ -455,6 +455,64 @@ def build_invalids():
         childSigningBytesHex=childpurpose.hex(),relinquishmentSigningBytesHex=relpurpose.hex(),
         submittedSignatureHex=childpurpose_sig.hex())
 
+    # DGI25-DGI31: recursive ancestry verification attacks.
+    chain_reg=b"openidentity:test:oi014:chain-attacks"
+    chain_root=bytes(range(120,152)); chain_a=bytes(range(152,184)); chain_b=bytes(range(184,216))
+    chain_desc={1:1,2:"openidentity.test.redelegation",3:1,
+                4:[b"document.read",b"redelegate.document.read"],5:7200,6:2}
+    chain_ph=mh(enc(chain_desc)); chain_pref={1:1,2:chain_ph}
+    chain_read={1:{1:chain_pref,2:b"document.read"}}
+    chain_redel={1:{1:chain_pref,2:b"redelegate.document.read"}}
+    ancestor={1:1,2:chain_root,3:{1:1,2:chain_root},4:{1:1,2:chain_a},
+              5:[chain_read,chain_redel],7:2000500000,9:seed("DGI chain ancestor nonce")}
+    ancestor_b=enc(ancestor); ancestor_id=mh(ancestor_b)
+    ancestor_state_hash=mh(b"DGI chain root state generation 40")
+    ancestor_record={1:chain_reg,2:ancestor_id,3:1,4:None,5:1,6:ancestor_state_hash,7:40,8:2000450000}
+    ancestor_rb=enc(ancestor_record); ancestor_rh=mh(ancestor_rb)
+    descendant={1:1,2:chain_root,3:{1:1,2:chain_a},4:{1:1,2:chain_b},
+                5:[chain_read],7:2000490000,8:ancestor_id,9:seed("DGI chain child nonce")}
+    descendant_b=enc(descendant)
+
+    add("DGI25","PARENT_GRANT_NOT_FOUND","missing-parent-material",
+        childGrantBytesHex=descendant_b.hex(),committedParentGrantIdHex=ancestor_id.hex(),
+        parentGrantBytesAvailable=False)
+
+    forged_parent=dict(ancestor); forged_parent[9]=seed("DGI forged parent nonce")
+    forged_b=enc(forged_parent); forged_id=mh(forged_b)
+    add("DGI26","PARENT_GRANT_NOT_FOUND","forged-parent-bytes",
+        childGrantBytesHex=descendant_b.hex(),committedParentGrantIdHex=ancestor_id.hex(),
+        suppliedParentGrantBytesHex=forged_b.hex(),suppliedParentGrantIdHex=forged_id.hex())
+
+    other_reg=b"openidentity:test:oi014:chain-other"
+    wrong_reg_record={1:other_reg,2:ancestor_id,3:1,4:None,5:1,6:ancestor_state_hash,7:40,8:2000450000}
+    add("DGI27","REGISTRY_DOMAIN_MISMATCH","parent-from-wrong-registry-domain",
+        childRegistryDomainHex=chain_reg.hex(),parentRegistryDomainHex=other_reg.hex(),
+        parentGrantIdHex=ancestor_id.hex(),wrongDomainParentRecordBytesHex=enc(wrong_reg_record).hex())
+
+    add("DGI28","PARENT_GRANT_UNUSABLE","ancestor-generation-invalidated",
+        ancestorGrantBytesHex=ancestor_b.hex(),ancestorRecordBytesHex=ancestor_rb.hex(),
+        boundDelegationGeneration=40,currentDelegationGeneration=41,
+        descendantGrantBytesHex=descendant_b.hex())
+
+    add("DGI29","PARENT_GRANT_UNUSABLE","ancestor-expired",
+        ancestorGrantBytesHex=ancestor_b.hex(),ancestorRecordBytesHex=ancestor_rb.hex(),
+        ancestorExpiresAt=2000500000,evaluationTime=2000500000,
+        descendantGrantBytesHex=descendant_b.hex())
+
+    # Profile maximum chain depth is 2; a proposed depth-3 child must fail.
+    grandchild={1:1,2:chain_root,3:{1:1,2:chain_b},4:{1:1,2:bytes(range(216,248))},
+                5:[chain_read],7:2000480000,8:mh(descendant_b),9:seed("DGI30 grandchild nonce")}
+    add("DGI30","DELEGATION_DEPTH_EXCEEDED","chain-depth-overflow",
+        profileMaximumDepth=2,proposedDepth=3,grandchildGrantBytesHex=enc(grandchild).hex())
+
+    # Cycle is independently security-significant and gets its own vector/error.
+    cycle_id=mh(b"DGI31 cycle target")
+    cycle_child={1:1,2:chain_root,3:{1:1,2:chain_a},4:{1:1,2:chain_b},
+                 5:[chain_read],7:2000490000,8:cycle_id,9:seed("DGI31 cycle nonce")}
+    add("DGI31","DELEGATION_CYCLE","ancestor-cycle-detected",
+        proposedGrantIdHex=cycle_id.hex(),ancestorGrantIdsHex=[ancestor_id.hex(),cycle_id.hex()],
+        proposedGrantBytesHex=enc(cycle_child).hex())
+
     return out
 
 
