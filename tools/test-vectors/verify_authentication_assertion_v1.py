@@ -118,7 +118,7 @@ def main():
     i12=invalid["AAI12"];req("AAI12 before issuedAt",i12["verificationTime"]<i12["issuedAt"])
     i13=invalid["AAI13"];req("AAI13 controller method not in AuthenticationPolicy",i13["submittedMethodIdHex"] not in i13["authenticationMethodIdsHex"])
     i14=invalid["AAI14"];req("AAI14 duplicate proof method",len(set(i14["submittedMethodIdsHex"]))!=len(i14["submittedMethodIdsHex"]))
-    i15=invalid["AAI15"];req("AAI15 unauthorized extra exists despite threshold",len(i15["submittedMethodIdsHex"])>i15["authorizedThreshold"])
+    i15=invalid["AAI15"];req("AAI15 threshold is otherwise satisfied",sum(x in i15["authorizedMethodIdsHex"] for x in i15["submittedMethodIdsHex"])>=i15["authorizedThreshold"])\n    req("AAI15 unauthorized extra method exists",any(x not in i15["authorizedMethodIdsHex"] for x in i15["submittedMethodIdsHex"]))
     i16=invalid["AAI16"];pk=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 proof attack A seed")).public_key()
     pk.verify(bytes.fromhex(i16["validSignatureHex"]),bytes.fromhex(i16["signingBytesHex"]));req("AAI16 valid baseline signature verifies",True)
     try:
@@ -135,7 +135,9 @@ def main():
     req("AAI19 audience replay rejected",invalid["AAI19"]["signedAudienceHex"]!=invalid["AAI19"]["requestedAudienceHex"])
     req("AAI20 reset generation invalidates assertion",invalid["AAI20"]["assertedGeneration"]!=invalid["AAI20"]["currentGeneration"])
     req("AAI20 post-reset StateHash differs",invalid["AAI20"]["preResetStateHashHex"]!=invalid["AAI20"]["postResetStateHashHex"])
-    req("AAI21 purpose violates lowercase ASCII grammar",invalid["AAI21"]["purpose"]!="openidentity.authentication")
+    import re
+    purpose_re=re.compile(r"^[a-z0-9](?:[a-z0-9._-]{0,253}[a-z0-9])?$")
+    req("AAI21 purpose violates lowercase ASCII grammar",purpose_re.fullmatch(invalid["AAI21"]["purpose"]) is None)
     req("AAI22 nonce below minimum",invalid["AAI22"]["nonceLength"]<invalid["AAI22"]["minimumNonceLength"])
     req("AAI23 unsupported contextHash multihash",invalid["AAI23"]["submittedMultihashCode"]!=invalid["AAI23"]["expectedMultihashCode"])
 
