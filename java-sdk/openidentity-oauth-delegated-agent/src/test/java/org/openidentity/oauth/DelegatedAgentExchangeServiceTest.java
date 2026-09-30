@@ -52,7 +52,7 @@ final class DelegatedAgentExchangeServiceTest {
     @Test void dpopSubstitutionIsRejected(){
         Fixture f=fixture();
         var bad=new DelegatedAgentExchangeRequest(f.request().authorizationServer(),f.request().clientId(),null,
-                f.request().resources(),f.request().audiences(),f.request().scopes(),new byte[]{1},new byte[]{2},
+                f.request().resources(),f.request().audiences(),f.request().scopes(),new byte[]{1},new byte[]{2},f.request().actorNonce(),
                 new ValidatedDpopProof(Base64.getUrlEncoder().withoutPadding().encodeToString(h("other dpop"))),f.request().now());
         var s=service(f,id->true,(sub,target,scope)->true);
         ProfileException e=assertThrows(ProfileException.class,()->s.exchange(bad));
