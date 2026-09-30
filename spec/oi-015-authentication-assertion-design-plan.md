@@ -1,6 +1,6 @@
 # OI-015 Authentication Assertion — Design Plan
 
-**Status:** Design draft; non-normative  
+**Status:** FROZEN-NORMATIVE v1  
 **Target:** protocol-neutral proof of current OpenIdentity authentication and verifier-bound intent  
 **Depends on:** ProtocolVersion 2 / IdentityState v3 (FROZEN-NORMATIVE), OI-009 deterministic serialization, OI-010 signature-domain principles, OI-011 StateHash  
 **Explicitly does not replace:** OAuth 2.0/OIDC, DPoP, WebAuthn, SPIFFE, access tokens, credentials, or OI-014 delegation
@@ -22,7 +22,7 @@ OI-014 answers a different question: what authority has been delegated to an act
 
 An OI-015 assertion MUST NOT itself grant application capability, role, scope, resource access, or delegation.
 
-## 3. Proposed logical model
+## 3. Normative logical model
 
     AuthenticationAssertion {
         version
@@ -44,7 +44,7 @@ An OI-015 assertion MUST NOT itself grant application capability, role, scope, r
 
 Proofs are evaluated against the AuthenticationPolicy committed by the exact current IdentityState identified by stateHash.
 
-## 4. Candidate field decisions
+## 4. Normative field decisions
 
 ### 4.1 version
 
@@ -74,7 +74,7 @@ This gives explicit security-reset semantics and a stable rejection reason disti
 
 Bounded opaque bytes.
 
-Candidate bounds:
+Normative bounds:
 
     audience = bstr .size (1..2048)
 
@@ -88,7 +88,7 @@ Core MUST NOT normalize URI, DNS, tenant, application, or platform identifiers.
 
 Bounded UTF-8 text used for domain separation between authentication uses.
 
-Candidate bound:
+Normative bound:
 
     purpose = tstr .size (1..255)
 
@@ -152,7 +152,7 @@ Using a hash rather than embedding arbitrary context keeps the core assertion bo
 
 ## 5. Assertion identity
 
-Candidate:
+Normative:
 
     AssertionBytes = deterministicCBOR(AuthenticationAssertion)
 
@@ -305,9 +305,9 @@ OI-015 MUST NOT embed an OI-014 GrantId or delegation chain in core v1. Integrat
 
 This keeps authentication reusable for non-delegated scenarios.
 
-## 13. Initial stable error taxonomy
+## 13. Stable error taxonomy
 
-Candidate semantic errors:
+Normative semantic errors:
 
     INVALID_AUTHENTICATION_ASSERTION
     INVALID_ASSERTION_VERSION
@@ -334,7 +334,7 @@ Parser/structural errors may be separated from semantic errors during CDDL work.
 
 ## 14. Positive vector plan
 
-Initial candidates:
+Frozen conformance vectors:
 
 - AA01 SINGLE AuthenticationPolicy assertion;
 - AA02 THRESHOLD AuthenticationPolicy assertion with canonical proof ordering;
@@ -403,7 +403,7 @@ Rationale: OI-015 is an authentication ceremony, not a reusable credential. A co
 
 **Decision:** purpose is restricted to visible lowercase ASCII domain-style identifiers rather than arbitrary Unicode.
 
-Candidate grammar:
+Normative grammar:
 
     purpose = 1*255(
         %x61-7A / DIGIT / "." / "-" / "_"
@@ -479,9 +479,9 @@ Profiles MUST define:
 
 Rationale: a signed challenge envelope would duplicate transport/profile concerns and introduce another protocol object without strengthening the assertion's cryptographic binding. Existing proof-of-possession systems successfully use server-provided opaque nonces without requiring a universal challenge wire object.
 
-## 17. Consequences for candidate CDDL
+## 17. Normative CDDL consequences
 
-The initial CDDL should therefore encode:
+The normative v1 CDDL encodes:
 
     authentication-assertion = {
         1 => 1,                       ; version
@@ -510,4 +510,4 @@ OI-015 development MUST NOT modify frozen Protocol v2 / IdentityState v3 or OI-0
 
 Any discovered need to alter those frozen components requires explicit protocol/version evolution.
 
-OI-015 begins as draft/non-normative and receives its own deterministic vectors, independent implementation verification, checksum, and release gate before normative promotion.
+OI-015 v1 is frozen normative. Its deterministic vectors, independent Python/Java verification, checksum, and release gate define the protected v1 conformance boundary. Frozen v1 bytes MUST NOT change without explicit protocol/version evolution.
