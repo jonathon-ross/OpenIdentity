@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class OpenIdentitySpringTokenIssuerTest {
  static String jkt(){return Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);}
+ static ValidatedDpopProofResult dpop(){return new ValidatedDpopProofResult(jkt(),org.springframework.security.oauth2.jwt.Jwt.withTokenValue("proof").header("alg","none").header("jwk",Map.of("kty","oct","k","AA")).claim("jti","test").build());}
 
  @Test void issuerRequestsOnlyAccessTokenAndNeverReturnsRefreshToken(){
   var client=RegisteredClient.withId("1").clientId("client").clientSecret("{noop}secret")
@@ -19,7 +20,7 @@ final class OpenIdentitySpringTokenIssuerTest {
       .scope("read").build();
   var clientAuth=new OAuth2ClientAuthenticationToken(client,org.springframework.security.oauth2.core.ClientAuthenticationMethod.CLIENT_SECRET_BASIC,"secret");
   var d=new AuthorizationDecision(new byte[32],new byte[32],List.of("https://api.example.test/"),List.of("read"),jkt(),1000,1180);
-  var grant=new OpenIdentityAuthenticatedGrant(clientAuth,d);
+  var grant=new OpenIdentityAuthenticatedGrant(clientAuth,d,dpop());
   final boolean[] sawAccess={false};
   OAuth2TokenGenerator<OAuth2Token> generator=context->{
    assertEquals(org.springframework.security.oauth2.server.authorization.OAuth2TokenType.ACCESS_TOKEN,context.getTokenType());sawAccess[0]=true;
