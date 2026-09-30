@@ -119,6 +119,64 @@ def aa03():
 
 
 
+
+def make_single_positive(vector_id,identity,mid,auth_label,controller_id,controller_label,sequence,generation,audience,purpose,issued,expires,nonce,context,description):
+    priv=Ed25519PrivateKey.from_private_bytes(seed(auth_label));pub=priv.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    ap=policy(mid,pub)
+    ctrl=Ed25519PrivateKey.from_private_bytes(seed(controller_label));ctrlpub=ctrl.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    cp=policy(controller_id,ctrlpub)
+    state={1:3,2:identity,3:sequence,4:1,5:cp,8:{1:generation,2:ap},9:{1:0}}
+    sb=enc(state);sh=mh(sb);ch=mh(context)
+    assertion={1:1,2:identity,3:sh,4:generation,5:audience,6:purpose,7:issued,8:expires,9:nonce,10:ch}
+    ab=enc(assertion);aid=mh(ab);signing=enc(["OpenIdentity Authentication Assertion",1,ab,mid]);sig=priv.sign(signing)
+    return {"id":vector_id,"description":description,"expected":"PASS","stateBytesHex":sb.hex(),"stateHashHex":sh.hex(),
+            "authenticationGeneration":generation,"audienceHex":audience.hex(),"purpose":purpose,"issuedAt":issued,"expiresAt":expires,
+            "nonceHex":nonce.hex(),"contextBytesHex":context.hex(),"contextHashHex":ch.hex(),"assertionBytesHex":ab.hex(),
+            "assertionIdHex":aid.hex(),"authenticationMethodIdHex":mid.hex(),"signingBytesHex":signing.hex(),"signatureHex":sig.hex(),
+            "securedAssertionBytesHex":enc({1:assertion,2:[{1:mid,2:sig}]}).hex()}
+
+def aa04():
+    # Contains bytes that are deliberately not valid UTF-8, proving audience is opaque.
+    audience=bytes([0x00,0xff,0x80,0x41,0x2f,0x00,0xfe])
+    return make_single_positive("AA04",bytes(range(0,32)),bytes(range(208,224)),
+        "OpenIdentity OI-015 AA04 authentication seed",bytes(range(224,240)),"OpenIdentity OI-015 AA04 controller seed",
+        61,23,audience,"openidentity.authentication",2001007000,2001007120,bytes(range(32,64)),
+        b"OpenIdentity OI-015 AA04 opaque audience context","Opaque non-UTF8 audience bytes are valid")
+
+def aa05():
+    identity=bytes(range(64,96));oldmid=bytes(range(0,16));newmid=bytes(range(16,32));generation=42
+    oldk=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA05 old authentication seed"))
+    newk=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA05 new authentication seed"))
+    oldap=policy(oldmid,oldk.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+    newap=policy(newmid,newk.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+    ctrlid=bytes(range(32,48));ctrl=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA05 controller seed"))
+    cp=policy(ctrlid,ctrl.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+    before={1:3,2:identity,3:80,4:1,5:cp,8:{1:generation,2:oldap},9:{1:0}}
+    after={1:3,2:identity,3:81,4:1,5:cp,8:{1:generation,2:newap},9:{1:0}}
+    beforeh=mh(enc(before));afterb=enc(after);afterh=mh(afterb)
+    context=b"OpenIdentity OI-015 AA05 post-rotation context"
+    assertion={1:1,2:identity,3:afterh,4:generation,5:b"rotation-verifier",6:"openidentity.authentication",
+               7:2001008000,8:2001008120,9:bytes(range(96,128)),10:mh(context)}
+    ab=enc(assertion);signing=enc(["OpenIdentity Authentication Assertion",1,ab,newmid]);sig=newk.sign(signing)
+    return {"id":"AA05","description":"PRESERVE_EXISTING authentication rotation preserves generation but requires current StateHash/policy","expected":"PASS",
+      "generationBefore":generation,"generationAfter":generation,"preRotationStateHashHex":beforeh.hex(),"stateBytesHex":afterb.hex(),
+      "stateHashHex":afterh.hex(),"assertionBytesHex":ab.hex(),"assertionIdHex":mh(ab).hex(),"authenticationMethodIdHex":newmid.hex(),
+      "signingBytesHex":signing.hex(),"signatureHex":sig.hex(),"securedAssertionBytesHex":enc({1:assertion,2:[{1:newmid,2:sig}]}).hex()}
+
+def aa06():
+    # Candidate OAuth integration-profile context. OI-015 core sees only its hash.
+    issuer=b"https://as.example.test"
+    client=b"client-123"
+    resource=b"https://api.example.test"
+    grant_type=b"urn:ietf:params:oauth:grant-type:token-exchange"
+    context=enc({1:issuer,2:client,3:resource,4:grant_type})
+    v=make_single_positive("AA06",bytes(range(128,160)),bytes(range(48,64)),
+        "OpenIdentity OI-015 AA06 authentication seed",bytes(range(64,80)),"OpenIdentity OI-015 AA06 controller seed",
+        90,27,b"https://as.example.test","openidentity.oauth.token-exchange",2001009000,2001009120,bytes(range(160,192)),
+        context,"OAuth-style deterministic contextHash fixture")
+    v["oauthContext"]={"issuerHex":issuer.hex(),"clientIdHex":client.hex(),"resourceHex":resource.hex(),"grantTypeHex":grant_type.hex()}
+    return v
+
 def invalids():
     out=[]
     def add(i,e,a,**kw):out.append({"id":i,"expectedError":e,"attack":a,**kw})
@@ -215,13 +273,14 @@ def invalids():
 
 def main():
     data={"specification":"OpenIdentity OI-015 Authentication Assertion v1",
-          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01(),aa02(),aa03()],"invalidVectors":invalids()}
+          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01(),aa02(),aa03(),aa04(),aa05(),aa06()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
     print("Wrote",OUT.relative_to(ROOT))
     print("AA01 GENERATED")
     print("AA02 GENERATED")
     print("AA03 GENERATED")
+    print("AA04-AA06 GENERATED")
     print("AAI01-AAI23 GENERATED")
 
 if __name__=="__main__":main()
