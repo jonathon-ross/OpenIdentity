@@ -100,7 +100,7 @@ Examples:
 
 Purpose is not authorization. It identifies why the verifier requested authentication.
 
-Purpose comparison is exact Unicode/UTF-8 value equality after canonical CBOR decoding. Profiles SHOULD use stable lowercase ASCII domain-style identifiers.
+Purpose is a security-domain identifier restricted by D3 to lowercase ASCII letters, digits, `.`, `-`, and `_`, with an alphanumeric first and last character. Comparison is exact value equality; no Unicode normalization or case folding occurs.
 
 ### 4.7 issuedAt / expiresAt
 
