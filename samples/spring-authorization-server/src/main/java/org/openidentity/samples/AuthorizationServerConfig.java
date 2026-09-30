@@ -7,6 +7,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.openidentity.oauth.*;
 import org.openidentity.spring.*;
 import org.springframework.context.annotation.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.core.*;
@@ -65,7 +66,7 @@ public class AuthorizationServerConfig {
  @Bean OpenIdentityTokenExchangeAuthenticationConverter openIdentityConverter(ValidatedDpopJktResolver dpop,ActorNonceResolver nonce){
   return new OpenIdentityTokenExchangeAuthenticationConverter(dpop,nonce);
  }
- @Bean OpenIdentitySpringTokenIssuer openIdentityTokenIssuer(OAuth2TokenGenerator<?> generator){return new OpenIdentitySpringTokenIssuer(generator);}
+ @Bean OpenIdentitySpringTokenIssuer openIdentityTokenIssuer(@Qualifier("tokenGenerator") OAuth2TokenGenerator<?> generator){return new OpenIdentitySpringTokenIssuer(generator);}
  @Bean OpenIdentityTokenExchangeAuthenticationProvider openIdentityProvider(DelegatedAgentExchangeService exchange,OpenIdentitySpringTokenIssuer issuer){
   return new OpenIdentityTokenExchangeAuthenticationProvider(exchange,"http://127.0.0.1:9000",Clock.systemUTC(),issuer);
  }
