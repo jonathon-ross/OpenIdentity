@@ -915,6 +915,7 @@ Proposed grantor revocation signing structure:
       grantId,
       currentRecordHash,
       nextRevision,
+      currentGrantorStateHash,
       verificationMethodId
     ]
 
@@ -931,6 +932,8 @@ Proposed delegate relinquishment signing structure:
 
 The final delegate-proof binding may include a delegate verification-method identifier or profile-specific proof context once the delegate principal model is resolved.
 
+For grantor revocation, `currentGrantorStateHash` MUST equal the exact current authoritative rootGrantor IdentityState used to evaluate ControllerPolicy or DelegationPolicy authorization. A proof over a historical grantor state is stale even if the same verification key remains present later.
+
 A signature from one revocation purpose MUST NOT be accepted for another.
 
 ### Revocation transition validation
@@ -942,7 +945,7 @@ A processor accepting ACTIVE -> REVOKED SHALL:
 3. require nextRevision = current.revision + 1;
 4. require previousRecordHash = RecordHash(current);
 5. determine whether the request is grantor revocation or delegate relinquishment;
-6. for grantor revocation, load the current authoritative grantor IdentityState and verify either current ControllerPolicy or current DelegationPolicy authorization under the correct domain;
+6. for grantor revocation, load the current authoritative rootGrantor IdentityState, require the proof's currentGrantorStateHash to equal that exact StateHash, and verify either current ControllerPolicy or current DelegationPolicy authorization under the correct domain;
 7. for delegate relinquishment, verify the current grant delegate under the applicable delegate-principal profile and relinquishment domain;
 8. construct the canonical REVOKED successor;
 9. atomically establish at most one authoritative successor.
