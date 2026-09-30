@@ -15,7 +15,7 @@ Resolve before assigning wire labels:
 - subdelegation enablement — **RESOLVED:** deny by default; explicit profile-scoped redelegation authority + strict attenuation + finite chain depth;
 - registration/status ordering model — **RESOLVED:** per-GrantId uint64 revision + previous RecordHash;
 - revocation authorization — **RESOLVED:** current ControllerPolicy or current DelegationPolicy may revoke; delegate may relinquish; historical registration authority has no continuing privilege;
-- GrantId hash profile;
+- GrantId hash profile — **RESOLVED:** SHA2-256 Multihash only for OI-014 v1; same construction for RecordHash;
 - public/private registration privacy model;
 - resolution/discovery boundary.
 
@@ -85,7 +85,7 @@ Profiles must narrow/map OI-014 authority and must not redefine GrantId, generat
 4. Capability/resource model — **RESOLVED:** profile-owned capability semantics with core exact identity/canonical set rules and deterministic attenuation.
 5. Delegate principal model — **RESOLVED:** principal identity separated from authentication proof; OPENIDENTITY native, other principals profile-defined.
 6. Subdelegation model — **RESOLVED:** explicit capability/resource-scoped redelegation, parent-chain binding, acyclic graph, profile-defined finite depth.
-7. GrantId/hash model.
+7. GrantId/hash model — **RESOLVED:** fixed SHA2-256 Multihash (0x12 0x20 + digest) for GrantId and RecordHash; future agility requires explicit revision.
 8. Privacy/network boundary.
 
 This order is deliberate: later choices depend on how authoritative grant state is serialized and ordered.
