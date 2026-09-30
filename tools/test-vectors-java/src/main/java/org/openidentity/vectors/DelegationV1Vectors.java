@@ -260,12 +260,14 @@ public final class DelegationV1Vectors {
     }
 
     private static void verifyInvalids(JsonNode doc)throws Exception{
-        require("invalid vector count",doc.path("invalidVectors").size()==12);
+        require("invalid vector count",doc.path("invalidVectors").size()==18);
         String[] errors={"UNAUTHORIZED_GRANT_REGISTRATION","INVALID_DELEGATION_GENERATION","CROSS_DOMAIN_PROOF",
                 "INVALID_PREVIOUS_RECORD_HASH","CAPABILITY_ESCALATION","PARENT_GRANT_UNUSABLE",
                 "ROOT_GRANTOR_MISMATCH","ISSUER_PARENT_DELEGATE_MISMATCH","CHILD_TIME_WIDENING",
-                "REDELEGATION_NOT_AUTHORIZED","PROFILE_SUBSTITUTION","TERMINAL_GRANT_STATE"};
-        for(int i=1;i<=12;i++){
+                "REDELEGATION_NOT_AUTHORIZED","PROFILE_SUBSTITUTION","TERMINAL_GRANT_STATE",
+                "GRANT_EXPIRED_AT_REGISTRATION","INVALID_TIME_RANGE","INVALID_ROOT_STATE_HASH",
+                "CROSS_DOMAIN_PROOF","INVALID_GRANT_REVISION","REGISTRY_DOMAIN_MISMATCH"};
+        for(int i=1;i<=18;i++){
             String id=String.format("DGI%02d",i);
             require(id+" stable error",errors[i-1].equals(invalid(doc,id).path("error").asText()));
         }
@@ -332,6 +334,41 @@ public final class DelegationV1Vectors {
                         && "REVOKED".equals(i12.path("currentStatus").asText()));
         require("DGI12 attempted duplicate REGISTER tries revision 1",
                 i12.path("attemptedNewRevision").asInt()==1);
+
+        JsonNode i13=invalid(doc,"DGI13");
+        require("DGI13 expiresAt is not after registeredAt",
+                i13.path("expiresAt").asLong()<=i13.path("registeredAt").asLong());
+
+        JsonNode i14=invalid(doc,"DGI14");
+        require("DGI14 notBefore is not less than expiresAt",
+                i14.path("notBefore").asLong()>=i14.path("expiresAt").asLong());
+
+        JsonNode i15=invalid(doc,"DGI15");
+        Ed25519Support staleController=new Ed25519Support(
+                sha("OpenIdentity OI-014 DGI15 controller seed".getBytes(StandardCharsets.UTF_8)));
+        byte[] sig15=Hex.decode(i15.path("submittedSignatureHex").asText());
+        byte[] sign15=Hex.decode(i15.path("submittedSigningBytesHex").asText());
+        require("DGI15 stale revocation signature cryptographically verifies",
+                staleController.verify(sign15,sig15));
+        require("DGI15 historical root StateHash is stale",
+                !i15.path("historicalRootStateHashHex").asText().equals(i15.path("currentRootStateHashHex").asText()));
+
+        JsonNode i16=invalid(doc,"DGI16");
+        byte[] sig16=Hex.decode(i16.path("submittedSignatureHex").asText());
+        byte[] revDomain=Hex.decode(i16.path("revocationSigningBytesHex").asText());
+        byte[] relinquishDomain=Hex.decode(i16.path("relinquishmentSigningBytesHex").asText());
+        require("DGI16 signature verifies in revocation domain",
+                staleController.verify(revDomain,sig16));
+        require("DGI16 revocation signature rejected in relinquishment domain",
+                !staleController.verify(relinquishDomain,sig16));
+
+        JsonNode i17=invalid(doc,"DGI17");
+        require("DGI17 skips exact-next revision",
+                i17.path("currentRevision").asInt()==1 && i17.path("attemptedRevision").asInt()==3);
+
+        JsonNode i18=invalid(doc,"DGI18");
+        require("DGI18 registryDomain changes within record chain",
+                !i18.path("currentRegistryDomainHex").asText().equals(i18.path("attemptedRegistryDomainHex").asText()));
     }
 
     public static void main(String[] args)throws Exception{
@@ -378,7 +415,7 @@ public final class DelegationV1Vectors {
         verifyDG06(rootJson.path("vectors").get(5));
         verifyInvalids(rootJson);
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI12 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI18 VERIFIED");
         System.out.println("============================================");
     }
 }
