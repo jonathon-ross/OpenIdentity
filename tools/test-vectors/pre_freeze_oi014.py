@@ -83,10 +83,10 @@ def main():
     print("[PASS] No tracked frozen v0.1 artifact/checksum changed")
 
     print("\n============================================================")
-    print("OI-014 PRE-FREEZE RELEASE GATE: PASS")
+    print("OI-014 FROZEN-NORMATIVE RELEASE GATE: PASS")
     print("============================================================")
-    print("\nStatus: semantic vectors verified; committed byte-frozen candidate verified when present; NOT YET NORMATIVE.")
-    print("Next: perform final normative spec/CDDL/documentation review before promotion.")
+    print("\nStatus: OI-014 v1 frozen-normative semantic vectors and committed byte checksum verified.")
+    print("Frozen OI-014 v1 bytes MUST NOT change without an explicit protocol revision.")
 
 if __name__=="__main__":
     main()
