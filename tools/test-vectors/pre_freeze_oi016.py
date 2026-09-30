@@ -39,6 +39,13 @@ def main():
     a=parse()
     run("Generate draft OI-016 vectors",[sys.executable,"tools/test-vectors/generate_delegated_subject_v1.py"])
     run("Verify draft OI-016 vectors",[sys.executable,"tools/test-vectors/verify_delegated_subject_v1.py"])
+    candidate=ROOT/"checksums"/"delegated-subject-v1.json.sha256"
+    if candidate.is_file():
+        run("Verify OI-016 byte-frozen candidate",
+            [sys.executable,"tools/test-vectors/verify_delegated_subject_v1_freeze_candidate.py"])
+    else:
+        print("\n[OI-016 freeze candidate]")
+        print("[INFO] No candidate checksum present; semantic pre-freeze checks continue.")
     mvn=maven(a.maven)
     if not mvn:
         print("\nOI-016 PRE-FREEZE GATE: FAIL (Maven executable not found)")
