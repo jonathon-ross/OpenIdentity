@@ -13,7 +13,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.jupiter.api.Assertions.*;
 
-final class EndToEndDelegatedAgentExchangeTest {\n static final class E2eFailure extends RuntimeException { E2eFailure(String m){super(m);} }
+final class EndToEndDelegatedAgentExchangeTest {
+ static final class E2eFailure extends RuntimeException { E2eFailure(String m){super(m);} }
  record Raw(byte[] b){}
  static byte[] sha(String s){try{return MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));}catch(Exception e){throw new RuntimeException(e);}}
  static byte[] seq(int s,int n){byte[] b=new byte[n];for(int i=0;i<n;i++)b[i]=(byte)(s+i);return b;}
@@ -81,7 +82,7 @@ final class EndToEndDelegatedAgentExchangeTest {\n static final class E2eFailure
   Map<String,Object> jwt=JwtProjection.claims(decision);assertEquals(HexFormat.of().formatHex(root),jwt.get("sub"));assertEquals("records.read",jwt.get("scope"));
   assertEquals(jkt,((Map<?,?>)jwt.get("cnf")).get("jkt"));assertFalse(jwt.containsKey("refresh_token"));
  }
-}
+
  @Test void exactActorTokenCannotBeReplayedAcrossDifferentDpopContext(){
   // The full positive test already proves the valid ceremony. Here we pin the assembled-service invariant:
   // changing the validated DPoP key necessarily changes reconstructed contextHash, so the exact signed actor token cannot verify.
@@ -96,4 +97,5 @@ final class EndToEndDelegatedAgentExchangeTest {\n static final class E2eFailure
   AtomicBoolean consumed=new AtomicBoolean();AssertionReplayStore store=id->consumed.compareAndSet(false,true);
   byte[] id=Sha256Multihash.digest("replay".getBytes(StandardCharsets.UTF_8));assertTrue(store.consume(id));assertFalse(store.consume(id));
  }
-\n}
+
+}
