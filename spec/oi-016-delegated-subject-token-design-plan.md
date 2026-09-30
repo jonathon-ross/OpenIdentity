@@ -1,6 +1,6 @@
 # OI-016 Delegated Subject Token — Design Plan
 
-**Status:** Design draft; non-normative
+**Status:** FROZEN-NORMATIVE v1
 **Target:** protocol-neutral binding of one exact OI-014 delegation path to one exact OI-015 authentication ceremony
 **Depends on:** OI-014 DelegationGrant v1 (FROZEN-NORMATIVE), OI-015 Authentication Assertion v1 (FROZEN-NORMATIVE)
 
@@ -12,7 +12,7 @@ OI-016 binds one exact OI-014 path to one exact OI-015 assertion without redefin
 
 Core OI-016 contains no OAuth scope, resource, client, JWT, DPoP, or access-token semantics.
 
-## 2. Candidate model
+## 2. Normative model
 
     DelegationEvidence {
         version
@@ -113,7 +113,7 @@ This prevents delegation swapping and authentication swapping without circular h
 
 ## 10. DelegatedSubjectTokenId
 
-Candidate derived identifier:
+Normative derived identifier:
 
     DelegatedSubjectTokenBytes =
         deterministicCBOR(DelegatedSubjectToken)
@@ -157,7 +157,7 @@ OI-016 reveals complete GrantBytes for the selected path to the verifier. Only t
 
 OI-016 v1 does not provide selective disclosure or zero-knowledge delegation proofs.
 
-## 14. Candidate stable errors
+## 14. Stable errors
 
     INVALID_DELEGATED_SUBJECT_TOKEN
     INVALID_DELEGATED_SUBJECT_VERSION
@@ -181,7 +181,7 @@ OI-016 v1 does not provide selective disclosure or zero-knowledge delegation pro
 
 - DS01 — one direct grant plus matching OI-015 actor assertion;
 - DS02 — two-grant root-to-child path;
-- DS03 — path at maximum candidate depth;
+- DS03 — path at maximum normative v1 depth;
 - DS04 — maximum constructed valid evidence-size boundary fixture at or below the total ceiling;
 - DS05 — registryDomain boundary/representation case;
 - DS06 — integration fixture proving DelegationEvidenceId is committed by OI-015 contextHash.
@@ -502,7 +502,7 @@ For example, an OAuth profile may return a generic token-exchange failure while 
 
 Core OI-016 defines the semantic distinction; it does not require external protocols to disclose it.
 
-## 21. Ready for candidate CDDL
+## 21. Normative v1 CDDL and conformance
 
 All pre-CDDL questions are resolved.
 
@@ -512,4 +512,4 @@ Candidate CDDL and DS01 may now be created. Wire labels remain draft/non-normati
 
 OI-016 development MUST NOT modify frozen Protocol v2 / IdentityState v3, OI-014 v1, or OI-015 v1 bytes.
 
-OI-016 begins draft/non-normative and requires deterministic vectors, independent cross-language verification, checksum, and release gate before normative promotion.
+OI-016 v1 is frozen normative. Frozen v1 bytes and semantics MUST NOT change without explicit protocol/version evolution.
