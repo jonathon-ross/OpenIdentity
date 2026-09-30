@@ -132,6 +132,44 @@ def build_dg04():
       "grantIdAfterRevocationHex":gid.hex(),"registeredAtBefore":2000010000,"registeredAtAfter":2000010000}
 
 
+
+def build_dg05():
+    registry=b"openidentity:test:oi014:dg05"
+    root=bytes(range(16,48)); delegate=bytes(range(48,80))
+    mid_a=bytes(range(96,112)); mid_b=bytes(range(112,128))
+    a,_,ma=key("OpenIdentity OI-014 DG05 delegation A Ed25519 seed",mid_a)
+    b,_,mb=key("OpenIdentity OI-014 DG05 delegation B Ed25519 seed",mid_b)
+    pa=policy(mid_a,ma); pb=policy(mid_b,mb)
+    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.admin"],5:3600,6:2}
+    pbytes=enc(descriptor); ph=mh(pbytes)
+    grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
+           5:[{1:{1:{1:1,2:ph},2:b"document.admin"}}],
+           7:2000020000,9:seed("OpenIdentity OI-014 DG05 nonce")}
+    gb=enc(grant); gid=mh(gb)
+    generation=21
+    before={1:3,2:root,3:40,4:1,5:pa,8:{1:0},9:{1:generation,2:pa}}
+    before_b=enc(before); before_h=mh(before_b)
+    regsign=enc(["OpenIdentity Delegation Grant",1,registry,gb,before_h,generation,mid_a])
+    regsig=a.sign(regsign)
+    record={1:registry,2:gid,3:1,4:None,5:1,6:before_h,7:generation,8:2000016000}
+    rb=enc(record); rh=mh(rb)
+
+    # INVALIDATE_EXISTING increments the root delegation generation exactly once.
+    op={1:2,2:7,3:root,4:41,5:before_h,6:{1:pb,2:1}}
+    ob=enc(op)
+    after={1:3,2:root,3:41,4:1,5:pa,8:{1:0},9:{1:generation+1,2:pb}}
+    after_b=enc(after); after_h=mh(after_b)
+    return {"id":"DG05","description":"Delegation generation increment invalidates prior grant without mutating its ACTIVE registration record","expected":"PASS",
+      "grantBytesHex":gb.hex(),"grantIdHex":gid.hex(),
+      "registrationStateBytesHex":before_b.hex(),"registrationStateHashHex":before_h.hex(),
+      "registrationSigningBytesHex":regsign.hex(),"registrationSignatureHex":regsig.hex(),
+      "activeRecordBytesHex":rb.hex(),"activeRecordHashHex":rh.hex(),
+      "invalidationOperationBytesHex":ob.hex(),"postInvalidationStateBytesHex":after_b.hex(),"postInvalidationStateHashHex":after_h.hex(),
+      "delegationGenerationBefore":generation,"delegationGenerationAfter":generation+1,
+      "recordRevisionAfterInvalidation":1,"recordStatusAfterInvalidation":"ACTIVE",
+      "recordHashAfterInvalidationHex":rh.hex(),"grantUsableAfterInvalidation":False}
+
+
 def main():
     registry=b"openidentity:test:oi014:dg01"
     root=bytes(range(32))
@@ -174,7 +212,7 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04()]}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05()]}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
@@ -182,4 +220,5 @@ def main():
     print("DG02 VERIFIED")
     print("DG03 VERIFIED")
     print("DG04 VERIFIED")
+    print("DG05 VERIFIED")
 if __name__=="__main__": main()
