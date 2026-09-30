@@ -1,8 +1,8 @@
 ; OpenIdentity Delegated Subject Token Wire Format v1
 ; File: spec/cddl/openidentity-delegated-subject-v1.cddl
-; STATUS: DRAFT-NON-NORMATIVE
+; STATUS: FROZEN-NORMATIVE v1
 ;
-; Candidate wire schema for OI-016. No labels are frozen.
+; Normative frozen wire schema for OI-016 Delegated Subject Token v1.
 
 start = delegated-subject-token
 
