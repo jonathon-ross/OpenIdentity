@@ -248,6 +248,22 @@ def invalids():
         submittedGrantIdsHex=[duplicate_id,path_a["childGrantIdHex"],duplicate_id],
         duplicateGrantIdHex=duplicate_id)
 
+    # DSI23-DSI28: pre-freeze taxonomy and structural gap closure.
+    add("DSI23","INVALID_DELEGATED_SUBJECT_TOKEN","malformed-top-level-token-shape",
+        submittedTopLevelType="array",requiredTopLevelType="map")
+    base1=ds01()
+    child_like=bytes.fromhex(ds02()["childGrantBytesHex"])
+    add("DSI24","INVALID_ROOT_GRANT","first-path-element-is-child-grant",
+        firstGrantBytesHex=child_like.hex(),parentGrantIdPresent=True)
+    add("DSI25","INVALID_DELEGATION_EVIDENCE","empty-registry-domain",
+        registryDomainLength=0,minimumRegistryDomainLength=1)
+    add("DSI26","INVALID_DELEGATION_EVIDENCE","registry-domain-too-long",
+        registryDomainLength=129,maximumRegistryDomainLength=128)
+    add("DSI27","INVALID_GRANT_EVIDENCE","malformed-grantid-length",
+        submittedGrantIdLength=33,requiredGrantIdLength=34)
+    add("DSI28","INVALID_DELEGATED_SUBJECT_TOKEN","malformed-actor-assertion-id-length",
+        submittedActorAssertionIdLength=33,requiredActorAssertionIdLength=34)
+
     return out
 
 def main():
@@ -255,5 +271,5 @@ def main():
           "vectors":[ds01(),ds02(),ds03(),ds04(),ds05(),ds06()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DS03-DS06 GENERATED");print("DSI01-DSI22 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DS03-DS06 GENERATED");print("DSI01-DSI28 GENERATED")
 if __name__=="__main__":main()
