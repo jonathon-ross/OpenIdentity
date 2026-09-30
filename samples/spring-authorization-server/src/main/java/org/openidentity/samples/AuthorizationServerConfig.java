@@ -48,20 +48,13 @@ public class AuthorizationServerConfig {
  @Bean OAuth2TokenGenerator<?> tokenGenerator(JwtGenerator jwt){return new DelegatingOAuth2TokenGenerator(jwt);}
  @Bean AuthorizationServerSettings authorizationServerSettings(){return AuthorizationServerSettings.builder().issuer("http://127.0.0.1:9000").build();}
 
- @Bean DelegatedAgentExchangeService delegatedAgentExchangeService(){
-  // Sample boundary only; replaced next by exact OI-014/OI-015/OI-016 in-memory resolvers.
-  DelegatedSubjectVerifier subject=b->{throw new ProfileException(ProfileError.INVALID_REQUEST);};
-  AuthenticationAssertionVerifier actor=r->{throw new ProfileException(ProfileError.INVALID_REQUEST);};
-  return new DelegatedAgentExchangeService(subject,actor,x->x,(s,t,scope)->true,id->true,300);
+ @Bean SampleOpenIdentityFixture.Material sampleMaterial(){return SampleOpenIdentityFixture.create();}
+ @Bean DelegatedAgentExchangeService delegatedAgentExchangeService(SampleOpenIdentityFixture.Material material){return material.exchangeService();}
+ @Bean ValidatedDpopJktResolver validatedDpopJktResolver(SampleOpenIdentityFixture.Material material){
+  // Sample-only validated-proof boundary. Production deployments must connect this to complete RFC 9449 validation.
+  return request->material.dpopJkt();
  }
-
- @Bean ValidatedDpopJktResolver validatedDpopJktResolver(){
-  // The black-box exact-token fixture will replace this with the sample's validated DPoP adapter.
-  return request->request.getHeader("X-Sample-Validated-DPoP-JKT");
- }
- @Bean ActorNonceResolver actorNonceResolver(){return request->{
-  String v=request.getHeader("X-Sample-OI-Nonce");return v==null?null:Base64.getUrlDecoder().decode(v);
- };}
+ @Bean ActorNonceResolver actorNonceResolver(SampleOpenIdentityFixture.Material material){return request->material.nonce();}
 
  @Bean OpenIdentityTokenExchangeAuthenticationConverter openIdentityConverter(ValidatedDpopJktResolver dpop,ActorNonceResolver nonce){
   return new OpenIdentityTokenExchangeAuthenticationConverter(dpop,nonce);
