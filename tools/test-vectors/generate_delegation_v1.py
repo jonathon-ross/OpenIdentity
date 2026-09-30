@@ -299,7 +299,7 @@ def build_invalids():
                       7:2000190000,8:pgid,9:seed("DGI07 nonce")}
     add("DGI07","ROOT_GRANTOR_MISMATCH","child-root-grantor-substitution",
         parentGrantBytesHex=pgb.hex(),parentRootGrantorHex=proot.hex(),
-        childGrantBytesHex=cbor_wrong_root if False else enc(wrong_root_child).hex(),
+        childGrantBytesHex=enc(wrong_root_child).hex(),
         childRootGrantorHex=wrong_root.hex())
 
     wrong_issuer=bytes(range(194,226))
