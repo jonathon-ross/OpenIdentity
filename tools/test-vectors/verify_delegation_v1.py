@@ -194,7 +194,7 @@ def main():
     req("DG06 depth 2",v6["childDepth"]==2)
 
     invalid={x["id"]:x for x in data["invalidVectors"]}
-    req("invalid vector IDs DGI01-DGI18",set(invalid)=={f"DGI{i:02d}" for i in range(1,19)})
+    req("invalid vector IDs DGI01-DGI24",set(invalid)=={f"DGI{i:02d}" for i in range(1,25)})
     expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
               "DGI03":"CROSS_DOMAIN_PROOF","DGI04":"INVALID_PREVIOUS_RECORD_HASH",
               "DGI05":"CAPABILITY_ESCALATION","DGI06":"PARENT_GRANT_UNUSABLE",
@@ -203,8 +203,11 @@ def main():
               "DGI11":"PROFILE_SUBSTITUTION","DGI12":"TERMINAL_GRANT_STATE",
               "DGI13":"GRANT_EXPIRED_AT_REGISTRATION","DGI14":"INVALID_TIME_RANGE",
               "DGI15":"INVALID_ROOT_STATE_HASH","DGI16":"CROSS_DOMAIN_PROOF",
-              "DGI17":"INVALID_GRANT_REVISION","DGI18":"REGISTRY_DOMAIN_MISMATCH"}
-    req("DGI01-DGI18 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
+              "DGI17":"INVALID_GRANT_REVISION","DGI18":"REGISTRY_DOMAIN_MISMATCH",
+              "DGI19":"INVALID_REGISTRATION_PROOF","DGI20":"INVALID_ROOT_STATE_HASH",
+              "DGI21":"INVALID_DELEGATION_GENERATION","DGI22":"INVALID_REGISTRATION_PROOF",
+              "DGI23":"INVALID_REGISTRATION_PROOF","DGI24":"CROSS_DOMAIN_PROOF"}
+    req("DGI01-DGI24 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
 
     i1=invalid["DGI01"]
     oldpub=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DGI01 old delegation seed")).public_key()
@@ -285,7 +288,38 @@ def main():
 
     i18=invalid["DGI18"]
     req("DGI18 registryDomain changes within record chain",i18["currentRegistryDomainHex"]!=i18["attemptedRegistryDomainHex"])
+
+    i19=invalid["DGI19"]
+    c19=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 auth attack controller seed")).public_key()
+    c19.verify(bytes.fromhex(i19["submittedSignatureHex"]),bytes.fromhex(i19["submittedSigningBytesHex"]))
+    req("DGI19 ControllerPolicy signature cryptographically verifies",True)
+    req("DGI19 controller method is not AuthenticationPolicy method",i19["submittedMethodIdHex"]!=i19["authenticationMethodIdHex"])
+
+    i20=invalid["DGI20"]
+    a20=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 auth attack authentication seed")).public_key()
+    a20.verify(bytes.fromhex(i20["submittedSignatureHex"]),bytes.fromhex(i20["submittedSigningBytesHex"]))
+    req("DGI20 historical AuthenticationPolicy proof verifies",True)
+    req("DGI20 delegate StateHash is stale",i20["historicalDelegateStateHashHex"]!=i20["currentDelegateStateHashHex"])
+
+    i21=invalid["DGI21"]
+    req("DGI21 authentication generation is stale",i21["submittedAuthenticationGeneration"]!=i21["currentAuthenticationGeneration"])
+
+    i22=invalid["DGI22"]
+    req("DGI22 AuthenticationPolicy absent",i22["authenticationPolicyPresent"] is False)
+
+    i23=invalid["DGI23"]
+    req("DGI23 delegate is DEACTIVATED",i23["delegateStatus"]=="DEACTIVATED")
+
+    i24=invalid["DGI24"]
+    a24=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 auth attack authentication seed")).public_key()
+    sig24=bytes.fromhex(i24["submittedSignatureHex"])
+    a24.verify(sig24,bytes.fromhex(i24["childSigningBytesHex"]));req("DGI24 signature verifies in child domain",True)
+    try:
+        a24.verify(sig24,bytes.fromhex(i24["relinquishmentSigningBytesHex"])); wrong24=False
+    except Exception:
+        wrong24=True
+    req("DGI24 child signature rejected in relinquishment domain",wrong24)
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI18 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI24 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
