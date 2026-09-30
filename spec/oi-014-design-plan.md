@@ -13,7 +13,7 @@ Resolve before assigning wire labels:
 - delegate principal type model — **RESOLVED:** native OPENIDENTITY plus profile-defined external/workload principal; AI agents are profiles, not core types;
 - direct-grant maximum lifetime;
 - subdelegation enablement — **RESOLVED:** deny by default; explicit profile-scoped redelegation authority + strict attenuation + finite chain depth;
-- registration/status ordering model — **RESOLVED:** per-GrantId uint64 revision + previous RecordHash;
+- registration/status ordering model — **RESOLVED:** per-(registryDomain, GrantId) uint64 revision + previous RecordHash;
 - revocation authorization — **RESOLVED:** current ControllerPolicy or current DelegationPolicy may revoke; delegate may relinquish; historical registration authority has no continuing privilege;
 - GrantId hash profile — **RESOLVED:** SHA2-256 Multihash only for OI-014 v1; same construction for RecordHash;
 - public/private registration privacy model — **RESOLVED:** minimal authoritative anchor may omit GrantBytes and sensitive grant fields; GrantId commits to private/full grant;
@@ -39,7 +39,7 @@ Attack the design for:
 - excessive chain depth / denial of service;
 - delegate identity/key substitution;
 - deactivation/recovery resurrection;
-- replay across identities, registries, or profiles;
+- replay across identities, registries, or profiles — registry replay addressed by registryDomain-bound records/proofs;
 - public-registry privacy leakage.
 
 ## Phase 3 — canonical wire model
@@ -79,7 +79,7 @@ Profiles must narrow/map OI-014 authority and must not redefine GrantId, generat
 
 ## Immediate decision order
 
-1. Registration/status ordering model — **RESOLVED:** per-GrantId revision chain; REGISTER = revision 1, ACTIVE -> REVOKED, REVOKED terminal.
+1. Registration/status ordering model — **RESOLVED:** per-(registryDomain, GrantId) revision chain; REGISTER = revision 1, ACTIVE -> REVOKED, REVOKED terminal; records and proofs are registryDomain-bound to prevent cross-registry replay.
 2. Revocation authorization — **RESOLVED:** current grantor ControllerPolicy or DelegationPolicy; delegate relinquishment is separately domain-separated.
 3. Time model — **RESOLVED:** whole UTC Unix seconds; finite expiry required; profile-defined bounded skew and maximum lifetime.
 4. Capability/resource model — **RESOLVED:** profile-owned capability semantics with core exact identity/canonical set rules and deterministic attenuation.
