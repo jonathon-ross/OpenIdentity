@@ -93,32 +93,47 @@ def ds03():
       "delegatedSubjectTokenIdHex":mh(tb).hex()}
 
 def ds04():
-    # Pin the exact total evidence-size boundary with a deterministic synthetic fixture.
-    # The fixture is a boundary encoding test; per-grant OI-014 semantics are exercised elsewhere.
-    target=1048576
-    registry=b"oi016-size-boundary"
-    # Use one opaque grantBytes field and solve exact CBOR overhead.
-    lo,hi=1,1048576
-    found=None
-    while lo<=hi:
-        n=(lo+hi)//2
-        gb=b"\xa1"+b"\x00"*(n-1)
-        gid=mh(gb);eb=enc({1:1,2:registry,3:[{1:gb,2:gid}]})
-        if len(eb)==target:found=(gb,gid,eb);break
-        if len(eb)<target:lo=n+1
-        else:hi=n-1
-    if found is None:
-        # Exact 1 MiB cannot coexist with the 64 KiB per-grant ceiling in one real OI-016 path.
-        # Build the largest legal 16x65536 structural envelope and record its exact size instead.
-        entries=[]
+    # Exact 1 MiB evidence boundary using 16 valid-shaped grants and bounded resource constraints.
+    target=1048576;root=bytes(range(32));registry=b"oi016-size-boundary"
+    def build(extra):
+        issuer=root;parent=None;entries=[]
+        # Distribute padding across legal <=4096 resourceConstraint fields by using
+        # multiple capabilities per grant. GrantBytes themselves remain <=65536.
+        remaining=extra
         for i in range(16):
-            gb=(bytes([0xa1,i])+bytes(65534))[:65536];entries.append({1:gb,2:mh(gb)})
-        eb=enc({1:1,2:registry,3:entries})
-        return {"id":"DS04","description":"Largest structurally legal 16 x 65536-byte grant evidence envelope","expected":"PASS",
-          "grantCount":16,"eachGrantBytesLength":65536,"delegationEvidenceLength":len(eb),
-          "maximumDelegationEvidenceLength":1048576,"delegationEvidenceIdHex":mh(eb).hex(),
-          "note":"Exact 1 MiB boundary is unreachable under simultaneous 16-grant and 65536-byte per-grant ceilings."}
-    raise AssertionError("Unexpected reachable exact 1 MiB fixture under per-grant constraints")
+            delegate=bytes(((96+i+j)&255 for j in range(32)))
+            caps=[];slot=0
+            while remaining>0 and slot<15:
+                n=min(4096,remaining);ph=mh(b"OI-016 DS04 profile "+bytes([i,slot]))
+                caps.append({1:{1:{1:1,2:ph},2:b"boundary.read"},2:bytes([65+(i%26)])*n})
+                remaining-=n;slot+=1
+            if not caps:
+                ph=mh(b"OI-016 DS04 base profile "+bytes([i]));caps=[{1:{1:{1:1,2:ph},2:b"boundary.read"},2:b"x"}]
+            grant={1:1,2:root,3:{1:1,2:issuer},4:{1:1,2:delegate},5:caps,7:2003000000-i,
+                   9:h(b"OI-016 DS04 nonce "+bytes([i]))}
+            if parent is not None:grant[8]=parent
+            gb=enc(grant)
+            if len(gb)>65536:return None
+            gid=mh(gb);entries.append({1:gb,2:gid});issuer=delegate;parent=gid
+        if remaining:return None
+        return enc({1:1,2:registry,3:entries}),entries
+    # Find the greatest valid evidence size <= target, preferring exact target.
+    lo,hi=0,16*15*4096;best=None
+    while lo<=hi:
+        mid=(lo+hi)//2;r=build(mid)
+        if r is None:hi=mid-1;continue
+        eb,entries=r;L=len(eb)
+        if L<=target:
+            best=(mid,eb,entries)
+            if L==target:break
+            lo=mid+1
+        else:hi=mid-1
+    if best is None:raise AssertionError("DS04 boundary fixture unavailable")
+    extra,eb,entries=best
+    return {"id":"DS04","description":"Maximum constructed valid evidence envelope at or below 1 MiB ceiling","expected":"PASS",
+      "grantCount":16,"delegationEvidenceLength":len(eb),"maximumDelegationEvidenceLength":target,
+      "exactBoundaryReached":len(eb)==target,"paddingBytes":extra,"delegationEvidenceIdHex":mh(eb).hex(),
+      "allGrantBytesWithinLimit":all(len(x[1])<=65536 for x in entries)}
 
 def ds05():
     registry=bytes(range(128))
