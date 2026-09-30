@@ -27,12 +27,12 @@ DelegationPolicy authorizes creation/registration of DelegationGrants. It does n
 
 Registration:
 
-- requires an ACTIVE grantor IdentityState v3;
+- requires an ACTIVE rootGrantor IdentityState v3;
 - uses the current DelegationPolicy;
 - binds the grant to the current DelegationAuthority.generation;
 - creates a separate authoritative grant record;
-- does not increment the grantor IdentityState sequence;
-- does not change the grantor StateHash.
+- does not increment the rootGrantor IdentityState sequence;
+- does not change the rootGrantor StateHash.
 
 Generation changes invalidate prior-generation grants according to the v3 rules.
 
@@ -823,7 +823,7 @@ The complete logical fields and transition semantics are defined below.
 
 ## 8A. RegisteredGrant state history
 
-Authoritative grant registration/status uses a per-(registryDomain, GrantId) monotonic revision chain. It is independent of the grantor IdentityState sequence.
+Authoritative grant registration/status uses a per-(registryDomain, GrantId) monotonic revision chain. It is independent of the rootGrantor IdentityState sequence.
 
 The canonical logical state is:
 
@@ -878,8 +878,8 @@ Revision MUST NOT wrap. If current revision is 2^64 - 1, no further grant-state 
 Grant revision:
 
 - is scoped to one (registryDomain, GrantId);
-- is not the grantor IdentityState sequence;
-- does not alter grantor StateHash;
+- is not the rootGrantor IdentityState sequence;
+- does not alter rootGrantor StateHash;
 - does not alter DelegationAuthority.generation;
 - does not order records belonging to other GrantIds.
 
@@ -1493,7 +1493,7 @@ The following require deliberate decisions before assigning final CDDL labels:
 6. **RESOLVED:** subdelegation is forbidden by default and requires explicit profile-defined redelegation authority for the capability/resource being passed; every profile defines finite maximum chain depth;
 7. authoritative registration/status transaction format;
 8. **RESOLVED:** current rootGrantor ControllerPolicy or current rootGrantor DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
-9. **RESOLVED:** registration records use a per-GrantId uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
+9. **RESOLVED:** registration records use a per-(registryDomain, GrantId) uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
 10. **RESOLVED:** OI-014 v1 GrantId and RecordHash are exactly SHA2-256 Multihash (0x12 0x20 + 32-byte digest); alternate algorithms are invalid until a future protocol revision;
 11. **RESOLVED:** core separates private/full GrantBytes from a minimal authoritative registration anchor; public registries need not expose grantor/delegate/capability/resource/time/parent fields; GrantId commits to full semantics;
 12. resolution/discovery API semantics for registered grants — grant availability remains profile/deployment-owned; core requires fail-closed verification when full committed grant material cannot be obtained.
