@@ -39,7 +39,7 @@
 | DGI17 | Grant revision skip | INVALID_GRANT_REVISION | COVERED |
 | DGI18 | registryDomain mutation within record chain | REGISTRY_DOMAIN_MISMATCH | COVERED |
 | DGI19 | ControllerPolicy used as delegate AuthenticationAuthority | INVALID_REGISTRATION_PROOF | COVERED |
-| DGI20 | Stale delegate AuthenticationPolicy / StateHash | INVALID_ROOT_STATE_HASH* | COVERED; ERROR NAME REVIEW |
+| DGI20 | Stale delegate AuthenticationPolicy / StateHash | INVALID_DELEGATE_STATE_HASH | COVERED |
 | DGI21 | Wrong delegate authentication generation | INVALID_AUTHENTICATION_GENERATION | COVERED |
 | DGI22 | OPENIDENTITY delegate AuthenticationPolicy absent | INVALID_REGISTRATION_PROOF | COVERED |
 | DGI23 | DEACTIVATED delegate attempts child issuance | INVALID_REGISTRATION_PROOF | COVERED |
@@ -56,18 +56,7 @@
 
 ## 3. Release-blocking gaps before byte freeze
 
-### G1 — delegate StateHash error taxonomy
-
-The stable error taxonomy distinguishes delegation generation from authentication generation, but does not distinguish rootGrantor StateHash mismatch from delegate authentication StateHash mismatch.
-
-Recommended resolution:
-
-    INVALID_ROOT_STATE_HASH
-    INVALID_DELEGATE_STATE_HASH
-
-DGI20 should use INVALID_DELEGATE_STATE_HASH.
-
-### G2 — current DelegationPolicy revocation positive path
+### G1 — delegate StateHash error taxonomy — RESOLVED\n\n`INVALID_DELEGATE_STATE_HASH` is distinct from `INVALID_ROOT_STATE_HASH`; DGI20 uses the delegate-specific error.\n\n### G2 — current DelegationPolicy revocation positive path
 
 DG04 proves ControllerPolicy emergency revocation. The specification also permits current DelegationPolicy revocation, but no positive vector currently proves that authorization path.
 
