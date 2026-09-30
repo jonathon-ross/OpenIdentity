@@ -21,7 +21,7 @@ def main():
     data=json.loads(FILE.read_text())
     req("suite specification",data["suite"]=="OpenIdentity OI-014 DelegationGrant v1")
     req("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs DG01-DG07",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04","DG05","DG06","DG07"])
+    req("vector IDs DG01-DG08",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04","DG05","DG06","DG07","DG08"])
     v=data["vectors"][0]
     registry=b"openidentity:test:oi014:dg01"; root=bytes(range(32)); delegate=bytes(range(32,64)); mid=bytes(range(16))
     priv=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG01 delegation Ed25519 seed"))
@@ -222,6 +222,32 @@ def main():
     req("DG07 registeredAt unchanged",v7["registeredAtBefore"]==v7["registeredAtAfter"]==2000590000)
     req("DG07 revoked RecordBytes",v7["revokedRecordBytesHex"]==r2b7.hex());req("DG07 revoked RecordHash",v7["revokedRecordHashHex"]==r2h7.hex())
 
+    v8=data["vectors"][7]
+    reg8=b"openidentity:test:oi014:dg08"; root8=bytes(range(100,132)); del8=bytes(range(132,164))
+    oldid8=bytes(range(92,108)); newid8=bytes(range(108,124))
+    oldk8=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG08 old delegation Ed25519 seed"))
+    newk8=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG08 new delegation Ed25519 seed"))
+    oldpub8=oldk8.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); newpub8=newk8.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    oldp8={1:1,2:[{1:oldid8,2:{1:1,3:-8,4:-1,6:oldpub8}}]}; newp8={1:1,2:[{1:newid8,2:{1:1,3:-8,4:-1,6:newpub8}}]}
+    desc8={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:7200,6:2}; ph8=mh(enc(desc8))
+    g8={1:1,2:root8,3:{1:1,2:root8},4:{1:1,2:del8},5:[{1:{1:{1:1,2:ph8},2:b"document.read"}}],
+        7:2000700000,9:sk("OpenIdentity OI-014 DG08 nonce")}
+    gb8=enc(g8); gid8=mh(gb8); gen8=44
+    before8={1:3,2:root8,3:70,4:1,5:oldp8,8:{1:0},9:{1:gen8,2:oldp8}}; bb8=enc(before8); bh8=mh(bb8)
+    regsign8=enc(["OpenIdentity Delegation Grant",1,reg8,gb8,bh8,gen8,oldid8])
+    oldk8.public_key().verify(bytes.fromhex(v8["registrationSignatureHex"]),regsign8);req("DG08 original policy A registration verifies",True)
+    r1_8={1:reg8,2:gid8,3:1,4:None,5:1,6:bh8,7:gen8,8:2000690000}; r1b8=enc(r1_8); r1h8=mh(r1b8)
+    after8={1:3,2:root8,3:71,4:1,5:oldp8,8:{1:0},9:{1:gen8,2:newp8}}; ab8=enc(after8); ah8=mh(ab8)
+    req("DG08 generation preserved across A-to-B rotation",v8["delegationGenerationBefore"]==v8["delegationGenerationAfter"]==gen8)
+    revsign8=enc(["OpenIdentity Delegation Grant Revocation",1,reg8,gid8,r1h8,2,ah8,newid8])
+    revsig8=bytes.fromhex(v8["revocationSignatureHex"]);newk8.public_key().verify(revsig8,revsign8)
+    req("DG08 current policy B revocation verifies",True)
+    req("DG08 historical A differs from current B",v8["historicalDelegationMethodIdHex"]!=v8["currentDelegationMethodIdHex"])
+    revreq8={1:reg8,2:gid8,3:r1h8,4:2,5:ah8,6:2,7:[{1:newid8,2:revsig8}]}
+    req("DG08 revocation request bytes",v8["revocationRequestBytesHex"]==enc(revreq8).hex())
+    r2_8={1:reg8,2:gid8,3:2,4:r1h8,5:2,6:bh8,7:gen8,8:2000690000}; r2b8=enc(r2_8)
+    req("DG08 revoked RecordBytes",v8["revokedRecordBytesHex"]==r2b8.hex());req("DG08 revoked RecordHash",v8["revokedRecordHashHex"]==mh(r2b8).hex())
+
     invalid={x["id"]:x for x in data["invalidVectors"]}
     req("invalid vector IDs DGI01-DGI31",set(invalid)=={f"DGI{i:02d}" for i in range(1,32)})
     expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
@@ -381,6 +407,6 @@ def main():
     req("DGI31 proposed GrantId already appears in ancestor chain",
         i31["proposedGrantIdHex"] in i31["ancestorGrantIdsHex"])
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG07 + DGI01-DGI31 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG08 + DGI01-DGI31 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
