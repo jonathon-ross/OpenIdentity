@@ -1,5 +1,5 @@
 ; OpenIdentity OAuth Token Exchange Context v1
-; STATUS: DRAFT-NON-NORMATIVE
+; STATUS: FROZEN-NORMATIVE v1
 ; Integration profile over frozen OI-014/OI-015/OI-016.
 ;
 ; OAuthTokenExchangeContextV1 is deterministic CBOR committed by
