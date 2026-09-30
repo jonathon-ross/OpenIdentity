@@ -1,0 +1,58 @@
+; OpenIdentity Delegated Subject Token Wire Format v1
+; File: spec/cddl/openidentity-delegated-subject-v1.cddl
+; STATUS: DRAFT-NON-NORMATIVE
+;
+; Candidate wire schema for OI-016. No labels are frozen.
+
+start = delegated-subject-token
+
+sha256-multihash = bstr .size 34
+registry-domain = bstr .size (1..128)
+grant-id = sha256-multihash
+actor-assertion-id = sha256-multihash
+
+; Exact frozen OI-014 GrantBytes, bounded by OI-016 transport ceiling.
+grant-bytes = bstr .size (1..65536)
+
+grant-evidence = {
+    1 => grant-bytes,
+    2 => grant-id
+}
+
+delegation-evidence-version = 1
+
+delegation-evidence = {
+    1 => delegation-evidence-version,
+    2 => registry-domain,
+    3 => [1*16 grant-evidence]
+}
+
+delegated-subject-version = 1
+
+delegated-subject-token = {
+    1 => delegated-subject-version,
+    2 => delegation-evidence,
+    3 => actor-assertion-id
+}
+
+; Semantic rules:
+; - deterministic RFC 8949 CBOR is required.
+; - exact DelegationEvidenceBytes MUST be <= 1,048,576 bytes.
+; - each grantId MUST equal 0x12 || 0x20 || SHA-256(grantBytes).
+; - first GrantBytes MUST satisfy frozen OI-014 direct/root semantics.
+; - each child parentGrantId MUST equal the previous grantId.
+; - rootGrantor MUST remain identical across the path.
+; - child issuer MUST equal the previous grant's delegate.
+; - the path MUST satisfy all applicable OI-014 profile maxDelegationDepth limits.
+; - current OI-014 use-time verification is mandatory for every path element.
+; - inability to resolve required authoritative state fails closed.
+; - actorAssertionId MUST equal the derived OI-015 AssertionId of the independently
+;   verified actor assertion.
+; - verified OI-015 identity MUST equal the derived terminal delegate.
+; - the integration-profile OI-015 context MUST commit to exact DelegationEvidenceId.
+;
+; DelegationEvidenceId =
+;   0x12 || 0x20 || SHA-256(deterministicCBOR(delegation-evidence))
+;
+; DelegatedSubjectTokenId =
+;   0x12 || 0x20 || SHA-256(deterministicCBOR(delegated-subject-token))
