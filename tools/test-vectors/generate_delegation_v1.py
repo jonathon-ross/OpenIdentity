@@ -293,6 +293,56 @@ def build_invalids():
         parentGrantBytesHex=pgb.hex(),currentParentRecordBytesHex=pr2b.hex(),currentParentRecordHashHex=pr2h.hex(),
         currentParentStatus="REVOKED",childGrantBytesHex=cgb.hex())
 
+    # DGI07-DGI12 structural/state attacks derived from the same parent model.
+    wrong_root=bytes(range(193,225))
+    wrong_root_child={1:1,2:wrong_root,3:{1:1,2:pdel},4:{1:1,2:cdel},5:[read],
+                      7:2000190000,8:pgid,9:seed("DGI07 nonce")}
+    add("DGI07","ROOT_GRANTOR_MISMATCH","child-root-grantor-substitution",
+        parentGrantBytesHex=pgb.hex(),parentRootGrantorHex=proot.hex(),
+        childGrantBytesHex=cbor_wrong_root if False else enc(wrong_root_child).hex(),
+        childRootGrantorHex=wrong_root.hex())
+
+    wrong_issuer=bytes(range(194,226))
+    wrong_issuer_child={1:1,2:proot,3:{1:1,2:wrong_issuer},4:{1:1,2:cdel},5:[read],
+                        7:2000190000,8:pgid,9:seed("DGI08 nonce")}
+    add("DGI08","ISSUER_PARENT_DELEGATE_MISMATCH","child-issuer-substitution",
+        parentGrantBytesHex=pgb.hex(),parentDelegateHex=pdel.hex(),
+        childGrantBytesHex=enc(wrong_issuer_child).hex(),childIssuerHex=wrong_issuer.hex())
+
+    wide_time={1:1,2:proot,3:{1:1,2:pdel},4:{1:1,2:cdel},5:[read],
+               7:2000200001,8:pgid,9:seed("DGI09 nonce")}
+    add("DGI09","CHILD_TIME_WIDENING","child-expiry-beyond-parent",
+        parentGrantBytesHex=pgb.hex(),childGrantBytesHex=enc(wide_time).hex(),
+        parentExpiresAt=2000200000,childExpiresAt=2000200001)
+
+    # Parent holds document.read but no explicit redelegation capability.
+    no_redel_parent={1:1,2:proot,3:{1:1,2:proot},4:{1:1,2:pdel},5:[read],
+                     7:2000200000,9:seed("DGI10 parent nonce")}
+    nrpb=enc(no_redel_parent); nrpid=mh(nrpb)
+    no_redel_child={1:1,2:proot,3:{1:1,2:pdel},4:{1:1,2:cdel},5:[read],
+                    7:2000190000,8:nrpid,9:seed("DGI10 child nonce")}
+    add("DGI10","REDELEGATION_NOT_AUTHORIZED","missing-redelegation-authority",
+        parentGrantBytesHex=nrpb.hex(),parentGrantIdHex=nrpid.hex(),
+        childGrantBytesHex=enc(no_redel_child).hex(),
+        parentCapabilities=["document.read"],requestedChildCapabilities=["document.read"])
+
+    # Same human-readable capability ID, different pinned profile hash.
+    other_desc={1:1,2:"openidentity.test.redelegation.changed",3:1,
+                4:[b"document.read",b"redelegate.document.read"],5:3600,6:3}
+    other_ph=mh(enc(other_desc))
+    substituted_read={1:{1:{1:1,2:other_ph},2:b"document.read"}}
+    profile_child={1:1,2:proot,3:{1:1,2:pdel},4:{1:1,2:cdel},5:[substituted_read],
+                   7:2000190000,8:pgid,9:seed("DGI11 nonce")}
+    add("DGI11","PROFILE_SUBSTITUTION","child-profile-substitution",
+        parentProfileHashHex=rph.hex(),childProfileHashHex=other_ph.hex(),
+        capabilityIdHex=b"document.read".hex(),childGrantBytesHex=enc(profile_child).hex())
+
+    # Duplicate REGISTER cannot reactivate or create a new revision-1 history.
+    add("DGI12","TERMINAL_GRANT_STATE","duplicate-register-after-revocation",
+        grantIdHex=pgid.hex(),currentRecordBytesHex=pr2b.hex(),currentRecordHashHex=pr2h.hex(),
+        currentRevision=2,currentStatus="REVOKED",attemptedRegistrationGrantBytesHex=pgb.hex(),
+        attemptedNewRevision=1)
+
     return out
 
 
