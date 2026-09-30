@@ -195,7 +195,8 @@ def main():
     req("DG06 rootGrantor preserved",child6[2]==parent6[2]);req("DG06 issuer equals parent delegate",child6[3]==parent6[4])
     req("DG06 exact parentGrantId",child6[8]==pgid6);req("DG06 capability attenuated",child6[5]==[read6] and redel6 in parent6[5])
     req("DG06 lifetime attenuated",child6[7] < parent6[7])
-    creq6={1:reg6,2:child6,3:pgid6,4:prh6,5:dsh6,6:agen6,7:[{1:aid6,2:csig6}]}
+    dproof6={1:1,2:dsh6,3:agen6,4:[{1:aid6,2:csig6}]}
+    creq6={1:reg6,2:child6,3:pgid6,4:prh6,5:dproof6}
     req("DG06 child registration request bytes",v6["childRegistrationRequestBytesHex"]==enc(creq6).hex())
     crec6={1:reg6,2:cgid6,3:1,4:None,5:1,6:rsh6,7:gen6,8:2000021000}; crb6=enc(crec6); crh6=mh(crb6)
     req("DG06 child RecordBytes",v6["childRecordBytesHex"]==crb6.hex());req("DG06 child RecordHash",v6["childRecordHashHex"]==crh6.hex())
@@ -221,7 +222,8 @@ def main():
     relsign7=enc(["OpenIdentity Delegation Grant Relinquishment",1,reg7,gid7,r1h7,2,dsh7,agen7,aid7])
     relsig7=bytes.fromhex(v7["relinquishmentSignatureHex"]);ka7.public_key().verify(relsig7,relsign7)
     req("DG07 AuthenticationAuthority relinquishment signature verifies",True)
-    relreq7={1:reg7,2:gid7,3:r1h7,4:2,5:dsh7,6:agen7,7:[{1:aid7,2:relsig7}]}
+    dproof7={1:1,2:dsh7,3:agen7,4:[{1:aid7,2:relsig7}]}
+    relreq7={1:reg7,2:gid7,3:r1h7,4:2,5:dproof7}
     req("DG07 relinquishment request bytes",v7["relinquishmentRequestBytesHex"]==enc(relreq7).hex())
     r2_7={1:reg7,2:gid7,3:2,4:r1h7,5:2,6:rsh7,7:dgen7,8:2000590000}; r2b7=enc(r2_7); r2h7=mh(r2b7)
     req("DG07 exact next revision",r2_7[3]==r1_7[3]+1);req("DG07 previous RecordHash binding",r2_7[4]==r1h7)
