@@ -337,7 +337,7 @@ def build_dg09():
     capdesc=redelegation_profile(7200,3); caphash=mh(enc(capdesc)); capref={1:1,2:caphash}
     read={1:{1:capref,2:b"document.read"}}; redel={1:{1:capref,2:b"redelegate.document.read"}}
 
-    principal_spec=b"OpenIdentity OI-014 Test Principal Profile: ed25519-agent v1\\nSemantics: principalId is 32-byte Ed25519 public key; proofBytes is Ed25519 over coreActionBytes concatenated with proofContext.\\n"
+    principal_spec=b"OpenIdentity OI-014 Test Principal Profile: ed25519-agent v1\nSemantics: principalId is 32-byte Ed25519 public key; proofBytes is Ed25519 over coreActionBytes concatenated with proofContext.\n"
     principal_params=enc({1:32,2:b"ed25519",3:b"coreActionBytes||proofContext"})
     principal_desc=profile_descriptor(2,principal_spec,0,0,principal_params)
     principal_desc_b=enc(principal_desc); principal_hash=mh(principal_desc_b); principal_ref={1:2,2:principal_hash}
