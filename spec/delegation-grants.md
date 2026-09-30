@@ -191,7 +191,7 @@ For child issuance, the core signing input is refined to include:
     authenticationGeneration
     verificationMethodId
 
-Proposed signing structure:
+Candidate v1 signing structure:
 
     [
       "OpenIdentity Delegation Child Grant",
@@ -495,7 +495,7 @@ A capability is identified by the pair:
 
 `capabilityId` is opaque to OI-014 core. Equality in the core protocol is exact canonical equality of both fields.
 
-The final wire representation will use deterministic byte/text forms with explicit length bounds. Human-readable examples do not determine the eventual encoding.
+The candidate v1 wire representation uses deterministic byte/text forms with explicit length bounds as defined by the CDDL. Human-readable examples do not override that encoding.
 
 A profile MUST define:
 
@@ -1053,7 +1053,7 @@ Direct registration requires the rootGrantor's current DelegationPolicy authoriz
 
 The signing input MUST be domain-separated from root operations and from DelegationPolicy proof of possession.
 
-Proposed signing structure:
+Candidate v1 signing structure:
 
     [
       "OpenIdentity Delegation Grant",
@@ -1334,7 +1334,7 @@ A revision chain MUST remain in one registryDomain. A successor whose registryDo
 
 Direct grant registration authorization MUST also bind to the intended registryDomain.
 
-The proposed direct grant signing structure is refined to:
+The candidate v1 direct grant signing structure is:
 
     [
       "OpenIdentity Delegation Grant",
@@ -1348,7 +1348,7 @@ The proposed direct grant signing structure is refined to:
 
 A signature authorizing registration in Registry A MUST NOT authorize registration in Registry B.
 
-Child-registration proofs likewise MUST bind the intended registryDomain in their eventual signing structure.
+Child-registration proofs MUST bind the intended registryDomain in the candidate v1 signing structure.
 
 ### Status-transition domains
 
@@ -1473,7 +1473,7 @@ A parent delegate relinquishing its parent grant makes descendant grants unusabl
 
 Grantor revocation and delegate relinquishment are distinct proof purposes.
 
-Proposed grantor revocation signing structure:
+Candidate v1 grantor revocation signing structure:
 
     [
       "OpenIdentity Delegation Grant Revocation",
@@ -1482,11 +1482,11 @@ Proposed grantor revocation signing structure:
       grantId,
       currentRecordHash,
       nextRevision,
-      currentGrantorStateHash,
+      currentRootGrantorStateHash,
       verificationMethodId
     ]
 
-Proposed delegate relinquishment signing structure:
+Candidate v1 delegate relinquishment signing structure:
 
     [
       "OpenIdentity Delegation Grant Relinquishment",
@@ -1500,7 +1500,7 @@ Proposed delegate relinquishment signing structure:
 
 The final delegate-proof binding may include a delegate verification-method identifier or profile-specific proof context once the delegate principal model is resolved.
 
-For grantor revocation, `currentGrantorStateHash` MUST equal the exact current authoritative rootGrantor IdentityState used to evaluate ControllerPolicy or DelegationPolicy authorization. A proof over a historical grantor state is stale even if the same verification key remains present later.
+For grantor revocation, `currentRootGrantorStateHash` MUST equal the exact current authoritative rootGrantor IdentityState used to evaluate ControllerPolicy or DelegationPolicy authorization. A proof over a historical grantor state is stale even if the same verification key remains present later.
 
 A signature from one revocation purpose MUST NOT be accepted for another.
 
@@ -1513,7 +1513,7 @@ A processor accepting ACTIVE -> REVOKED SHALL:
 3. require nextRevision = current.revision + 1;
 4. require previousRecordHash = RecordHash(current);
 5. determine whether the request is grantor revocation or delegate relinquishment;
-6. for grantor revocation, load the current authoritative rootGrantor IdentityState, require the proof's currentGrantorStateHash to equal that exact StateHash, and verify either current ControllerPolicy or current DelegationPolicy authorization under the correct domain;
+6. for grantor revocation, load the current authoritative rootGrantor IdentityState, require the proof's currentRootGrantorStateHash to equal that exact StateHash, and verify either current ControllerPolicy or current DelegationPolicy authorization under the correct domain;
 7. for delegate relinquishment, verify the current grant delegate under the applicable delegate-principal profile and relinquishment domain;
 8. construct the canonical REVOKED successor;
 9. atomically establish at most one authoritative successor.
@@ -1778,7 +1778,7 @@ The following are release-blocking invariants:
 
 ## 17. Required conformance work
 
-Before OI-014 can become a frozen candidate, vectors should cover at least:
+The byte-frozen candidate conformance suite covers:
 
 Positive:
 - direct grant registration;
