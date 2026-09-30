@@ -1,9 +1,9 @@
-# OpenIdentity Protocol v2 / IdentityState v3 — Draft
+# OpenIdentity Protocol v2 / IdentityState v3
 
-**Status:** Draft; byte-frozen candidate; non-normative  
+**Status:** FROZEN-NORMATIVE  
 **Operation protocolVersion:** 2  
 **Resulting IdentityState version:** 3  
-**Normative wire draft:** `spec/cddl/openidentity-operation-v3.cddl`
+**Normative wire schema:** `spec/cddl/openidentity-operation-v3.cddl`
 
 **Implementation guide:** `docs/protocol-v2-identity-state-v3-guide.md` (supporting/non-normative explanation)
 
