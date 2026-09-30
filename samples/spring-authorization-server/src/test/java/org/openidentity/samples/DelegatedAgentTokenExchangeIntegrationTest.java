@@ -1,49 +1,57 @@
 package org.openidentity.samples;
 
-import com.fasterxml.jackson.databind.*;
 import org.junit.jupiter.api.Test;
 import org.openidentity.spring.OpenIdentityOAuthParameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.*;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import java.net.URI;
+import java.net.http.*;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 final class DelegatedAgentTokenExchangeIntegrationTest {
- @Autowired TestRestTemplate rest;
+ @LocalServerPort int port;
  @Autowired SampleOpenIdentityFixture.Material material;
  @Autowired JwtDecoder jwtDecoder;
+ private final HttpClient http=HttpClient.newHttpClient();
 
- private HttpEntity<org.springframework.util.MultiValueMap<String,String>> request(){
-  var form=new org.springframework.util.LinkedMultiValueMap<String,String>();
-  form.add("grant_type","urn:ietf:params:oauth:grant-type:token-exchange");
-  form.add("subject_token_type",OpenIdentityOAuthParameters.SUBJECT_TOKEN_TYPE);
-  form.add("actor_token_type",OpenIdentityOAuthParameters.ACTOR_TOKEN_TYPE);
-  form.add("subject_token",Base64.getUrlEncoder().withoutPadding().encodeToString(material.subjectToken()));
-  form.add("actor_token",Base64.getUrlEncoder().withoutPadding().encodeToString(material.actorToken()));
-  form.add("resource","https://api.example.test/");
-  form.add("scope","records.read");
-  HttpHeaders h=new HttpHeaders();h.setContentType(MediaType.APPLICATION_FORM_URLENCODED);h.setBasicAuth("agent-client","secret");
-  return new HttpEntity<>(form,h);
+ private HttpRequest request(){
+  Map<String,String> p=new LinkedHashMap<>();
+  p.put("grant_type","urn:ietf:params:oauth:grant-type:token-exchange");
+  p.put("subject_token_type",OpenIdentityOAuthParameters.SUBJECT_TOKEN_TYPE);
+  p.put("actor_token_type",OpenIdentityOAuthParameters.ACTOR_TOKEN_TYPE);
+  p.put("subject_token",Base64.getUrlEncoder().withoutPadding().encodeToString(material.subjectToken()));
+  p.put("actor_token",Base64.getUrlEncoder().withoutPadding().encodeToString(material.actorToken()));
+  p.put("resource","https://api.example.test/");p.put("scope","records.read");
+  String body=p.entrySet().stream().map(e->enc(e.getKey())+"="+enc(e.getValue())).reduce((a,b)->a+"&"+b).orElse("");
+  String basic=Base64.getEncoder().encodeToString("agent-client:secret".getBytes(StandardCharsets.UTF_8));
+  return HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/oauth2/token"))
+      .header("Content-Type","application/x-www-form-urlencoded").header("Authorization","Basic "+basic)
+      .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+ }
+ private static String enc(String s){return URLEncoder.encode(s,StandardCharsets.UTF_8);}
+ private static String jsonString(String json,String name){
+  String key="\""+name+"\"";int k=json.indexOf(key);if(k<0)return null;int colon=json.indexOf(':',k+key.length()),q1=json.indexOf('"',colon+1);if(q1<0)return null;
+  StringBuilder out=new StringBuilder();for(int i=q1+1;i<json.length();i++){char c=json.charAt(i);if(c=='"'&&(i==q1+1||json.charAt(i-1)!='\\'))return out.toString();out.append(c);}return null;
  }
 
- @Test void exactOpenIdentityTokensProduceSignedSenderConstrainedAccessTokenAndReplayFails(){
-  ResponseEntity<String> first=rest.postForEntity("/oauth2/token",request(),String.class);
-  assertEquals(HttpStatus.OK,first.getStatusCode(),first.getBody());
-  try{
-   JsonNode json=new ObjectMapper().readTree(first.getBody());
-   assertTrue(json.hasNonNull("access_token"));assertEquals("urn:ietf:params:oauth:token-type:access_token",json.path("issued_token_type").asText());
-   assertFalse(json.has("refresh_token"));assertEquals("records.read",json.path("scope").asText());
-   var jwt=jwtDecoder.decode(json.path("access_token").asText());
-   assertEquals(material.dpopJkt(),((Map<?,?>)jwt.getClaim("cnf")).get("jkt"));
-   assertEquals("records.read",jwt.getClaimAsString("scope"));assertNotNull(jwt.getClaim("act"));assertNotNull(jwt.getSubject());
-  }catch(Exception e){throw new AssertionError(e);}
+ @Test void exactOpenIdentityTokensProduceSignedSenderConstrainedAccessTokenAndReplayFails() throws Exception {
+  HttpResponse<String> first=http.send(request(),HttpResponse.BodyHandlers.ofString());
+  assertEquals(200,first.statusCode(),first.body());
+  String access=jsonString(first.body(),"access_token"),issued=jsonString(first.body(),"issued_token_type"),scope=jsonString(first.body(),"scope");
+  assertNotNull(access,first.body());assertEquals("urn:ietf:params:oauth:token-type:access_token",issued);assertEquals("records.read",scope);
+  assertFalse(first.body().contains("\"refresh_token\""));
+  var jwt=jwtDecoder.decode(access);
+  assertEquals(material.dpopJkt(),((Map<?,?>)jwt.getClaim("cnf")).get("jkt"));assertEquals("records.read",jwt.getClaimAsString("scope"));
+  assertNotNull(jwt.getClaim("act"));assertNotNull(jwt.getSubject());
 
-  ResponseEntity<String> replay=rest.postForEntity("/oauth2/token",request(),String.class);
-  assertTrue(replay.getStatusCode().is4xxClientError(),replay.getBody());
-  assertFalse(Objects.requireNonNullElse(replay.getBody(),"").contains("ASSERTION_REPLAY"));
+  HttpResponse<String> replay=http.send(request(),HttpResponse.BodyHandlers.ofString());
+  assertTrue(replay.statusCode()>=400&&replay.statusCode()<500,replay.body());
+  assertFalse(replay.body().contains("ASSERTION_REPLAY"));
  }
 }
