@@ -252,6 +252,75 @@ A child-issuance AuthenticationPolicy signature MUST NOT be accepted as a relinq
 
 For PROFILE_PRINCIPAL delegates, the cryptographically pinned principal profile continues to define equivalent current-control/freshness semantics and MUST bind the applicable OI-014 core signing input.
 
+## 3C. DelegateProof tagged union
+
+OI-014 v1 uses an explicit tagged DelegateProof union so request decoding never guesses proof semantics from opaque bytes.
+
+Logical form:
+
+    DelegateProof =
+        OpenIdentityDelegateProof /
+        ProfilePrincipalProof
+
+### OpenIdentityDelegateProof
+
+For an OPENIDENTITY principal:
+
+    OpenIdentityDelegateProof {
+        proofType = 1
+        delegateStateHash
+        authenticationGeneration
+        proofs[]
+    }
+
+`proofs` is the canonical current AuthenticationPolicy method-signature collection.
+
+Each method signature binds the action-specific OI-014 signing input including its verificationMethodId.
+
+The delegate principal itself remains in GrantBytes; the proof does not redefine delegate identity.
+
+### ProfilePrincipalProof
+
+For PROFILE_PRINCIPAL:
+
+    ProfilePrincipalProof {
+        proofType = 2
+        principalProfile
+        proofContext
+        proofBytes
+    }
+
+`principalProfile` MUST exactly equal the ProfileRef committed by the acting DelegatePrincipal.
+
+`proofContext` is deterministic profile-owned canonical bytes identifying any freshness/attestation/session context required by that principal profile.
+
+`proofBytes` is deterministic profile-owned proof material.
+
+Both fields are opaque to OI-014 core but MUST be interpreted only under the cryptographically pinned principal profile.
+
+The profile MUST define how proofBytes cryptographically binds the exact OI-014 core action signing bytes plus proofContext. It MUST NOT authorize an action from proofBytes that is detached from the action's registryDomain, GrantId/GrantBytes, record/parent context, or purpose domain.
+
+### Proof-type matching
+
+A request MUST use:
+
+- proofType 1 for an OPENIDENTITY acting principal;
+- proofType 2 for a PROFILE_PRINCIPAL acting principal.
+
+A mismatched proof type is invalid.
+
+Implementations MUST NOT reinterpret an OpenIdentity proof as profile proof bytes or vice versa.
+
+### Action requests
+
+Child registration and delegate relinquishment carry one `delegateProof` field.
+
+For OPENIDENTITY, the signing structures remain those defined in Section 3B.
+
+For PROFILE_PRINCIPAL, core constructs the same purpose-specific action context up to the principal-dependent authentication suffix. The owning principal profile then defines a deterministic profile proof binding over that core context and proofContext.
+
+The final CDDL explicitly tags both forms so future principal proof mechanisms can evolve through new profile identities without changing the core request envelope.
+
 ## 4. Canonical DelegationGrant
 
 The initial logical grant contains:
