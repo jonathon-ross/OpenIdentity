@@ -1,6 +1,6 @@
 # Protocol v2 / IdentityState v3 Conformance Plan
 
-**Status:** Draft
+**Status:** RELEASE RECORD — FROZEN-NORMATIVE
 
 ## Positive vectors
 
@@ -31,7 +31,7 @@
 
 ## Invalid/security vectors
 
-Coverage status: VI301-VI308 and VI325-VI327 contain concrete cryptographic proof/domain attack artifacts. VI328 contains concrete duplicate effective-key material. VI309-VI324 and VI329-VI336 contain byte-complete predecessor/operation/proposed-state or malformed SignedOperation/payload artifacts as appropriate to the rejection class. VI337 pins the exact terminal predecessor state and unrepresentable required next sequence for uint64 sequence exhaustion. The complete V301-V324 / VI301-VI337 suite has passed the strict Python checksum/regression gate and independent Java verification. It remains draft/non-normative pending explicit promotion.
+Coverage status: VI301-VI308 and VI325-VI327 contain concrete cryptographic proof/domain attack artifacts. VI328 contains concrete duplicate effective-key material. VI309-VI324 and VI329-VI336 contain byte-complete predecessor/operation/proposed-state or malformed SignedOperation/payload artifacts as appropriate to the rejection class. VI337 pins the exact terminal predecessor state and unrepresentable required next sequence for uint64 sequence exhaustion. The complete V301-V324 / VI301-VI337 suite passed the strict Python checksum/regression gate and independent Java verification and is frozen normative.
 
 - VI301 missing Authentication PoP
 - VI302 Authentication PoP signed under Controller domain
@@ -81,7 +81,7 @@ Every implementation must independently reproduce identical StateBytes and State
 
 ## Current byte-frozen candidate
 
-The security-reviewed Protocol v2 / IdentityState v3 conformance bundle is a **BYTE-FROZEN CANDIDATE** and remains **DRAFT-NON-NORMATIVE** pending explicit promotion.
+The security-reviewed Protocol v2 / IdentityState v3 conformance bundle is **FROZEN-NORMATIVE**.
 
 - File: `test-vectors/generated/protocol-v2-identity-state-v3.json`
 - Coverage: V301-V324 / VI301-VI337
