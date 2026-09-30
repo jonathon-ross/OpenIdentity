@@ -98,4 +98,38 @@ final class EndToEndDelegatedAgentExchangeTest {
   byte[] id=Sha256Multihash.digest("replay".getBytes(StandardCharsets.UTF_8));assertTrue(store.consume(id));assertFalse(store.consume(id));
  }
 
+
+ @Test void fullServiceRejectsUnauthorizedScopeBeforeReplayConsumption(){
+  // Reuse the production service boundary with deterministic verified objects to pin ordering:
+  // capability denial must occur before AssertionId consumption.
+  byte[] root=sha("order-root"),actor=sha("order-actor"),aid=Sha256Multihash.digest("order-assertion".getBytes(StandardCharsets.UTF_8));
+  byte[] eid=Sha256Multihash.digest("order-evidence".getBytes(StandardCharsets.UTF_8));
+  String jkt=Base64.getUrlEncoder().withoutPadding().encodeToString(sha("order-dpop"));
+  long now=2_020_000_000L;
+  var ctx=new OAuthTokenExchangeContextV1("https://as.example.test","client",null,List.of("https://api.example.test/"),List.of(),List.of("admin"),eid,jkt);
+  var subject=new VerifiedDelegatedSubject(root,actor,aid,eid,now+100,List.of());
+  var assertion=new VerifiedAuthenticationAssertion(actor,aid,OAuthTokenExchangeContextV1Encoder.contextHash(ctx),DelegatedAgentProfileVerifier.PURPOSE);
+  AtomicBoolean consumed=new AtomicBoolean();
+  var service=new DelegatedAgentExchangeService(b->subject,r->assertion,x->x,(sub,target,scope)->false,id->{consumed.set(true);return true;},300);
+  var request=new DelegatedAgentExchangeRequest("https://as.example.test","client",null,List.of("https://api.example.test/"),List.of(),List.of("admin"),
+          new byte[]{1},new byte[]{2},sha("nonce"),new ValidatedDpopProof(jkt),now);
+  ProfileException e=assertThrows(ProfileException.class,()->service.exchange(request));
+  assertEquals(ProfileError.TARGET_SCOPE_PAIR_NOT_AUTHORIZED,e.error());assertFalse(consumed.get());
+ }
+
+ @Test void fullServiceRejectsActorAssertionIdSubstitution(){
+  byte[] root=sha("bind-root"),actor=sha("bind-actor"),tokenAid=Sha256Multihash.digest("token-aid".getBytes(StandardCharsets.UTF_8));
+  byte[] otherAid=Sha256Multihash.digest("other-aid".getBytes(StandardCharsets.UTF_8)),eid=Sha256Multihash.digest("bind-evidence".getBytes(StandardCharsets.UTF_8));
+  String jkt=Base64.getUrlEncoder().withoutPadding().encodeToString(sha("bind-dpop"));long now=2_020_001_000L;
+  var ctx=new OAuthTokenExchangeContextV1("https://as.example.test","client",null,List.of(),List.of(),List.of(),eid,jkt);
+  var subject=new VerifiedDelegatedSubject(root,actor,tokenAid,eid,now+100,List.of());
+  var assertion=new VerifiedAuthenticationAssertion(actor,otherAid,OAuthTokenExchangeContextV1Encoder.contextHash(ctx),DelegatedAgentProfileVerifier.PURPOSE);
+  AtomicBoolean consumed=new AtomicBoolean();
+  var service=new DelegatedAgentExchangeService(b->subject,r->assertion,x->x,(sub,target,scope)->true,id->{consumed.set(true);return true;},300);
+  var request=new DelegatedAgentExchangeRequest("https://as.example.test","client",null,List.of(),List.of(),List.of(),
+          new byte[]{1},new byte[]{2},sha("nonce2"),new ValidatedDpopProof(jkt),now);
+  ProfileException e=assertThrows(ProfileException.class,()->service.exchange(request));
+  assertEquals(ProfileError.ASSERTION_CONTEXT_BINDING_MISMATCH,e.error());assertFalse(consumed.get());
+ }
+
 }
