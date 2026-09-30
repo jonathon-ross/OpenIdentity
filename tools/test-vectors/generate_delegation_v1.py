@@ -57,6 +57,44 @@ def build_dg02():
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":2000001000,
       "recordBytesHex":rb.hex(),"recordHashHex":mh(rb).hex()}
 
+
+def build_dg03():
+    registry=b"openidentity:test:oi014:dg03"
+    root=bytes(range(128,160)); delegate=bytes(range(160,192))
+    mid_a=bytes(range(32,48)); mid_b=bytes(range(48,64))
+    a,_,ma=key("OpenIdentity OI-014 DG03 delegation A Ed25519 seed",mid_a)
+    b,_,mb=key("OpenIdentity OI-014 DG03 delegation B Ed25519 seed",mid_b)
+    pa=policy(mid_a,ma); pb=policy(mid_b,mb)
+    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:7200,6:3}
+    pbytes=enc(descriptor); ph=mh(pbytes)
+    grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
+           5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],
+           7:2000010000,9:seed("OpenIdentity OI-014 DG03 nonce")}
+    gb=enc(grant); gid=mh(gb)
+    generation=12
+    before={1:3,2:root,3:20,4:1,5:pa,8:{1:0},9:{1:generation,2:pa}}
+    before_b=enc(before); before_h=mh(before_b)
+    sign=enc(["OpenIdentity Delegation Grant",1,registry,gb,before_h,generation,mid_a])
+    sig=a.sign(sign)
+    record={1:registry,2:gid,3:1,4:None,5:1,6:before_h,7:generation,8:2000003000}
+    rb=enc(record); rh=mh(rb)
+
+    # Root v3 SET_DELEGATION_POLICY A->B / PRESERVE_EXISTING.
+    op={1:2,2:7,3:root,4:21,5:before_h,6:{1:pb,2:0}}
+    ob=enc(op)
+    after={1:3,2:root,3:21,4:1,5:pa,8:{1:0},9:{1:generation,2:pb}}
+    after_b=enc(after); after_h=mh(after_b)
+    return {"id":"DG03","description":"Registered grant survives DelegationPolicy A->B PRESERVE_EXISTING rotation at unchanged generation","expected":"PASS",
+      "profileDescriptorBytesHex":pbytes.hex(),"profileHashHex":ph.hex(),
+      "grantBytesHex":gb.hex(),"grantIdHex":gid.hex(),
+      "registrationStateBytesHex":before_b.hex(),"registrationStateHashHex":before_h.hex(),
+      "registrationSigningBytesHex":sign.hex(),"registrationSignatureHex":sig.hex(),
+      "recordBytesHex":rb.hex(),"recordHashHex":rh.hex(),
+      "rotationOperationBytesHex":ob.hex(),"postRotationStateBytesHex":after_b.hex(),"postRotationStateHashHex":after_h.hex(),
+      "delegationGenerationBefore":generation,"delegationGenerationAfter":generation,
+      "recordHashAfterRotationHex":rh.hex(),"grantUsableAfterRotation":True}
+
+
 def main():
     registry=b"openidentity:test:oi014:dg01"
     root=bytes(range(32))
@@ -99,10 +137,11 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02()]}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03()]}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
     print("DG01 VERIFIED")
     print("DG02 VERIFIED")
+    print("DG03 VERIFIED")
 if __name__=="__main__": main()
