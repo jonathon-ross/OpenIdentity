@@ -42,8 +42,21 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         require("PX01 JWT scope","records.read records.write".equals(jwt.path("scope").asText()));
         require("PX01 JWT cnf.jkt",jkt.equals(jwt.path("cnf").path("jkt").asText()));
         require("PX01 JWT exp",jwt.path("exp").asLong()==exp);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==8);
+        String[] errors={"INVALID_SUBJECT_TOKEN_TYPE","INVALID_ACTOR_TOKEN_TYPE","INVALID_SUBJECT_TOKEN_TRANSPORT","INVALID_ACTOR_TOKEN_TRANSPORT",
+                "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED"};
+        Map<String,JsonNode> m=new HashMap<>();for(int i=0;i<xs.size();i++){JsonNode x=xs.get(i);String id=String.format("PXI%02d",i+1);
+            require(id+" stable error",id.equals(x.path("id").asText())&&errors[i].equals(x.path("expectedError").asText()));m.put(id,x);}
+        require("PXI01 exact subject token type required",!m.get("PXI01").path("submitted").asText().equals(m.get("PXI01").path("required").asText()));
+        require("PXI02 exact actor token type required",!m.get("PXI02").path("submitted").asText().equals(m.get("PXI02").path("required").asText()));
+        require("PXI03 base64url padding rejected",m.get("PXI03").path("paddingPresent").asBoolean()&&m.get("PXI03").path("submitted").asText().contains("="));
+        require("PXI04 non-base64url character rejected",m.get("PXI04").path("submitted").asText().contains(m.get("PXI04").path("invalidCharacter").asText()));
+        require("PXI05 DPoP mandatory",m.get("PXI05").path("required").asBoolean()&&!m.get("PXI05").path("dpopPresent").asBoolean());
+        require("PXI06 DPoP/context mismatch",!m.get("PXI06").path("contextDpopJkt").asText().equals(m.get("PXI06").path("validatedDpopJkt").asText()));
+        require("PXI07 three-way DPoP binding mismatch",m.get("PXI07").path("contextDpopJkt").asText().equals(m.get("PXI07").path("validatedDpopJkt").asText())&&!m.get("PXI07").path("validatedDpopJkt").asText().equals(m.get("PXI07").path("issuedTokenDpopJkt").asText()));
+        require("PXI08 refresh token prohibited",m.get("PXI08").path("refreshTokenRequestedOrIssued").asBoolean()&&!m.get("PXI08").path("refreshTokensAllowed").asBoolean());
         System.out.println("\n============================================");
-        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01 VERIFIED");
+        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01 + PXI01-PXI08 VERIFIED");
         System.out.println("============================================");
     }
 }
