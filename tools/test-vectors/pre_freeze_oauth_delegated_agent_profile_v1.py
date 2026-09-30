@@ -41,12 +41,11 @@ def main():
     run("Generate draft delegated-agent profile vectors",[sys.executable,"tools/test-vectors/generate_oauth_delegated_agent_profile_v1.py"])
     run("Verify draft delegated-agent profile vectors",[sys.executable,"tools/test-vectors/verify_oauth_delegated_agent_profile_v1.py"])
     candidate=ROOT/"checksums"/"oauth-delegated-agent-profile-v1.json.sha256"
-    if candidate.is_file():
-        run("Verify delegated-agent profile byte-frozen candidate",
-            [sys.executable,"tools/test-vectors/verify_oauth_delegated_agent_profile_v1_freeze_candidate.py"])
-    else:
-        print("\n[Delegated-agent profile freeze candidate]")
-        print("[INFO] No candidate checksum present; semantic pre-freeze checks continue.")
+    if not candidate.is_file():
+        print("\nDELEGATED AGENT PROFILE v1 PRE-FREEZE GATE: FAIL (committed byte-frozen candidate checksum missing)")
+        raise SystemExit(1)
+    run("Verify committed delegated-agent profile byte-frozen candidate",
+        [sys.executable,"tools/test-vectors/verify_oauth_delegated_agent_profile_v1_freeze_candidate.py"])
     mvn=maven(a.maven)
     if not mvn:
         print("\nDELEGATED AGENT PROFILE v1 PRE-FREEZE GATE: FAIL (Maven executable not found)");raise SystemExit(1)
@@ -63,6 +62,6 @@ def main():
     print("\n============================================================")
     print("OAUTH DELEGATED AGENT PROFILE v1 PRE-FREEZE RELEASE GATE: PASS")
     print("============================================================")
-    print("\nStatus: PX01-PX03 + PXI01-PXI37 verified in Python and Java; NOT BYTE-FROZEN; NOT NORMATIVE.")
-    print("Frozen OI-014/OI-015/OI-016/context dependencies remain unchanged.")
+    print("\nStatus: PX01-PX03 + PXI01-PXI37 verified in Python and Java; BYTE-FROZEN CANDIDATE; NOT YET NORMATIVE.")
+    print("Next: final normative profile/specification review before promotion. Frozen dependencies remain unchanged.")
 if __name__=="__main__":main()
