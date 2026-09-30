@@ -123,13 +123,15 @@ public final class DelegatedSubjectV1Vectors {
     }
 
     static void verifyInvalids(JsonNode d)throws Exception{
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==22);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==28);
         String[] errors={"INVALID_DELEGATED_SUBJECT_VERSION","EMPTY_DELEGATION_PATH","DELEGATION_PATH_TOO_DEEP","GRANT_ID_MISMATCH",
                 "INVALID_GRANT_EVIDENCE","PARENT_GRANT_MISMATCH","ROOT_GRANTOR_MISMATCH","ISSUER_DELEGATE_MISMATCH","INVALID_DELEGATION_EVIDENCE",
                 "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE",
                 "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE",
                 "ACTOR_ASSERTION_ID_MISMATCH","ACTOR_IDENTITY_MISMATCH","DELEGATION_CONTEXT_MISMATCH","ACTOR_ASSERTION_ID_MISMATCH",
-                "DELEGATION_EVIDENCE_TOO_LARGE","INVALID_DELEGATION_EVIDENCE","INVALID_DELEGATION_EVIDENCE"};
+                "DELEGATION_EVIDENCE_TOO_LARGE","INVALID_DELEGATION_EVIDENCE","INVALID_DELEGATION_EVIDENCE",
+                "INVALID_DELEGATED_SUBJECT_TOKEN","INVALID_ROOT_GRANT","INVALID_DELEGATION_EVIDENCE",
+                "INVALID_DELEGATION_EVIDENCE","INVALID_GRANT_EVIDENCE","INVALID_DELEGATED_SUBJECT_TOKEN"};
         require("stable error table size",errors.length==xs.size());
         Map<String,JsonNode> m=new HashMap<>();
         for(int i=0;i<xs.size();i++){JsonNode v=xs.get(i);String id=String.format("DSI%02d",i+1);
@@ -166,6 +168,12 @@ public final class DelegatedSubjectV1Vectors {
         require("DSI21 splice lacks parent linkage",!i21.path("splicedNextParentGrantIdPresent").asBoolean());
         JsonNode i22=m.get("DSI22");Set<String> ids22=new HashSet<>();boolean dup22=false;for(JsonNode x:i22.path("submittedGrantIdsHex"))if(!ids22.add(x.asText()))dup22=true;
         require("DSI22 duplicate/cycle GrantId",dup22);
+        require("DSI23 malformed top-level token shape",!m.get("DSI23").path("submittedTopLevelType").asText().equals(m.get("DSI23").path("requiredTopLevelType").asText()));
+        require("DSI24 first element is not root/direct grant",m.get("DSI24").path("parentGrantIdPresent").asBoolean());
+        require("DSI25 empty registryDomain",m.get("DSI25").path("registryDomainLength").asInt()<m.get("DSI25").path("minimumRegistryDomainLength").asInt());
+        require("DSI26 registryDomain above maximum",m.get("DSI26").path("registryDomainLength").asInt()>m.get("DSI26").path("maximumRegistryDomainLength").asInt());
+        require("DSI27 malformed GrantId length",m.get("DSI27").path("submittedGrantIdLength").asInt()!=m.get("DSI27").path("requiredGrantIdLength").asInt());
+        require("DSI28 malformed actorAssertionId length",m.get("DSI28").path("submittedActorAssertionIdLength").asInt()!=m.get("DSI28").path("requiredActorAssertionIdLength").asInt());
     }
 
     public static void main(String[] args)throws Exception{
@@ -176,7 +184,7 @@ public final class DelegatedSubjectV1Vectors {
         require("vector IDs DS01-DS06",d.path("vectors").size()==6&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS06".equals(d.path("vectors").get(5).path("id").asText()));
         verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));verifyDS03to06(d);verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS06 + DSI01-DSI22 VERIFIED");
+        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS06 + DSI01-DSI28 VERIFIED");
         System.out.println("============================================");
     }
 }
