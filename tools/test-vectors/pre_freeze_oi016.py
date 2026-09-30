@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified pre-freeze gate for draft OI-016 Delegated Subject Token v1."""
+"""Frozen-normative release gate for OI-016 Delegated Subject Token v1."""
 from __future__ import annotations
 import argparse,os,shutil,subprocess,sys
 from pathlib import Path
@@ -22,7 +22,7 @@ PROTECTED=[
 def run(label,cmd,cwd=ROOT):
     print(f"\n[{label}]");p=subprocess.run(cmd,cwd=cwd)
     if p.returncode:
-        print(f"\nOI-016 PRE-FREEZE GATE: FAIL ({label})");raise SystemExit(p.returncode)
+        print(f"\nOI-016 FROZEN-NORMATIVE GATE: FAIL ({label})");raise SystemExit(p.returncode)
     print(f"[PASS] {label}")
 def parse():
     p=argparse.ArgumentParser();p.add_argument("--maven",help="Path/name of Maven launcher. Overrides OI016_MAVEN and PATH.");return p.parse_args()
@@ -60,8 +60,8 @@ def main():
         print("\nOI-016 PRE-FREEZE GATE: FAIL (previously frozen commitment/artifact changed)");raise SystemExit(1)
     print("[PASS] Previously frozen commitments/artifacts unchanged")
     print("\n============================================================")
-    print("OI-016 PRE-FREEZE RELEASE GATE: PASS")
+    print("OI-016 FROZEN-NORMATIVE RELEASE GATE: PASS")
     print("============================================================")
-    print("\nStatus: DS01-DS06 + DSI01-DSI28 verified in Python and Java; BYTE-FROZEN CANDIDATE; NOT YET NORMATIVE.")
-    print("Next: final normative spec/CDDL/documentation review before promotion.")
+    print("\nStatus: OI-016 v1 frozen-normative DS01-DS06 + DSI01-DSI28 and committed byte checksum verified.")
+    print("Frozen OI-016 v1 bytes MUST NOT change without an explicit protocol revision.")
 if __name__=="__main__":main()
