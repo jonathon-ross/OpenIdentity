@@ -1,12 +1,12 @@
 # OI-016 Delegated Subject Token v1 — Pre-Freeze Conformance Review
 
-**Status:** DRAFT — pre-freeze review  
-**Scope:** OI-016 Delegated Subject Token v1 candidate semantics and wire schema  
-**Candidate CDDL:** `spec/cddl/openidentity-delegated-subject-v1.cddl`
+**Status:** RELEASE RECORD — OI-016 v1 FROZEN-NORMATIVE  
+**Scope:** OI-016 Delegated Subject Token v1 frozen semantics and wire schema  
+**Normative CDDL:** `spec/cddl/openidentity-delegated-subject-v1.cddl`
 
 ## 1. Current evidence
 
-The draft conformance bundle contains:
+The frozen normative conformance bundle contains:
 
 - positive vectors DS01-DS06;
 - adversarial vectors DSI01-DSI28;
@@ -119,7 +119,7 @@ OI-016 uses:
 
 ## 6. Envelope bounds
 
-Candidate v1:
+Normative v1:
 
     registryDomain:             1..128 bytes
     GrantBytes:                 1..65,536 bytes each
@@ -145,17 +145,18 @@ Parser/unit suites remain responsible for cases such as:
 
 OI-016 requires complete frozen OI-014 and OI-015 verification rather than duplicating those suites.
 
-## 8. Cross-language requirements before byte freeze
+## 8. Release evidence
 
-Before establishing an OI-016 candidate checksum:
+The OI-016 v1 release boundary is:
 
-1. run the unified OI-016 pre-freeze gate;
-2. require Python DS01-DS06 + DSI01-DSI28 PASS;
-3. require Java DS01-DS06 + DSI01-DSI28 PASS;
-4. confirm all previously frozen commitments/artifacts remain unchanged;
-5. review design-plan/CDDL/vector terminology and exact labels;
-6. confirm clean worktree after deterministic regeneration;
-7. only then create a byte-freeze candidate checksum.
+- coverage: DS01-DS06 + DSI01-DSI28;
+- deterministic Python generation and independent Python verification: PASS;
+- independent Java reconstruction/verification: PASS;
+- all previously frozen commitments/artifacts: unchanged;
+- exact generated bundle size: 33,491 bytes;
+- committed checksum: `checksums/delegated-subject-v1.json.sha256`;
+- SHA-256: `0e9b8f56782ac5bca67d1694b3ff2309abe32e08a8daf22db212411ad31bb08e`;
+- post-commit candidate-inclusive release gate: PASS.
 
 ## 9. Freeze status
 
