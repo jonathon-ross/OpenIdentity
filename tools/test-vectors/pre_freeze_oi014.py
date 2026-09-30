@@ -5,7 +5,7 @@ This gate verifies draft OI-014 vectors and independently invokes the Java
 reconstruction. It does NOT freeze OI-014 or create its checksum.
 """
 from __future__ import annotations
-import subprocess, sys
+import os, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -35,13 +35,20 @@ def main():
     run("Generate draft OI-014 vectors",[sys.executable,"tools/test-vectors/generate_delegation_v1.py"])
     run("Verify draft OI-014 vectors",[sys.executable,"tools/test-vectors/verify_delegation_v1.py"])
     java=ROOT/"tools"/"test-vectors-java"
+    # Maven's Windows launcher is mvn.cmd; POSIX installations use mvn.
+    candidates=["mvn.cmd","mvn"] if os.name=="nt" else ["mvn","mvn.cmd"]
+    maven=next((shutil.which(x) for x in candidates if shutil.which(x)),None)
+    if not maven:
+        print("\nRELEASE GATE: FAIL (Maven executable not found on PATH)")
+        print("Run this gate from an environment where Maven is available, or add Maven's bin directory to PATH.")
+        raise SystemExit(1)
     run("Independent Java OI-014 verification",
-        ["mvn","-q","compile","exec:java","-Dexec.mainClass=org.openidentity.vectors.DelegationV1Vectors"],java)
+        [maven,"-q","compile","exec:java","-Dexec.mainClass=org.openidentity.vectors.DelegationV1Vectors"],java)
 
     print("\n[Frozen v0.1 artifact integrity]")
     p=subprocess.run(["git","diff","--quiet","--",*FROZEN_PATHS],cwd=ROOT)
     if p.returncode!=0:
-        subprocess.run(["git","diff","--","--",*FROZEN_PATHS],cwd=ROOT)
+        subprocess.run(["git","diff","--",*FROZEN_PATHS],cwd=ROOT)
         print("\nRELEASE GATE: FAIL (frozen v0.1 artifact/checksum changed)")
         raise SystemExit(1)
     print("[PASS] No tracked frozen v0.1 artifact/checksum changed")
