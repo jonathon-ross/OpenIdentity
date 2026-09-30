@@ -94,11 +94,38 @@ def invalids():
         terminalDelegateHex=px01()["terminalDelegateHex"],oi015IdentityHex=bytes(range(1,33)).hex())
     add("PXI17","ASSERTION_CONTEXT_BINDING_MISMATCH","assertion-or-context-cross-binding-fails",
         actorAssertionIdMatches=False,contextHashMatches=False)
+    # PXI18-PXI27: issuance/output invariants and safe public error projection.
+    base=px01();dec=base["expectedDecision"];jwt=base["expectedJwtProjection"]
+    add("PXI18","ACCESS_TOKEN_OUTLIVES_DELEGATION","exp-beyond-earliest-delegation-expiry",
+        issuedExp=base["childExpiresAt"]+1,maximumAllowedExp=base["childExpiresAt"])
+    add("PXI19","ACCESS_TOKEN_LIFETIME_EXCEEDED","exp-beyond-deployment-maximum",
+        issuedExp=base["verificationTime"]+base["maximumAccessTokenLifetimeSeconds"]+1,
+        maximumAllowedExp=base["verificationTime"]+base["maximumAccessTokenLifetimeSeconds"])
+    add("PXI20","INVALID_SUBJECT_PROJECTION","jwt-sub-not-root-grantor",
+        expectedSub=base["rootGrantorHex"],issuedSub=bytes(range(1,33)).hex())
+    add("PXI21","INVALID_ACTOR_PROJECTION","jwt-act-sub-not-terminal-delegate",
+        expectedActor=base["terminalDelegateHex"],issuedActor=bytes(range(1,33)).hex())
+    add("PXI22","OUTPUT_SCOPE_AMPLIFICATION","issued-scope-not-authorized",
+        authorizedScopes=base["requestedScopes"],issuedScopes=base["requestedScopes"]+["records.delete"])
+    add("PXI23","OUTPUT_AUDIENCE_AMPLIFICATION","issued-audience-not-authorized",
+        authorizedAudiences=base["resolvedTargets"],issuedAudiences=base["resolvedTargets"]+["https://admin.example.test/"])
+    add("PXI24","MISSING_DPOP_CONFIRMATION","jwt-cnf-jkt-missing",
+        expectedJkt=base["dpopJkt"],cnfJktPresent=False)
+    other=base64.urlsafe_b64encode(h(b"OpenIdentity PXI25 wrong output DPoP key")).rstrip(b"=").decode()
+    add("PXI25","DPOP_TOKEN_BINDING_MISMATCH","jwt-cnf-jkt-wrong",
+        expectedJkt=base["dpopJkt"],issuedJkt=other)
+    add("PXI26","REFRESH_TOKEN_NOT_ALLOWED","token-response-contains-refresh-token",
+        refreshTokenPresent=True,refreshTokensAllowed=False)
+    add("PXI27","SENSITIVE_ERROR_DISCLOSURE","public-error-leaks-internal-delegation-state",
+        internalError="DELEGATION_NOT_CURRENTLY_USABLE",
+        publicError="invalid_request",
+        publicErrorDescription="GrantId abc is REVOKED",
+        forbiddenDisclosure="REVOKED")
     return out
 
 def main():
     d={"specification":"OpenIdentity OAuth 2.0 Delegated Agent Profile v1","status":"DRAFT-NON-NORMATIVE",
        "vectors":[px01()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(d,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("PX01 GENERATED");print("PXI01-PXI17 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("PX01 GENERATED");print("PXI01-PXI27 GENERATED")
 if __name__=="__main__":main()
