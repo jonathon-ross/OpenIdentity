@@ -670,6 +670,125 @@ A profile descriptor may be distributed through an OpenIdentity registry, HTTPS,
 
 Unavailable required profile semantics cause fail-closed behavior.
 
+## 4D. Canonical ProfileDescriptor envelope
+
+OI-014 v1 defines a canonical ProfileDescriptor envelope so every ProfileRef can be independently content-addressed across implementations.
+
+The envelope commits to immutable profile semantics without requiring OI-014 core to understand or execute those semantics.
+
+Logical form:
+
+    ProfileDescriptor {
+        descriptorVersion
+        profileKind
+        semanticSpecHash
+        maxGrantLifetime
+        maxDelegationDepth
+        profileParameters
+    }
+
+### descriptorVersion
+
+OI-014 v1 uses descriptorVersion 1.
+
+The descriptor version defines the canonical envelope interpretation. A future incompatible envelope requires another descriptorVersion.
+
+### profileKind
+
+The value MUST match the ProfileRef kind:
+
+    1 = CAPABILITY
+    2 = PRINCIPAL
+
+A descriptor hashed as one kind MUST NOT be interpreted as another.
+
+### semanticSpecHash
+
+`semanticSpecHash` is a SHA2-256 Multihash of the exact immutable normative semantic specification bytes selected by the profile.
+
+The profile definition MUST state the media/serialization format whose exact bytes are hashed. Mutable URLs, repository branches, package tags, "latest" references, or human-readable version labels are not semanticSpecHash.
+
+Distribution metadata MAY provide locations from which those bytes can be retrieved, but retrieval location is not authority.
+
+### maxGrantLifetime
+
+For CAPABILITY profiles, this is the maximum permitted grant lifetime in whole seconds.
+
+For PRINCIPAL profiles that do not define capability grants, the value MUST be zero.
+
+A capability profile may impose a smaller limit through profileParameters for particular capabilities/resources, but never a larger value than this envelope maximum.
+
+### maxDelegationDepth
+
+For CAPABILITY profiles, this is the finite maximum chain depth permitted by the profile and MUST be >= 1.
+
+For PRINCIPAL profiles, the value MUST be zero.
+
+### profileParameters
+
+`profileParameters` is deterministic profile-owned canonical bytes.
+
+It commits to any additional machine-readable rules needed by the profile, such as:
+
+- capability identifier universe/rules;
+- implication relationships;
+- resource constraint grammar;
+- resource coverage rules;
+- redelegation rules;
+- principal identifier syntax;
+- authentication/attestation requirements;
+- key-rotation continuity;
+- relinquishment proof requirements.
+
+OI-014 core treats profileParameters as opaque bytes. The profile specification defines their internal canonical representation.
+
+An empty parameter set is encoded as a zero-length byte string, not omitted.
+
+### Canonical descriptor bytes and ProfileRef
+
+The candidate v1 canonical map is:
+
+    {
+      1: descriptorVersion,
+      2: profileKind,
+      3: semanticSpecHash,
+      4: maxGrantLifetime,
+      5: maxDelegationDepth,
+      6: profileParameters
+    }
+
+Then:
+
+    ProfileBytes = deterministicCBOR(ProfileDescriptor)
+    profileHash  = 0x12 || 0x20 || SHA-256(ProfileBytes)
+
+ProfileRef contains:
+
+    {
+      1: profileKind,
+      2: profileHash
+    }
+
+The ProfileRef profileKind MUST equal the committed ProfileDescriptor profileKind.
+
+### Why the semantic specification is separately hashed
+
+Hashing the descriptor alone would only commit to whatever opaque parameter bytes happen to be present. `semanticSpecHash` also commits to the complete human- and implementation-readable normative semantics governing those bytes.
+
+This permits compact GrantBytes while preventing two implementations from attaching different prose/algorithms to the same profile identity.
+
+### Resolution
+
+To evaluate a ProfileRef, an implementation must obtain:
+
+1. exact ProfileDescriptor bytes whose SHA2-256 Multihash equals ProfileRef.profileHash;
+2. exact semantic specification bytes whose SHA2-256 Multihash equals descriptor.semanticSpecHash;
+3. any profile-defined interpreter/code necessary to implement those pinned semantics.
+
+Missing material or unsupported semantics fail closed.
+
+Implementations MAY cache verified descriptors/specifications by hash.
+
 ## 5. Canonical bytes and GrantId
 
 GrantBytes are deterministic RFC 8949 CBOR encoding of the complete DelegationGrant.
