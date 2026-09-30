@@ -705,3 +705,88 @@ This directly follows frozen OI-014's distinction:
 11. Are refresh tokens ever permitted for delegated OpenIdentity exchanges?
 
 No bridge/delegated-subject wire format is frozen until these questions are resolved.
+
+
+## 24. Capability, scope, and resource attenuation — DECISION
+
+OAuth scope values are service-specific. OpenIdentity defines no global capability-to-scope registry and MUST NOT assume that an OI-014 capabilityId is an OAuth scope string.
+
+### 24.1 Mapping ownership
+
+Each pinned OI-014 CAPABILITY Profile that supports this bridge defines deterministic semantics for deciding whether an effective DelegatedCapability authorizes an OAuth target/scope pair.
+
+Those semantics are committed by the OI-014 ProfileHash. Unknown/unavailable profiles, or profiles without an OAuth mapping for the requested authority, fail closed.
+
+### 24.2 No implicit name equality
+
+Implementations MUST NOT grant authority merely because capabilityId bytes equal OAuth scope bytes or because names appear similar. Equality matters only when the pinned profile explicitly defines it.
+
+### 24.3 Effective authority first
+
+The bridge first completes frozen OI-014 verification and attenuation for the selected path. Only the resulting effective authority may be projected into OAuth. Authority attenuated away by descendants MUST NOT reappear during OAuth mapping.
+
+### 24.4 OAuth targets versus OI-014 resource constraints
+
+OAuth resource/audience values identify target services. OI-014 resourceConstraint has capability-profile-defined semantics.
+
+The bridge MUST NOT assume an RFC 8707 resource URI is byte-equal to an OI-014 resourceConstraint. The pinned capability profile defines how resolved OAuth targets relate to its resource constraints.
+
+### 24.5 Cartesian-product authorization
+
+RFC 8693 defines requested scope plus requested target services as asking for the requested scopes at all targets.
+
+The bridge evaluates:
+
+    for target in resolvedTargets:
+        for scope in requestedScopes:
+            require explicitlyAllowed(target, scope)
+
+Every pair must be authorized by the effective OI-014 authority.
+
+OI-016 OAuth profile v1 uses atomic/fail-closed fulfillment. It MUST NOT silently drop an unauthorized scope or target and issue a narrower token.
+
+### 24.6 Resource and audience resolution
+
+resource and audience are distinct OAuth identifier forms and are not automatic aliases.
+
+The authorization server owns deterministic policy mapping:
+
+    resource URI -> target identity
+    audience value -> target identity
+
+A deployment may map both forms to one logical target, but the mapping must be unambiguous. Unknown or unsupported targets fail closed.
+
+### 24.7 Multiple targets
+
+Because multi-resource tokens increase cross-resource trust, the bridge SHOULD prefer one resolved target per issued access token.
+
+Multiple targets are permitted only when every target is context-bound, every target/scope pair is authorized, the output token safely represents all intended audiences, and deployment policy accepts the trust relationship.
+
+Profiles/deployments MAY impose a stricter single-target rule.
+
+### 24.8 No authority amplification
+
+Conceptually:
+
+    effectiveDelegatedAuthority =
+        verifyAndAttenuate(OI014 path)
+
+    requestedOAuthAuthority =
+        requestedScopes x resolvedTargets
+
+    require:
+        map(requestedOAuthAuthority)
+            subset-of
+        effectiveDelegatedAuthority
+
+OAuth processing MUST NOT manufacture capabilities, widen resource constraints, restore attenuated authority, or infer permission from unmapped scopes.
+
+### 24.9 Absent scope
+
+Absent OAuth scope does not mean unlimited delegated authority.
+
+Normal authorization-server default scopes may be used only when deployment/profile policy defines them, and every actually issued default scope must pass the same OI-014 mapping and attenuation checks.
+
+### 24.10 Output scope
+
+The issued token contains only the requested/default scopes that passed mapping. Under the v1 atomic model, any unauthorized requested scope or target causes the exchange to fail rather than silently narrow.
