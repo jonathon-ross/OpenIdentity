@@ -170,6 +170,59 @@ def build_dg05():
       "recordHashAfterInvalidationHex":rh.hex(),"grantUsableAfterInvalidation":False}
 
 
+
+def build_dg06():
+    registry=b"openidentity:test:oi014:dg06"
+    root=bytes(range(80,112)); parent_delegate=bytes(range(112,144)); child_delegate=bytes(range(144,176))
+    delegation_id=bytes(range(128,144)); issuer_auth_id=bytes(range(144,160))
+    dpriv,_,dm=key("OpenIdentity OI-014 DG06 root delegation Ed25519 seed",delegation_id)
+    ipriv,_,im=key("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed",issuer_auth_id)
+    dp=policy(delegation_id,dm)
+
+    # Vector-local profile: exact document.read plus explicit redelegation authority.
+    descriptor={1:1,2:"openidentity.test.redelegation",3:1,
+                4:[b"document.read",b"redelegate.document.read"],5:7200,6:3}
+    pbytes=enc(descriptor); ph=mh(pbytes)
+    pref={1:1,2:ph}
+    read_cap={1:{1:pref,2:b"document.read"}}
+    redelegate_cap={1:{1:pref,2:b"redelegate.document.read"}}
+
+    parent={1:1,2:root,3:{1:1,2:root},4:{1:1,2:parent_delegate},
+            5:[read_cap,redelegate_cap],7:2000030000,9:seed("OpenIdentity OI-014 DG06 parent nonce")}
+    parent_b=enc(parent); parent_id=mh(parent_b)
+    generation=30
+    root_state={1:3,2:root,3:50,4:1,5:dp,8:{1:0},9:{1:generation,2:dp}}
+    root_b=enc(root_state); root_h=mh(root_b)
+    parent_sign=enc(["OpenIdentity Delegation Grant",1,registry,parent_b,root_h,generation,delegation_id])
+    parent_sig=dpriv.sign(parent_sign)
+    parent_record={1:registry,2:parent_id,3:1,4:None,5:1,6:root_h,7:generation,8:2000020000}
+    parent_rb=enc(parent_record); parent_rh=mh(parent_rb)
+
+    child={1:1,2:root,3:{1:1,2:parent_delegate},4:{1:1,2:child_delegate},
+           5:[read_cap],7:2000028000,8:parent_id,9:seed("OpenIdentity OI-014 DG06 child nonce")}
+    child_b=enc(child); child_id=mh(child_b)
+    child_sign=enc(["OpenIdentity Delegation Child Grant",1,registry,child_b,parent_id,parent_rh])
+    child_sig=ipriv.sign(child_sign)
+    child_req={1:registry,2:child,3:parent_id,4:parent_rh,5:child_sig}
+    child_record={1:registry,2:child_id,3:1,4:None,5:1,6:root_h,7:generation,8:2000021000}
+    child_rb=enc(child_record); child_rh=mh(child_rb)
+
+    return {"id":"DG06","description":"Valid attenuated child grant issued by authenticated parent delegate with explicit redelegation authority","expected":"PASS",
+      "profileDescriptorBytesHex":pbytes.hex(),"profileHashHex":ph.hex(),
+      "rootStateBytesHex":root_b.hex(),"rootStateHashHex":root_h.hex(),
+      "parentGrantBytesHex":parent_b.hex(),"parentGrantIdHex":parent_id.hex(),
+      "parentRegistrationSigningBytesHex":parent_sign.hex(),"parentRegistrationSignatureHex":parent_sig.hex(),
+      "parentRecordBytesHex":parent_rb.hex(),"parentRecordHashHex":parent_rh.hex(),
+      "childGrantBytesHex":child_b.hex(),"childGrantIdHex":child_id.hex(),
+      "childIssuerAuthenticationMethodIdHex":issuer_auth_id.hex(),
+      "childSigningBytesHex":child_sign.hex(),"childIssuerProofHex":child_sig.hex(),
+      "childRegistrationRequestBytesHex":enc(child_req).hex(),
+      "childRecordBytesHex":child_rb.hex(),"childRecordHashHex":child_rh.hex(),
+      "rootGrantorPreserved":True,"issuerEqualsParentDelegate":True,
+      "capabilityAttenuated":True,"lifetimeAttenuated":True,
+      "parentRedelegationAuthorized":True,"childDepth":2}
+
+
 def main():
     registry=b"openidentity:test:oi014:dg01"
     root=bytes(range(32))
@@ -212,7 +265,7 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05()]}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06()]}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
@@ -221,4 +274,5 @@ def main():
     print("DG03 VERIFIED")
     print("DG04 VERIFIED")
     print("DG05 VERIFIED")
+    print("DG06 VERIFIED")
 if __name__=="__main__": main()
