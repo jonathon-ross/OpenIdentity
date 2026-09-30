@@ -230,7 +230,9 @@ child-registration-request = {
     2 => delegation-grant,
     3 => grant-id,                   ; exact parentGrantId
     4 => record-hash,                ; current parent RecordHash
-    5 => bytes .size (1..8192)       ; issuer/delegate proof
+    5 => state-hash,                 ; current OPENIDENTITY delegate StateHash
+    6 => uint64,                     ; authenticationGeneration
+    7 => [1* method-signature]        ; current AuthenticationPolicy proofs
 }
 
 ; The profile proof MUST bind at least this core signing input.
@@ -240,7 +242,10 @@ child-registration-signing-structure = [
     registry-domain,
     bytes,                           ; exact child GrantBytes
     grant-id,                        ; parentGrantId
-    record-hash                      ; current parent RecordHash
+    record-hash,                     ; current parent RecordHash
+    state-hash,                      ; current delegate StateHash
+    uint64,                          ; authenticationGeneration
+    verification-method-id
 ]
 
 ; ---------------------------------------------------------------------------
@@ -278,8 +283,9 @@ delegate-relinquishment-request = {
     2 => grant-id,
     3 => record-hash,                ; currentRecordHash
     4 => uint64,                     ; nextRevision
-    5 => delegate-principal,
-    6 => bytes .size (1..8192)       ; delegate proof
+    5 => state-hash,                 ; current OPENIDENTITY delegate StateHash
+    6 => uint64,                     ; authenticationGeneration
+    7 => [1* method-signature]        ; current AuthenticationPolicy proofs
 }
 
 delegate-relinquishment-signing-structure = [
@@ -289,7 +295,9 @@ delegate-relinquishment-signing-structure = [
     grant-id,
     record-hash,
     uint64,
-    delegate-principal
+    state-hash,
+    uint64,
+    verification-method-id
 ]
 
 ; ---------------------------------------------------------------------------
@@ -316,7 +324,10 @@ delegate-relinquishment-signing-structure = [
 ; - parent record MUST be authoritative, ACTIVE, usable, and in same registryDomain
 ; - child rootGrantor MUST equal parent rootGrantor
 ; - child issuer MUST equal parent delegate
-; - issuer proof MUST authenticate that exact principal
+; - for OPENIDENTITY issuer, current IdentityState MUST be ACTIVE
+; - current AuthenticationPolicy MUST be present
+; - issuer proof MUST satisfy the current AuthenticationPolicy
+; - proof MUST bind exact current delegate StateHash and authentication generation
 ; - parent must explicitly authorize redelegation of every child capability/resource
 ; - all capability/resource/time/profile constraints MUST strictly attenuate/equal parent
 ; - parent chain MUST be acyclic and within profile maximum depth
@@ -345,7 +356,9 @@ delegate-relinquishment-signing-structure = [
 ; - historical root authorization is stale
 ;
 ; Relinquishment:
-; - delegate proof MUST authenticate exact current grant delegate
+; - OPENIDENTITY delegate proof MUST satisfy exact current AuthenticationPolicy
+; - proof MUST bind exact current delegate StateHash and authentication generation
+; - PROFILE_PRINCIPAL uses its pinned principal-profile proof semantics
 ; - proof purpose is distinct from grantor revocation
 ;
 ; Profiles:
