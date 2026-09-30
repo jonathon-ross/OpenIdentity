@@ -211,6 +211,32 @@ registered-grant-state = {
 ; RecordBytes = deterministic CBOR(registered-grant-state)
 ; RecordHash  = 0x12 || 0x20 || SHA-256(RecordBytes)
 
+;
+; ---------------------------------------------------------------------------
+; DelegateProof
+; ---------------------------------------------------------------------------
+
+; proofType registry
+; 1 = OPENIDENTITY
+; 2 = PROFILE_PRINCIPAL
+delegate-proof-type = 1 / 2
+
+openidentity-delegate-proof = {
+    1 => 1,
+    2 => state-hash,                 ; current delegate StateHash
+    3 => uint64,                     ; authenticationGeneration
+    4 => [1* method-signature]        ; current AuthenticationPolicy proofs
+}
+
+profile-principal-proof = {
+    1 => 2,
+    2 => principal-profile-ref,
+    3 => bytes,                      ; deterministic profile-owned proofContext
+    4 => bytes .size (1..8192)       ; deterministic profile-owned proofBytes
+}
+
+delegate-proof = openidentity-delegate-proof / profile-principal-proof
+
 ; ---------------------------------------------------------------------------
 ; Signatures / proof envelopes
 ; ---------------------------------------------------------------------------
@@ -262,9 +288,7 @@ child-registration-request = {
     2 => delegation-grant,
     3 => grant-id,                   ; exact parentGrantId
     4 => record-hash,                ; current parent RecordHash
-    5 => state-hash,                 ; current OPENIDENTITY delegate StateHash
-    6 => uint64,                     ; authenticationGeneration
-    7 => [1* method-signature]        ; current AuthenticationPolicy proofs
+    5 => delegate-proof
 }
 
 ; The profile proof MUST bind at least this core signing input.
@@ -315,9 +339,7 @@ delegate-relinquishment-request = {
     2 => grant-id,
     3 => record-hash,                ; currentRecordHash
     4 => uint64,                     ; nextRevision
-    5 => state-hash,                 ; current OPENIDENTITY delegate StateHash
-    6 => uint64,                     ; authenticationGeneration
-    7 => [1* method-signature]        ; current AuthenticationPolicy proofs
+    5 => delegate-proof
 }
 
 delegate-relinquishment-signing-structure = [
