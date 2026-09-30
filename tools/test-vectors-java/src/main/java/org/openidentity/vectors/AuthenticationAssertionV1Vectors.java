@@ -155,7 +155,7 @@ public final class AuthenticationAssertionV1Vectors {
     }
 
     static void verifyInvalids(JsonNode d)throws Exception{
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==23);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==31);
         String[] errors={"INVALID_STATE_HASH","INVALID_AUTHENTICATION_GENERATION","IDENTITY_NOT_ACTIVE","AUTHENTICATION_POLICY_ABSENT",
                 "AUDIENCE_MISMATCH","PURPOSE_MISMATCH","NONCE_MISMATCH","CONTEXT_HASH_MISMATCH","INVALID_TIME_RANGE","ASSERTION_LIFETIME_EXCEEDED",
                 "ASSERTION_EXPIRED","ASSERTION_NOT_YET_VALID","UNAUTHORIZED_AUTHENTICATION_PROOF","DUPLICATE_AUTHENTICATION_PROOF",
@@ -163,7 +163,7 @@ public final class AuthenticationAssertionV1Vectors {
                 "PURPOSE_MISMATCH","AUDIENCE_MISMATCH","INVALID_AUTHENTICATION_GENERATION","INVALID_AUTHENTICATION_ASSERTION",
                 "INVALID_AUTHENTICATION_ASSERTION","INVALID_AUTHENTICATION_ASSERTION"};
         Map<String,JsonNode> m=new HashMap<>();
-        for(int i=0;i<23;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
+        for(int i=0;i<31;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
         JsonNode i1=m.get("AAI01");Key k=new Key("OpenIdentity OI-015 invalid authentication seed");
         require("AAI01 historical signature cryptographically verifies",k.verify(hex(i1.path("signingBytesHex").asText()),hex(i1.path("signatureHex").asText())));
         require("AAI01 historical StateHash is not current",!i1.path("historicalStateHashHex").asText().equals(i1.path("currentStateHashHex").asText()));
@@ -198,6 +198,16 @@ public final class AuthenticationAssertionV1Vectors {
         require("AAI21 purpose violates lowercase ASCII grammar",!m.get("AAI21").path("purpose").asText().matches("^[a-z0-9](?:[a-z0-9._-]{0,253}[a-z0-9])?$"));
         require("AAI22 nonce below minimum",m.get("AAI22").path("nonceLength").asInt()<m.get("AAI22").path("minimumNonceLength").asInt());
         require("AAI23 unsupported contextHash multihash",m.get("AAI23").path("submittedMultihashCode").asInt()!=m.get("AAI23").path("expectedMultihashCode").asInt());
+        require("AAI24 unsupported assertion version",m.get("AAI24").path("assertionVersion").asInt()!=m.get("AAI24").path("supportedVersion").asInt());
+        require("AAI25 identity mismatch",!m.get("AAI25").path("assertedIdentityHex").asText().equals(m.get("AAI25").path("currentStateIdentityHex").asText()));
+        JsonNode i26=m.get("AAI26");byte[] p260=hex(i26.path("submittedMethodIdsHex").get(0).asText()),p261=hex(i26.path("submittedMethodIdsHex").get(1).asText());
+        require("AAI26 proof order noncanonical",Arrays.compareUnsigned(p260,p261)>0);
+        require("AAI27 nonce above maximum",m.get("AAI27").path("nonceLength").asInt()>m.get("AAI27").path("maximumNonceLength").asInt());
+        require("AAI28 audience above maximum",m.get("AAI28").path("audienceLength").asInt()>m.get("AAI28").path("maximumAudienceLength").asInt());
+        require("AAI29 unsupported StateHash multihash",m.get("AAI29").path("submittedMultihashCode").asInt()!=m.get("AAI29").path("expectedMultihashCode").asInt());
+        JsonNode i30=m.get("AAI30");require("AAI30 uint64 maximum zero range",i30.path("expiresAt").bigIntegerValue().compareTo(i30.path("issuedAt").bigIntegerValue())<=0);
+        JsonNode i31=m.get("AAI31");java.math.BigInteger life31=i31.path("expiresAt").bigIntegerValue().subtract(i31.path("issuedAt").bigIntegerValue());
+        require("AAI31 exact uint64-safe lifetime is 301",life31.equals(java.math.BigInteger.valueOf(301))&&i31.path("exactLifetime").asInt()==301);
     }
 
     static Path findVectorFile()throws Exception{
@@ -218,7 +228,7 @@ public final class AuthenticationAssertionV1Vectors {
         require("vector count",d.path("vectors").size()==6);
         verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));verifyAA04(d.path("vectors").get(3));verifyAA05(d.path("vectors").get(4));verifyAA06(d.path("vectors").get(5));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA06 + AAI01-AAI23 VERIFIED");
+        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA06 + AAI01-AAI31 VERIFIED");
         System.out.println("============================================");
     }
 }
