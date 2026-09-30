@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
  <parent><groupId>org.openidentity</groupId><artifactId>openidentity-java-sdk</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../pom.xml</relativePath></parent>
  <artifactId>openidentity-authentication</artifactId><name>OpenIdentity Authentication (OI-015)</name>
- <dependencies><dependency><groupId>org.openidentity</groupId><artifactId>openidentity-deterministic-cbor</artifactId><version>${project.version}</version></dependency>
+ <dependencies><dependency><groupId>org.openidentity</groupId><artifactId>openidentity-core</artifactId><version>${project.version}</version></dependency><dependency><groupId>org.openidentity</groupId><artifactId>openidentity-deterministic-cbor</artifactId><version>${project.version}</version></dependency>
  <dependency><groupId>org.bouncycastle</groupId><artifactId>bcprov-jdk18on</artifactId><version>1.86</version></dependency>
  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency></dependencies>
 </project>
