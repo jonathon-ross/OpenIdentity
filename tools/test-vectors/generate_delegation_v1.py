@@ -223,6 +223,79 @@ def build_dg06():
       "parentRedelegationAuthorized":True,"childDepth":2}
 
 
+
+def build_invalids():
+    out=[]
+    def add(i,error,attack,**kw): out.append({"id":i,"expected":"REJECT","error":error,"attack":attack,**kw})
+
+    # DGI01: old policy A signs after A->B PRESERVE. Signature is cryptographically
+    # valid over historical context, but A is not the current DelegationPolicy.
+    root=bytes(range(1,33)); delegate=bytes(range(33,65)); reg=b"openidentity:test:oi014:dgi01"
+    ida=bytes(range(1,17)); idb=bytes(range(17,33))
+    a,_,ma=key("OpenIdentity OI-014 DGI01 old delegation seed",ida); _,_,mb=key("OpenIdentity OI-014 DGI01 new delegation seed",idb)
+    pa=policy(ida,ma); pb=policy(idb,mb); gen=5
+    desc={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:3600,6:2}; ph=mh(enc(desc))
+    g={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],7:2000100000,9:seed("DGI01 nonce")}
+    gb=enc(g)
+    hist={1:3,2:root,3:5,4:1,5:pa,8:{1:0},9:{1:gen,2:pa}}; hb=enc(hist); hh=mh(hb)
+    cur={1:3,2:root,3:6,4:1,5:pa,8:{1:0},9:{1:gen,2:pb}}; cb=enc(cur); ch=mh(cb)
+    oldsign=enc(["OpenIdentity Delegation Grant",1,reg,gb,hh,gen,ida]); oldsig=a.sign(oldsign)
+    add("DGI01","UNAUTHORIZED_GRANT_REGISTRATION","rotated-out-policy-backdating",
+        grantBytesHex=gb.hex(),historicalStateHashHex=hh.hex(),currentStateBytesHex=cb.hex(),currentStateHashHex=ch.hex(),
+        currentDelegationGeneration=gen,currentDelegationPolicyMethodIdHex=idb.hex(),
+        submittedSigningBytesHex=oldsign.hex(),submittedSignatureHex=oldsig.hex(),submittedMethodIdHex=ida.hex())
+
+    # DGI02: current key signs a request carrying the wrong generation.
+    reg2=b"openidentity:test:oi014:dgi02"; root2=bytes(range(65,97)); did=bytes(range(33,49))
+    d,_,dm=key("OpenIdentity OI-014 DGI02 delegation seed",did); dp=policy(did,dm); actual=8; claimed=7
+    st={1:3,2:root2,3:9,4:1,5:dp,8:{1:0},9:{1:actual,2:dp}}; sb=enc(st); sh=mh(sb)
+    g2={1:1,2:root2,3:{1:1,2:root2},4:{1:1,2:delegate},5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],7:2000100000,9:seed("DGI02 nonce")}
+    gb2=enc(g2); sign2=enc(["OpenIdentity Delegation Grant",1,reg2,gb2,sh,claimed,did]); sig2=d.sign(sign2)
+    add("DGI02","INVALID_DELEGATION_GENERATION","wrong-generation",
+        grantBytesHex=gb2.hex(),currentStateBytesHex=sb.hex(),currentStateHashHex=sh.hex(),
+        actualGeneration=actual,claimedGeneration=claimed,submittedSigningBytesHex=sign2.hex(),submittedSignatureHex=sig2.hex())
+
+    # DGI03: proof valid for registry A is submitted to registry B.
+    rega=b"openidentity:test:oi014:registry-a"; regb=b"openidentity:test:oi014:registry-b"
+    signa=enc(["OpenIdentity Delegation Grant",1,rega,gb2,sh,actual,did]); siga=d.sign(signa)
+    signb=enc(["OpenIdentity Delegation Grant",1,regb,gb2,sh,actual,did])
+    add("DGI03","CROSS_DOMAIN_PROOF","cross-registry-replay",
+        grantBytesHex=gb2.hex(),authorizedRegistryDomainHex=rega.hex(),submittedRegistryDomainHex=regb.hex(),
+        authorizedSigningBytesHex=signa.hex(),requiredSigningBytesHex=signb.hex(),submittedSignatureHex=siga.hex())
+
+    # Shared parent for DGI04-DGI06.
+    preg=b"openidentity:test:oi014:invalid-child"; proot=bytes(range(97,129)); pdel=bytes(range(129,161)); cdel=bytes(range(161,193))
+    pcap={1:{1:{1:1,2:ph},2:b"document.read"}}
+    redesc={1:1,2:"openidentity.test.redelegation",3:1,4:[b"document.read",b"redelegate.document.read"],5:3600,6:3}; rph=mh(enc(redesc))
+    read={1:{1:{1:1,2:rph},2:b"document.read"}}; redel={1:{1:{1:1,2:rph},2:b"redelegate.document.read"}}
+    parent={1:1,2:proot,3:{1:1,2:proot},4:{1:1,2:pdel},5:[read,redel],7:2000200000,9:seed("DGI parent nonce")}
+    pgb=enc(parent); pgid=mh(pgb); pstatehash=mh(enc({1:3,2:proot,3:1,4:1,5:{1:1,2:[]},8:{1:0},9:{1:3}}))
+    pr1={1:preg,2:pgid,3:1,4:None,5:1,6:pstatehash,7:3,8:2000150000}; pr1b=enc(pr1); pr1h=mh(pr1b)
+    pr2={1:preg,2:pgid,3:2,4:pr1h,5:2,6:pstatehash,7:3,8:2000150000}; pr2b=enc(pr2); pr2h=mh(pr2b)
+    ipriv=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-014 invalid child issuer seed"))
+
+    child={1:1,2:proot,3:{1:1,2:pdel},4:{1:1,2:cdel},5:[read],7:2000190000,8:pgid,9:seed("DGI child nonce")}
+    cgb=enc(child)
+    stale=enc(["OpenIdentity Delegation Child Grant",1,preg,cgb,pgid,pr1h]); stalesig=ipriv.sign(stale)
+    add("DGI04","INVALID_PREVIOUS_RECORD_HASH","stale-parent-record-hash",
+        parentGrantBytesHex=pgb.hex(),currentParentRecordBytesHex=pr2b.hex(),currentParentRecordHashHex=pr2h.hex(),
+        childGrantBytesHex=cgb.hex(),submittedParentRecordHashHex=pr1h.hex(),submittedSigningBytesHex=stale.hex(),submittedProofHex=stalesig.hex())
+
+    # DGI05 child asks for document.admin which parent does not hold/redelegate.
+    admin={1:{1:{1:1,2:rph},2:b"document.admin"}}
+    esc={1:1,2:proot,3:{1:1,2:pdel},4:{1:1,2:cdel},5:[admin],7:2000190000,8:pgid,9:seed("DGI05 nonce")}
+    add("DGI05","CAPABILITY_ESCALATION","child-capability-escalation",
+        parentGrantBytesHex=pgb.hex(),childGrantBytesHex=enc(esc).hex(),
+        parentCapabilities=["document.read","redelegate.document.read"],childCapabilities=["document.admin"])
+
+    # DGI06 parent is REVOKED at current revision 2.
+    add("DGI06","PARENT_GRANT_UNUSABLE","revoked-parent-child-issuance",
+        parentGrantBytesHex=pgb.hex(),currentParentRecordBytesHex=pr2b.hex(),currentParentRecordHashHex=pr2h.hex(),
+        currentParentStatus="REVOKED",childGrantBytesHex=cgb.hex())
+
+    return out
+
+
 def main():
     registry=b"openidentity:test:oi014:dg01"
     root=bytes(range(32))
@@ -265,7 +338,7 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06()]}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06()],"invalidVectors":build_invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
@@ -275,4 +348,5 @@ def main():
     print("DG04 VERIFIED")
     print("DG05 VERIFIED")
     print("DG06 VERIFIED")
+    print("DGI01-DGI06 GENERATED")
 if __name__=="__main__": main()
