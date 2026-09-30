@@ -21,7 +21,7 @@ def main():
     data=json.loads(FILE.read_text())
     req("suite specification",data["suite"]=="OpenIdentity OI-014 DelegationGrant v1")
     req("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs DG01-DG04",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04"])
+    req("vector IDs DG01-DG05",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04","DG05"])
     v=data["vectors"][0]
     registry=b"openidentity:test:oi014:dg01"; root=bytes(range(32)); delegate=bytes(range(32,64)); mid=bytes(range(16))
     priv=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG01 delegation Ed25519 seed"))
@@ -134,7 +134,32 @@ def main():
     req("DG04 GrantId unchanged",v4["grantIdAfterRevocationHex"]==gid4.hex())
     req("DG04 registeredAt unchanged",v4["registeredAtBefore"]==v4["registeredAtAfter"]==2000010000)
     req("DG04 revoked RecordBytes",v4["revokedRecordBytesHex"]==r2b.hex());req("DG04 revoked RecordHash",v4["revokedRecordHashHex"]==r2h.hex())
+
+    v5=data["vectors"][4]
+    reg5=b"openidentity:test:oi014:dg05"; root5=bytes(range(16,48)); del5=bytes(range(48,80))
+    ida5=bytes(range(96,112)); idb5=bytes(range(112,128))
+    ka5=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG05 delegation A Ed25519 seed"))
+    kb5=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG05 delegation B Ed25519 seed"))
+    pka5=ka5.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); pkb5=kb5.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    pa5={1:1,2:[{1:ida5,2:{1:1,3:-8,4:-1,6:pka5}}]}; pb5={1:1,2:[{1:idb5,2:{1:1,3:-8,4:-1,6:pkb5}}]}
+    d5={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.admin"],5:3600,6:2}; ph5=mh(enc(d5))
+    g5={1:1,2:root5,3:{1:1,2:root5},4:{1:1,2:del5},5:[{1:{1:{1:1,2:ph5},2:b"document.admin"}}],
+        7:2000020000,9:sk("OpenIdentity OI-014 DG05 nonce")}
+    gb5=enc(g5); gid5=mh(gb5); gen5=21
+    before5={1:3,2:root5,3:40,4:1,5:pa5,8:{1:0},9:{1:gen5,2:pa5}}; bb5=enc(before5); bh5=mh(bb5)
+    ka5.public_key().verify(bytes.fromhex(v5["registrationSignatureHex"]),enc(["OpenIdentity Delegation Grant",1,reg5,gb5,bh5,gen5,ida5]))
+    req("DG05 original registration signature verifies",True)
+    rec5={1:reg5,2:gid5,3:1,4:None,5:1,6:bh5,7:gen5,8:2000016000}; rb5=enc(rec5); rh5=mh(rb5)
+    req("DG05 original ACTIVE RecordHash",v5["activeRecordHashHex"]==rh5.hex())
+    op5={1:2,2:7,3:root5,4:41,5:bh5,6:{1:pb5,2:1}}
+    req("DG05 INVALIDATE_EXISTING OperationBytes",v5["invalidationOperationBytesHex"]==enc(op5).hex())
+    after5={1:3,2:root5,3:41,4:1,5:pa5,8:{1:0},9:{1:gen5+1,2:pb5}}; ab5=enc(after5)
+    req("DG05 generation increments exactly once",v5["delegationGenerationBefore"]==21 and v5["delegationGenerationAfter"]==22)
+    req("DG05 post-invalidation StateBytes",v5["postInvalidationStateBytesHex"]==ab5.hex())
+    req("DG05 record remains revision 1 ACTIVE",v5["recordRevisionAfterInvalidation"]==1 and v5["recordStatusAfterInvalidation"]=="ACTIVE")
+    req("DG05 RecordHash unchanged",v5["recordHashAfterInvalidationHex"]==rh5.hex())
+    req("DG05 grant unusable solely by generation mismatch",v5["grantUsableAfterInvalidation"] is False and rec5[7]!=after5[9][1])
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG04 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG05 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
