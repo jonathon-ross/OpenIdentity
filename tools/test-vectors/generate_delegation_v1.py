@@ -471,7 +471,7 @@ def build_invalids():
     newstate={1:3,2:issuer,3:13,4:1,5:cp,8:{1:agen,2:newap},9:{1:0}}
     nsb=enc(newstate); nsh=mh(nsb)
     oldsig=authpriv.sign(good_child_sign)
-    add("DGI20","INVALID_ROOT_STATE_HASH","stale-delegate-authentication-state",
+    add("DGI20","INVALID_DELEGATE_STATE_HASH","stale-delegate-authentication-state",
         historicalDelegateStateHashHex=ish.hex(),currentDelegateStateBytesHex=nsb.hex(),currentDelegateStateHashHex=nsh.hex(),
         submittedSigningBytesHex=good_child_sign.hex(),submittedSignatureHex=oldsig.hex(),
         historicalAuthenticationMethodIdHex=authid.hex(),currentAuthenticationMethodIdHex=newauthid.hex())
