@@ -292,15 +292,156 @@ One unit above each applicable limit is invalid.
 
 Test vectors MUST pin exact-boundary and one-over-boundary behavior before freeze.
 
-## 19. Remaining questions before CDDL
+## 19. Commitment model — RESOLVED
 
-1. Should DelegationEvidenceId and DelegatedSubjectTokenId both be normative derived identifiers?
-2. Should GrantId remain serialized beside derivable GrantBytes?
-3. Does OI-016 itself need a signature? Current direction is no.
-4. Should actorAssertionId bind OI-015 AssertionId or complete secured OI-015 bytes? Current direction is AssertionId.
-5. What stable error distinguishes authoritative-state lookup failure from resolved-but-unusable delegation?
+Questions 1-4 were reviewed together because they determine which exact bytes OI-016 identifies and whether any redundant cryptographic layer is justified.
 
-## 20. Freeze discipline
+### 19.1 DelegationEvidenceId — normative derived identifier
+
+**Decision:** DelegationEvidenceId is normative and derived, but is not serialized inside DelegationEvidence.
+
+    DelegationEvidenceId =
+        0x12 || 0x20 ||
+        SHA-256(DelegationEvidenceBytes)
+
+It is required because integration profiles need a compact, stable commitment to the exact OI-014 evidence path without copying the complete path into OI-015 contextBytes.
+
+Changing registryDomain, grant order, GrantBytes, or serialized GrantId changes DelegationEvidenceBytes and therefore DelegationEvidenceId.
+
+A verifier MUST derive it from exact deterministic bytes and MUST NOT trust a transport-supplied value.
+
+### 19.2 DelegatedSubjectTokenId — normative derived identifier
+
+**Decision:** DelegatedSubjectTokenId is also normative and derived, but is not serialized inside DelegatedSubjectToken.
+
+    DelegatedSubjectTokenId =
+        0x12 || 0x20 ||
+        SHA-256(DelegatedSubjectTokenBytes)
+
+It is useful for audit correlation, replay caches, diagnostics, integration bindings, and test vectors.
+
+It is content identity only. It MUST NOT substitute for OI-014 current-state validation, OI-015 verification, nonce consumption, or integration replay policy.
+
+Having both IDs is not redundant:
+
+    DelegationEvidenceId
+        identifies immutable delegation evidence independent of actor ceremony
+
+    DelegatedSubjectTokenId
+        identifies the final evidence + actorAssertionId pairing
+
+### 19.3 GrantId remains serialized
+
+**Decision:** each GrantEvidence serializes both exact GrantBytes and GrantId even though GrantId is derivable.
+
+The verifier MUST recompute GrantId and require exact equality.
+
+This deliberate redundancy buys several properties:
+
+- each path element has an explicit content-addressed checkpoint;
+- child parentGrantId can be compared directly to the previous serialized-and-recomputed GrantId;
+- registry lookup keys are explicit without requiring consumers to invent an implicit intermediate representation;
+- malformed/mutated GrantBytes fail locally as GRANT_ID_MISMATCH before current registry lookup;
+- test vectors can pin exact per-element commitment behavior.
+
+GrantId is only 34 bytes under frozen OI-014 v1, so the security/interoperability value outweighs the small size cost.
+
+A verifier MUST NOT accept a supplied GrantId without recomputation.
+
+### 19.4 OI-016 has no independent signature
+
+**Decision:** core OI-016 v1 is not separately signed.
+
+Its authority is already composed from:
+
+    OI-014
+        cryptographically committed grant semantics
+        + authoritative current registration/status
+
+    OI-015
+        current actor authentication
+        + verifier/purpose/nonce/time/context binding
+
+OI-016 adds deterministic binding between them.
+
+Adding a third signature raises an unanswered authority question — which principal would sign it? Requiring rootGrantor would destroy offline delegation; requiring terminal delegate would duplicate OI-015; requiring a bridge/server key would make OI-016 authority depend on an intermediary rather than OpenIdentity evidence.
+
+Therefore:
+
+    OI-016 = deterministic composite security token
+             not a separately signed assertion
+
+Transport integrity/confidentiality remains the integration protocol's responsibility.
+
+### 19.5 actorAssertionId binds OI-015 AssertionId, not secured proof bytes
+
+**Decision:** actorAssertionId is the normative OI-015 AssertionId over AssertionBytes.
+
+It does NOT hash the complete SecuredAuthenticationAssertion proof envelope.
+
+Rationale:
+
+- OI-015 deliberately defines AssertionId independently of proof bytes;
+- multiple valid AuthenticationPolicy proof sets may satisfy the same assertion;
+- threshold policies can have different valid signer subsets;
+- signature encodings/algorithms may evolve under explicit policy/version rules without changing the authenticated assertion's semantic content;
+- binding proof-envelope bytes would make OI-016 identity depend on which valid proof realization happened to be transported.
+
+The verifier still performs full OI-015 proof verification. Proofs are not ignored; they simply are not part of the cross-object identity commitment.
+
+This permits:
+
+    same exact OI-015 AssertionBytes
+    + different valid authorized proof realization
+        ->
+    same AssertionId
+        ->
+    same OI-016 actorAssertionId binding
+
+while:
+
+    any change to identity/stateHash/generation/audience/purpose/time/nonce/contextHash
+        ->
+    different AssertionBytes
+        ->
+    different AssertionId
+        ->
+    actorAssertionId mismatch
+
+### 19.6 Proof substitution analysis
+
+An attacker cannot replace a valid OI-015 proof set with an unauthorized or invalid one merely because actorAssertionId excludes proof bytes.
+
+The verifier MUST independently perform complete frozen OI-015 verification before accepting the binding.
+
+Thus:
+
+    actorAssertionId equality
+        is necessary
+        but not sufficient
+
+and:
+
+    full OI-015 verification
+        is always required
+
+### 19.7 No serialized derived IDs
+
+Neither DelegationEvidenceId nor DelegatedSubjectTokenId is serialized into the object it hashes.
+
+This avoids self-reference and redundant consistency fields.
+
+Profiles that transmit either derived ID separately MUST require recomputation before use.
+
+## 20. Remaining question before CDDL
+
+One semantic question remains:
+
+1. What stable error distinguishes inability to resolve required authoritative OI-014 current state from a successfully resolved delegation that is currently unusable?
+
+After that distinction is resolved, OI-016 is ready for candidate CDDL and DS01.
+
+## 21. Freeze discipline
 
 OI-016 development MUST NOT modify frozen Protocol v2 / IdentityState v3, OI-014 v1, or OI-015 v1 bytes.
 
