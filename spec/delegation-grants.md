@@ -687,6 +687,86 @@ Such a revision MUST define:
 
 OI-014 v1 implementations MUST NOT anticipate that future revision by accepting additional algorithms today.
 
+## 5B. Nonce, duplicate registration, and re-granting
+
+`nonce` distinguishes intentionally separate grant intents that would otherwise have identical authority semantics.
+
+Because nonce is inside GrantBytes, changing nonce changes GrantId.
+
+### Nonce requirements
+
+The nonce MUST be present in every DelegationGrant.
+
+The final wire profile MUST define a fixed or bounded byte length and minimum entropy requirement before freeze.
+
+Nonce is not a timestamp, sequence number, registry revision, or authorization proof. It MUST NOT be interpreted as ordering information.
+
+Grantors/issuers SHOULD generate nonce values with sufficient randomness to make accidental GrantId reuse negligible.
+
+A registry MUST NOT rewrite, normalize, generate, or replace a submitted nonce after the grant authorization proof has been created because doing so changes GrantBytes and invalidates the authorization.
+
+### Duplicate registration of the same GrantId
+
+Within one registryDomain, authoritative registration of a GrantId is a one-time creation event.
+
+If `(registryDomain, GrantId)` already has an authoritative RegisteredGrantState history, another REGISTER request for that same GrantId MUST NOT:
+
+- create another revision-1 history;
+- create a later ACTIVE revision;
+- refresh `registeredAt`;
+- extend validity;
+- erase REVOKED status;
+- replace grantorStateHash or delegationGeneration;
+- reset previousRecordHash;
+- otherwise treat replayed registration as a new grant.
+
+An exact duplicate submission MAY return/idempotently reference the already-existing authoritative record, but it does not create new authoritative state.
+
+If the existing history is REVOKED, REGISTER for the same GrantId remains rejected/terminal.
+
+### Re-granting equivalent authority
+
+Revocation is scoped to GrantId, not to semantic equivalence classes such as "same grantor + delegate + capabilities."
+
+A current authorized issuer MAY intentionally create a new grant containing equivalent authority by using a distinct nonce, producing different GrantBytes and a different GrantId.
+
+That new grant requires the complete current registration process and fresh authorization applicable to its issuance path.
+
+For a direct grant, the new registration MUST be authorized by the rootGrantor's current DelegationPolicy and bound to the current rootGrantor StateHash/current delegation generation.
+
+For a child grant, the new registration MUST be authorized by the current usable parent chain, current authenticated parent delegate, and current explicit redelegation authority.
+
+A historical signature over an earlier grant does not authorize the new GrantBytes because the nonce/GrantId differ.
+
+### Revocation bypass resistance
+
+The ability to issue a new equivalent grant is not a bypass of GrantId revocation when current authority deliberately authorizes the new grant.
+
+Conversely, a party that no longer has current issuance authority MUST NOT regain authority merely by changing nonce.
+
+In particular:
+
+- a rotated-out DelegationPolicy key cannot mint a replacement direct grant;
+- a revoked/expired/generation-invalid parent cannot mint a replacement child grant;
+- a former delegate that no longer authenticates as the current parent delegate cannot mint a child;
+- copying capabilities/resources/time fields from a revoked grant conveys no registration authority.
+
+### Semantic duplicate policy
+
+Core OI-014 does not require registries to reject two different GrantIds merely because their disclosed grant semantics appear equivalent.
+
+Determining semantic equivalence across profile-owned capabilities/resources can be complex and profile-dependent, and treating equivalence as identity would undermine content-addressed GrantId semantics.
+
+Profiles MAY impose stronger duplicate-authority policies, quotas, approval workflows, or uniqueness constraints, but those are additional registration rules. They MUST NOT merge distinct GrantIds or cause one grant's revocation status to be silently applied to another.
+
+### registeredAt immutability
+
+For revision 1, `registeredAt` is established exactly once.
+
+Later status revisions preserve the original registration time as part of the grant-state history semantics. A replay, mirror, migration, or status transition MUST NOT refresh it to make an old grant appear newly registered.
+
+If a future migration profile needs destination-observation time, that value must be a distinct field and MUST NOT replace the original authoritative registeredAt.
+
 ## 6. Delegation authorization signature
 
 Registration requires DelegationPolicy authorization over the exact GrantBytes and the exact grantor state context.
@@ -1407,7 +1487,9 @@ Invalid/security:
 - child resource widening;
 - child expiry beyond parent;
 - child of revoked/invalidated parent;
-- revoked grant reactivation attempt.
+- revoked grant reactivation attempt;
+- duplicate REGISTER replay attempting to refresh registeredAt or create a second ACTIVE history;
+- nonce-changed replacement grant signed by historical/rotated-out authority.
 
 ## 18. Open design questions before wire freeze
 
