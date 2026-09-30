@@ -280,6 +280,50 @@ public final class DelegationV1Vectors {
         require("DG07 revoked RecordHash",hx(v,"revokedRecordHashHex").equals(Hex.encode(r2h)));
     }
 
+
+    private static void verifyDG08(JsonNode v)throws Exception{
+        byte[] registry="openidentity:test:oi014:dg08".getBytes(StandardCharsets.UTF_8);
+        byte[] root=seq(100,32),delegate=seq(132,32),oldId=seq(92,16),newId=seq(108,16);
+        Ed25519Support oldKey=new Ed25519Support(sha("OpenIdentity OI-014 DG08 old delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
+        Ed25519Support newKey=new Ed25519Support(sha("OpenIdentity OI-014 DG08 new delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
+        byte[] oldPolicy=policy(oldId,method2(oldKey.publicKey())),newPolicy=policy(newId,method2(newKey.publicKey()));
+        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
+                4,E(arr("document.read".getBytes(StandardCharsets.UTF_8))),5,7200,6,2);
+        byte[] ph=mh(descriptor),pref=map(1,1,2,ph),read=map(1,E(map(1,E(pref),2,"document.read".getBytes(StandardCharsets.UTF_8))));
+        byte[] grant=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,delegate)),
+                5,E(arr(E(read))),7,2000700000L,9,sha("OpenIdentity OI-014 DG08 nonce".getBytes(StandardCharsets.UTF_8)));
+        byte[] gid=mh(grant);int generation=44;
+        byte[] before=map(1,3,2,root,3,70,4,1,5,E(oldPolicy),8,E(map(1,0)),9,E(map(1,generation,2,E(oldPolicy))));
+        byte[] beforeHash=mh(before);
+        require("DG08 registration StateBytes",hx(v,"registrationStateBytesHex").equals(Hex.encode(before)));
+        require("DG08 registration StateHash",hx(v,"registrationStateHashHex").equals(Hex.encode(beforeHash)));
+        byte[] regSigning=arr("OpenIdentity Delegation Grant",1,registry,grant,beforeHash,generation,oldId);
+        byte[] regSig=oldKey.sign(regSigning);
+        require("DG08 original policy A registration signature",hx(v,"registrationSignatureHex").equals(Hex.encode(regSig)));
+        require("DG08 original policy A registration verifies",oldKey.verify(regSigning,regSig));
+        byte[] r1=map(1,registry,2,gid,3,1,4,null,5,1,6,beforeHash,7,generation,8,2000690000L),r1h=mh(r1);
+        require("DG08 ACTIVE RecordHash",hx(v,"activeRecordHashHex").equals(Hex.encode(r1h)));
+
+        byte[] after=map(1,3,2,root,3,71,4,1,5,E(oldPolicy),8,E(map(1,0)),9,E(map(1,generation,2,E(newPolicy))));
+        byte[] afterHash=mh(after);
+        require("DG08 current StateBytes",hx(v,"currentStateBytesHex").equals(Hex.encode(after)));
+        require("DG08 current StateHash",hx(v,"currentStateHashHex").equals(Hex.encode(afterHash)));
+        require("DG08 generation preserved across A-to-B rotation",
+                v.path("delegationGenerationBefore").asInt()==generation&&v.path("delegationGenerationAfter").asInt()==generation);
+        require("DG08 historical A differs from current B",
+                !v.path("historicalDelegationMethodIdHex").asText().equals(v.path("currentDelegationMethodIdHex").asText()));
+
+        byte[] revSigning=arr("OpenIdentity Delegation Grant Revocation",1,registry,gid,r1h,2,afterHash,newId);
+        byte[] revSig=newKey.sign(revSigning);
+        require("DG08 current policy B revocation signature",hx(v,"revocationSignatureHex").equals(Hex.encode(revSig)));
+        require("DG08 current policy B revocation verifies",newKey.verify(revSigning,revSig));
+        byte[] revReq=map(1,registry,2,gid,3,r1h,4,2,5,afterHash,6,2,7,E(arr(E(map(1,newId,2,revSig)))));
+        require("DG08 revocation request bytes",hx(v,"revocationRequestBytesHex").equals(Hex.encode(revReq)));
+        byte[] r2=map(1,registry,2,gid,3,2,4,r1h,5,2,6,beforeHash,7,generation,8,2000690000L);
+        require("DG08 revoked RecordBytes",hx(v,"revokedRecordBytesHex").equals(Hex.encode(r2)));
+        require("DG08 revoked RecordHash",hx(v,"revokedRecordHashHex").equals(Hex.encode(mh(r2))));
+    }
+
     private static JsonNode invalid(JsonNode doc,String id){
         for(JsonNode v:doc.path("invalidVectors"))if(id.equals(v.path("id").asText()))return v;
         throw new IllegalArgumentException("missing "+id);
@@ -476,7 +520,7 @@ public final class DelegationV1Vectors {
         require("suite specification","OpenIdentity OI-014 DelegationGrant v1".equals(rootJson.path("suite").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(rootJson.path("status").asText()));
         JsonNode v=rootJson.path("vectors").get(0);require("DG01 id","DG01".equals(v.path("id").asText()));
-        require("vector count",rootJson.path("vectors").size()==7);
+        require("vector count",rootJson.path("vectors").size()==8);
 
         byte[] registry="openidentity:test:oi014:dg01".getBytes(StandardCharsets.UTF_8), root=seq(0,32), delegate=seq(32,32), mid=seq(0,16);
         Ed25519Support ed=new Ed25519Support(sha("OpenIdentity OI-014 DG01 delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
@@ -513,9 +557,10 @@ public final class DelegationV1Vectors {
         verifyDG05(rootJson.path("vectors").get(4));
         verifyDG06(rootJson.path("vectors").get(5));
         verifyDG07(rootJson.path("vectors").get(6));
+        verifyDG08(rootJson.path("vectors").get(7));
         verifyInvalids(rootJson);
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG07 + DGI01-DGI31 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG08 + DGI01-DGI31 VERIFIED");
         System.out.println("============================================");
     }
 }
