@@ -42,6 +42,7 @@ public class AuthorizationServerConfig {
  }
 
  @Bean JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource){return new NimbusJwtEncoder(jwkSource);}
+ @Bean JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource){return org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);}
  @Bean JwtGenerator jwtGenerator(JwtEncoder encoder){
   JwtGenerator g=new JwtGenerator(encoder);g.setJwtCustomizer(new OpenIdentityJwtCustomizer());return g;
  }
