@@ -16,8 +16,8 @@ Resolve before assigning wire labels:
 - registration/status ordering model — **RESOLVED:** per-GrantId uint64 revision + previous RecordHash;
 - revocation authorization — **RESOLVED:** current ControllerPolicy or current DelegationPolicy may revoke; delegate may relinquish; historical registration authority has no continuing privilege;
 - GrantId hash profile — **RESOLVED:** SHA2-256 Multihash only for OI-014 v1; same construction for RecordHash;
-- public/private registration privacy model;
-- resolution/discovery boundary.
+- public/private registration privacy model — **RESOLVED:** minimal authoritative anchor may omit GrantBytes and sensitive grant fields; GrantId commits to private/full grant;
+- resolution/discovery boundary — **RESOLVED at core boundary:** integrity/status are core; GrantBytes distribution/discovery is profile/deployment-owned and verification fails closed without required material.
 
 ## Phase 2 — threat model
 
@@ -86,6 +86,6 @@ Profiles must narrow/map OI-014 authority and must not redefine GrantId, generat
 5. Delegate principal model — **RESOLVED:** principal identity separated from authentication proof; OPENIDENTITY native, other principals profile-defined.
 6. Subdelegation model — **RESOLVED:** explicit capability/resource-scoped redelegation, parent-chain binding, acyclic graph, profile-defined finite depth.
 7. GrantId/hash model — **RESOLVED:** fixed SHA2-256 Multihash (0x12 0x20 + digest) for GrantId and RecordHash; future agility requires explicit revision.
-8. Privacy/network boundary.
+8. Privacy/network boundary — **RESOLVED:** minimal public anchor + optional private full registry; blockchain/database choice remains deployment profile.
 
 This order is deliberate: later choices depend on how authoritative grant state is serialized and ordered.
