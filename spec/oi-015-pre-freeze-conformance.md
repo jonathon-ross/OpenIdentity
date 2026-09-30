@@ -1,12 +1,12 @@
 # OI-015 Authentication Assertion v1 — Pre-Freeze Conformance Review
 
-**Status:** DRAFT — pre-freeze review  
-**Scope:** OI-015 Authentication Assertion v1 candidate semantics and wire schema  
-**Candidate CDDL:** `spec/cddl/openidentity-authentication-assertion-v1.cddl`
+**Status:** RELEASE RECORD — OI-015 v1 FROZEN-NORMATIVE  
+**Scope:** OI-015 Authentication Assertion v1 frozen semantics and wire schema  
+**Normative CDDL:** `spec/cddl/openidentity-authentication-assertion-v1.cddl`
 
 ## 1. Current evidence
 
-The draft conformance bundle contains:
+The frozen normative conformance bundle contains:
 
 - positive vectors AA01-AA06;
 - adversarial vectors AAI01-AAI31;
@@ -123,22 +123,21 @@ Authoritative-state lookup failure is deployment/runtime behavior, not a cryptog
 
 Nonce issuance, storage, consumption, and distributed replay-cache behavior are integration-profile/verifier responsibilities. Core OI-015 pins the nonce bytes and requires exact equality but does not define a universal challenge transport.
 
-## 6. Cross-language requirements before byte freeze
+## 6. Release evidence
 
-Before establishing an OI-015 candidate checksum:
+The OI-015 v1 release boundary is:
 
-1. run the unified OI-015 pre-freeze gate;
-2. require Python AA01-AA06 + AAI01-AAI31 PASS;
-3. require Java AA01-AA06 + AAI01-AAI31 PASS;
-4. confirm frozen v0.1 commitments/artifacts remain unchanged;
-5. confirm Protocol v2 / IdentityState v3 checksum remains unchanged;
-6. confirm OI-014 DelegationGrant v1 checksum remains unchanged;
-7. review design-plan/CDDL/vector terminology and exact field labels;
-8. confirm clean worktree after deterministic regeneration;
-9. only then create a byte-freeze candidate checksum.
+- coverage: AA01-AA06 + AAI01-AAI31;
+- deterministic Python generation and independent Python verification: PASS;
+- independent Java reconstruction/verification: PASS;
+- previously frozen v0.1, Protocol v2 / IdentityState v3, and OI-014 commitments: unchanged;
+- exact generated bundle size: 33,224 bytes;
+- committed checksum: `checksums/authentication-assertion-v1.json.sha256`;
+- SHA-256: `28bf559160f1206b8f2f7dcc0afa363714b002bd1cbaeb8491b2afa8ac23110d`;
+- post-commit candidate-inclusive release gate: PASS.
 
 ## 7. Freeze status
 
-**NOT BYTE-FROZEN. NOT NORMATIVE.**
+**FROZEN-NORMATIVE v1.**
 
-Passing this review/gate establishes readiness to create a byte-freeze candidate. It does not itself freeze OI-015.
+Frozen OI-015 v1 bytes and semantics MUST NOT change without explicit protocol/version evolution.
