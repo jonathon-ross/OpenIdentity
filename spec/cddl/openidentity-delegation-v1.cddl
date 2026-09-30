@@ -1,8 +1,8 @@
 ; OpenIdentity OI-014 DelegationGrant v1
-; STATUS: DRAFT-NON-NORMATIVE
+; STATUS: FROZEN-NORMATIVE v1
 ; Semantic source: spec/delegation-grants.md
 ;
-; This schema assigns candidate wire labels for interoperability review.
+; This schema defines the frozen normative OI-014 DelegationGrant v1 wire labels.
 ; Do not treat these bytes/labels as frozen until OI-014 conformance vectors,
 ; independent verification, threat review, and checksum gates pass.
 
