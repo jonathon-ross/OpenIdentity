@@ -105,15 +105,37 @@ public final class DelegatedSubjectV1Vectors {
         require("DS02 token id",v.path("delegatedSubjectTokenIdHex").asText().equals(hx(mh(token))));
     }
 
+
+    static void verifyInvalids(JsonNode d)throws Exception{
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==9);
+        String[] errors={"INVALID_DELEGATED_SUBJECT_VERSION","EMPTY_DELEGATION_PATH","DELEGATION_PATH_TOO_DEEP","GRANT_ID_MISMATCH",
+                "INVALID_GRANT_EVIDENCE","PARENT_GRANT_MISMATCH","ROOT_GRANTOR_MISMATCH","ISSUER_DELEGATE_MISMATCH","INVALID_DELEGATION_EVIDENCE"};
+        require("stable error table size",errors.length==xs.size());
+        Map<String,JsonNode> m=new HashMap<>();
+        for(int i=0;i<xs.size();i++){JsonNode v=xs.get(i);String id=String.format("DSI%02d",i+1);
+            require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
+        require("DSI01 unsupported version",m.get("DSI01").path("submittedVersion").asInt()!=m.get("DSI01").path("supportedVersion").asInt());
+        require("DSI02 empty path",m.get("DSI02").path("pathLength").asInt()<m.get("DSI02").path("minimumPathLength").asInt());
+        require("DSI03 path too deep",m.get("DSI03").path("pathLength").asInt()>m.get("DSI03").path("maximumPathLength").asInt());
+        require("DSI04 mutated bytes change GrantId",!m.get("DSI04").path("submittedGrantIdHex").asText().equals(m.get("DSI04").path("recomputedGrantIdHex").asText()));
+        require("DSI05 unsupported GrantId multihash",m.get("DSI05").path("submittedMultihashCode").asInt()!=m.get("DSI05").path("expectedMultihashCode").asInt());
+        require("DSI06 parent mismatch",!m.get("DSI06").path("previousGrantIdHex").asText().equals(m.get("DSI06").path("childParentGrantIdHex").asText()));
+        require("DSI07 rootGrantor mismatch",!m.get("DSI07").path("rootGrantorHex").asText().equals(m.get("DSI07").path("childRootGrantorHex").asText()));
+        require("DSI08 issuer/delegate mismatch",!m.get("DSI08").path("parentDelegateHex").asText().equals(m.get("DSI08").path("childIssuerHex").asText()));
+        JsonNode i9=m.get("DSI09");require("DSI09 valid grants reordered",
+                i9.path("submittedGrantIdsHex").get(0).asText().equals(i9.path("originalGrantIdsHex").get(1).asText())&&
+                i9.path("submittedGrantIdsHex").get(1).asText().equals(i9.path("originalGrantIdsHex").get(0).asText()));
+    }
+
     public static void main(String[] args)throws Exception{
         Path p=findVectorFile();System.out.println("Using vectors: "+p);
         JsonNode d=JSON.readTree(Files.readString(p));
         require("suite specification","OpenIdentity OI-016 Delegated Subject Token v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
         require("vector IDs DS01-DS02",d.path("vectors").size()==2&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS02".equals(d.path("vectors").get(1).path("id").asText()));
-        verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));
+        verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 VERIFIED");
+        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI09 VERIFIED");
         System.out.println("============================================");
     }
 }
