@@ -42,9 +42,11 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         require("PX01 JWT scope","records.read records.write".equals(jwt.path("scope").asText()));
         require("PX01 JWT cnf.jkt",jkt.equals(jwt.path("cnf").path("jkt").asText()));
         require("PX01 JWT exp",jwt.path("exp").asLong()==exp);
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==8);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==17);
         String[] errors={"INVALID_SUBJECT_TOKEN_TYPE","INVALID_ACTOR_TOKEN_TYPE","INVALID_SUBJECT_TOKEN_TRANSPORT","INVALID_ACTOR_TOKEN_TRANSPORT",
-                "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED"};
+                "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED",
+                "SCOPE_NOT_AUTHORIZED","TARGET_NOT_AUTHORIZED","TARGET_SCOPE_PAIR_NOT_AUTHORIZED","CAPABILITY_PROFILE_MAPPING_UNAVAILABLE",
+                "AMBIGUOUS_TARGET","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE","ACTOR_BINDING_MISMATCH","ASSERTION_CONTEXT_BINDING_MISMATCH"};
         Map<String,JsonNode> m=new HashMap<>();for(int i=0;i<xs.size();i++){JsonNode x=xs.get(i);String id=String.format("PXI%02d",i+1);
             require(id+" stable error",id.equals(x.path("id").asText())&&errors[i].equals(x.path("expectedError").asText()));m.put(id,x);}
         require("PXI01 exact subject token type required",!m.get("PXI01").path("submitted").asText().equals(m.get("PXI01").path("required").asText()));
@@ -55,8 +57,18 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         require("PXI06 DPoP/context mismatch",!m.get("PXI06").path("contextDpopJkt").asText().equals(m.get("PXI06").path("validatedDpopJkt").asText()));
         require("PXI07 three-way DPoP binding mismatch",m.get("PXI07").path("contextDpopJkt").asText().equals(m.get("PXI07").path("validatedDpopJkt").asText())&&!m.get("PXI07").path("validatedDpopJkt").asText().equals(m.get("PXI07").path("issuedTokenDpopJkt").asText()));
         require("PXI08 refresh token prohibited",m.get("PXI08").path("refreshTokenRequestedOrIssued").asBoolean()&&!m.get("PXI08").path("refreshTokensAllowed").asBoolean());
+        require("PXI09 scope denied",!m.get("PXI09").path("explicitlyAllowed").asBoolean());
+        require("PXI10 target denied",!m.get("PXI10").path("explicitlyAllowed").asBoolean());
+        boolean anyDenied=false;for(JsonNode x:m.get("PXI11").path("pairResults"))if(!x.path("allowed").asBoolean())anyDenied=true;
+        require("PXI11 Cartesian product atomic failure",m.get("PXI11").path("atomicFulfillment").asBoolean()&&anyDenied);
+        require("PXI12 mapping unavailable fails closed",m.get("PXI12").path("profilePinned").asBoolean()&&!m.get("PXI12").path("mappingAvailable").asBoolean());
+        require("PXI13 target resolution ambiguous",m.get("PXI13").path("resolvedTargets").size()>1);
+        require("PXI14 conclusive current-state denial",m.get("PXI14").path("authoritativeStateAvailable").asBoolean()&&!m.get("PXI14").path("currentUsability").asBoolean());
+        require("PXI15 current state unavailable",!m.get("PXI15").path("authoritativeStateAvailable").asBoolean());
+        require("PXI16 actor identity binding fails",!m.get("PXI16").path("terminalDelegateHex").asText().equals(m.get("PXI16").path("oi015IdentityHex").asText()));
+        require("PXI17 assertion/context binding fails",!m.get("PXI17").path("actorAssertionIdMatches").asBoolean()&&!m.get("PXI17").path("contextHashMatches").asBoolean());
         System.out.println("\n============================================");
-        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01 + PXI01-PXI08 VERIFIED");
+        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01 + PXI01-PXI17 VERIFIED");
         System.out.println("============================================");
     }
 }
