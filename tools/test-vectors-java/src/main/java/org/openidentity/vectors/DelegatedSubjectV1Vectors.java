@@ -107,9 +107,11 @@ public final class DelegatedSubjectV1Vectors {
 
 
     static void verifyInvalids(JsonNode d)throws Exception{
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==9);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==15);
         String[] errors={"INVALID_DELEGATED_SUBJECT_VERSION","EMPTY_DELEGATION_PATH","DELEGATION_PATH_TOO_DEEP","GRANT_ID_MISMATCH",
-                "INVALID_GRANT_EVIDENCE","PARENT_GRANT_MISMATCH","ROOT_GRANTOR_MISMATCH","ISSUER_DELEGATE_MISMATCH","INVALID_DELEGATION_EVIDENCE"};
+                "INVALID_GRANT_EVIDENCE","PARENT_GRANT_MISMATCH","ROOT_GRANTOR_MISMATCH","ISSUER_DELEGATE_MISMATCH","INVALID_DELEGATION_EVIDENCE",
+                "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE",
+                "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE"};
         require("stable error table size",errors.length==xs.size());
         Map<String,JsonNode> m=new HashMap<>();
         for(int i=0;i<xs.size();i++){JsonNode v=xs.get(i);String id=String.format("DSI%02d",i+1);
@@ -125,6 +127,14 @@ public final class DelegatedSubjectV1Vectors {
         JsonNode i9=m.get("DSI09");require("DSI09 valid grants reordered",
                 i9.path("submittedGrantIdsHex").get(0).asText().equals(i9.path("originalGrantIdsHex").get(1).asText())&&
                 i9.path("submittedGrantIdsHex").get(1).asText().equals(i9.path("originalGrantIdsHex").get(0).asText()));
+        for(String id:new String[]{"DSI10","DSI11","DSI12","DSI13","DSI14","DSI15"})
+            require(id+" embedded evidence remains valid",m.get(id).path("embeddedEvidenceValid").asBoolean());
+        require("DSI10 authoritative state resolved REVOKED",m.get("DSI10").path("authoritativeStateAvailable").asBoolean()&&"REVOKED".equals(m.get("DSI10").path("currentStatus").asText()));
+        require("DSI11 ancestor relinquished",m.get("DSI11").path("authoritativeStateAvailable").asBoolean()&&m.get("DSI11").path("ancestorRelinquished").asBoolean());
+        require("DSI12 delegation generation invalidated",m.get("DSI12").path("authoritativeStateAvailable").asBoolean()&&m.get("DSI12").path("boundDelegationGeneration").asLong()!=m.get("DSI12").path("currentDelegationGeneration").asLong());
+        require("DSI13 root identity DEACTIVATED",m.get("DSI13").path("authoritativeStateAvailable").asBoolean()&&"DEACTIVATED".equals(m.get("DSI13").path("currentRootStatus").asText()));
+        require("DSI14 ancestor expired",m.get("DSI14").path("authoritativeStateAvailable").asBoolean()&&m.get("DSI14").path("verificationTime").asLong()>=m.get("DSI14").path("ancestorExpiresAt").asLong());
+        require("DSI15 authoritative state unavailable",!m.get("DSI15").path("authoritativeStateAvailable").asBoolean());
     }
 
     public static void main(String[] args)throws Exception{
@@ -135,7 +145,7 @@ public final class DelegatedSubjectV1Vectors {
         require("vector IDs DS01-DS02",d.path("vectors").size()==2&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS02".equals(d.path("vectors").get(1).path("id").asText()));
         verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI09 VERIFIED");
+        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI15 VERIFIED");
         System.out.println("============================================");
     }
 }
