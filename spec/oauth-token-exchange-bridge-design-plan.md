@@ -497,31 +497,53 @@ Conceptually:
 
 DelegationEvidenceId is stable for those exact submitted immutable chain bytes. It does not assert current usability.
 
-### 20.2 OI-015 exchange context
+### 20.2 OI-015 OAuth token-exchange context — RESOLVED
 
-The OI-015 actor assertion for token exchange uses:
+For this profile:
 
     purpose = "openidentity.oauth.token-exchange"
 
-Its profile-defined contextBytes MUST commit to:
+The deterministic context logically contains:
 
-    bridge context version
-    authorization-server identifier
-    OAuth client identifier
-    requested_token_type
-    requested resource value(s)
-    requested audience value(s), when present
-    requested scope representation
-    DelegationEvidenceId
-    DPoP JWK thumbprint, when DPoP is requested/required
-    other profile-defined security-critical exchange parameters
+    version
+    authorizationServer
+    clientId
+    requestedTokenType?
+    resources[]
+    audiences[]
+    scopes[]
+    delegationEvidenceId
+    dpopJkt?
+
+The exact CBOR labels and size bounds are resolved before profile wire freeze.
+
+**authorizationServer** is the exact UTF-8 profile-defined canonical authorization-server identifier. It MUST NOT be inferred from an untrusted Host header.
+
+**clientId** is the exact UTF-8 OAuth client identifier after normal OAuth request/client-authentication processing. OpenIdentity performs no case folding or Unicode normalization.
+
+**requestedTokenType**, when present, binds the exact RFC 8693 token-type URI string. Absence and presence are distinct.
+
+**scopes** follows RFC 6749 semantics. The profile parses the space-delimited case-sensitive scope tokens, rejects duplicates, preserves exact token bytes, sorts by unsigned UTF-8 byte order, and encodes a deterministic array. Scope-token order in the HTTP request therefore does not affect the context. Absent scope is an empty array.
+
+**resources** follows RFC 8707. Every value must be an absolute URI with no fragment. The profile preserves the exact post-form-decoding URI string rather than performing URI-equivalence normalization, rejects duplicates, sorts by unsigned UTF-8 byte order, and encodes a deterministic array. Absent resource is an empty array.
+
+**audiences** follows RFC 8693. Audience values may be logical identifiers rather than URIs. The profile preserves exact post-form-decoding values, rejects duplicates, sorts by unsigned UTF-8 byte order, and encodes a deterministic array. Absent audience is an empty array.
+
+**delegationEvidenceId** is the exact normative OI-016 DelegationEvidenceId and is mandatory for delegated exchanges.
+
+**dpopJkt**, when applicable, binds the DPoP key thumbprint representation selected by the profile. DPoP proof bytes themselves are not embedded. Absence and presence are distinct.
 
 Then:
 
-    OI-015.contextHash =
+    contextBytes =
+        deterministicCBOR(OAuthTokenExchangeContextV1)
+
+    OI015.contextHash =
         SHA2-256-Multihash(contextBytes)
 
-This prevents delegation-evidence swapping and OAuth-request widening after actor authentication.
+Changing authorization server, client, requested token type, semantic scope set, resource set, audience set, delegation evidence, or bound DPoP key changes contextHash.
+
+Raw HTTP form-parameter ordering is deliberately not part of the cryptographic identity.
 
 ### 20.3 Final delegated subject token
 
