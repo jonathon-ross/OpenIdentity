@@ -106,8 +106,18 @@ public final class AuthenticationAssertionV1Vectors {
         require("AA02 secured assertion bytes",v.path("securedAssertionBytesHex").asText().equals(hx(secured)));
     }
 
+    static Path findVectorFile()throws Exception{
+        Path dir=Paths.get("").toAbsolutePath().normalize();
+        for(int i=0;i<8 && dir!=null;i++,dir=dir.getParent()){
+            Path p=dir.resolve("test-vectors").resolve("generated").resolve("authentication-assertion-v1.json");
+            if(Files.isRegularFile(p))return p;
+        }
+        throw new NoSuchFileException("Could not locate repository test-vectors/generated/authentication-assertion-v1.json from "+Paths.get("").toAbsolutePath());
+    }
+
     public static void main(String[] args)throws Exception{
-        Path p=Paths.get("..","test-vectors","generated","authentication-assertion-v1.json");
+        Path p=findVectorFile();
+        System.out.println("Using vectors: "+p);
         JsonNode d=JSON.readTree(Files.readString(p));
         require("suite specification","OpenIdentity OI-015 Authentication Assertion v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
