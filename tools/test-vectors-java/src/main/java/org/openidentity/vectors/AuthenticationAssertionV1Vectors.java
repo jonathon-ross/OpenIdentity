@@ -124,6 +124,25 @@ public final class AuthenticationAssertionV1Vectors {
         require("AA03 secured assertion bytes",v.path("securedAssertionBytesHex").asText().equals(hx(secured)));
     }
 
+
+    static void verifyInvalids(JsonNode d)throws Exception{
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==8);
+        String[] errors={"INVALID_STATE_HASH","INVALID_AUTHENTICATION_GENERATION","IDENTITY_NOT_ACTIVE","AUTHENTICATION_POLICY_ABSENT",
+                "AUDIENCE_MISMATCH","PURPOSE_MISMATCH","NONCE_MISMATCH","CONTEXT_HASH_MISMATCH"};
+        Map<String,JsonNode> m=new HashMap<>();
+        for(int i=0;i<8;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
+        JsonNode i1=m.get("AAI01");Key k=new Key("OpenIdentity OI-015 invalid authentication seed");
+        require("AAI01 historical signature cryptographically verifies",k.verify(hex(i1.path("signingBytesHex").asText()),hex(i1.path("signatureHex").asText())));
+        require("AAI01 historical StateHash is not current",!i1.path("historicalStateHashHex").asText().equals(i1.path("currentStateHashHex").asText()));
+        JsonNode i2=m.get("AAI02");require("AAI02 authentication generation stale",i2.path("assertedGeneration").asLong()!=i2.path("currentGeneration").asLong());
+        require("AAI03 identity DEACTIVATED","DEACTIVATED".equals(m.get("AAI03").path("currentStatus").asText()));
+        require("AAI04 AuthenticationPolicy absent",!m.get("AAI04").path("authenticationPolicyPresent").asBoolean());
+        require("AAI05 audience mismatch",!m.get("AAI05").path("expectedAudienceHex").asText().equals(m.get("AAI05").path("assertedAudienceHex").asText()));
+        require("AAI06 purpose mismatch",!m.get("AAI06").path("expectedPurpose").asText().equals(m.get("AAI06").path("assertedPurpose").asText()));
+        require("AAI07 nonce mismatch",!m.get("AAI07").path("expectedNonceHex").asText().equals(m.get("AAI07").path("assertedNonceHex").asText()));
+        require("AAI08 contextHash mismatch",!m.get("AAI08").path("expectedContextHashHex").asText().equals(m.get("AAI08").path("assertedContextHashHex").asText()));
+    }
+
     static Path findVectorFile()throws Exception{
         Path dir=Paths.get("").toAbsolutePath().normalize();
         for(int i=0;i<8 && dir!=null;i++,dir=dir.getParent()){
@@ -140,9 +159,9 @@ public final class AuthenticationAssertionV1Vectors {
         require("suite specification","OpenIdentity OI-015 Authentication Assertion v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
         require("vector count",d.path("vectors").size()==3);
-        verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));
+        verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 VERIFIED");
+        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 + AAI01-AAI08 VERIFIED");
         System.out.println("============================================");
     }
 }
