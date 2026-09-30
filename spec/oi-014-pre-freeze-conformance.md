@@ -56,23 +56,17 @@
 
 ## 3. Release-blocking gaps before byte freeze
 
-### G1 — delegate StateHash error taxonomy — RESOLVED\n\n`INVALID_DELEGATE_STATE_HASH` is distinct from `INVALID_ROOT_STATE_HASH`; DGI20 uses the delegate-specific error.\n\n### G2 — current DelegationPolicy revocation positive path — RESOLVED\n\nDG08 proves current DelegationPolicy B can revoke a surviving grant originally registered by historical policy A after PRESERVE_EXISTING rotation. Python and Java verification pass.\n\n### G3 — profile descriptor wire schema — DESIGN RESOLVED; VECTOR MIGRATION REQUIRED
+### G1 — delegate StateHash error taxonomy — RESOLVED\n\n`INVALID_DELEGATE_STATE_HASH` is distinct from `INVALID_ROOT_STATE_HASH`; DGI20 uses the delegate-specific error.\n\n### G2 — current DelegationPolicy revocation positive path — RESOLVED\n\nDG08 proves current DelegationPolicy B can revoke a surviving grant originally registered by historical policy A after PRESERVE_EXISTING rotation. Python and Java verification pass.\n\n### G3 — profile descriptor wire schema — RESOLVED
 
 OI-014 now defines a canonical ProfileDescriptor envelope containing descriptorVersion, profileKind, semanticSpecHash, maxGrantLifetime, maxDelegationDepth, and deterministic profile-owned parameter bytes.
 
-Before G3 is fully closed, existing DG/DGI vector-local profile descriptors must be migrated to this envelope and independently reconstructed in Python and Java.
+DG01-DG08 and DGI01-DGI31 use the canonical descriptor envelope and independently reconstruct it in Python and Java.
 
-### G4 — PROFILE_PRINCIPAL proof envelope
+### G4 — PROFILE_PRINCIPAL proof envelope — DESIGN RESOLVED; VECTOR MIGRATION REQUIRED
 
-Core CDDL now concretely defines OPENIDENTITY child/relinquishment proof collections using AuthenticationPolicy method signatures. PROFILE_PRINCIPAL remains semantically profile-owned, but the same child-registration-request structure cannot represent both models without an explicit tagged proof union.
+OI-014 now defines a tagged DelegateProof union: OPENIDENTITY carries current StateHash/authentication generation/AuthenticationPolicy proofs; PROFILE_PRINCIPAL carries exact principal ProfileRef plus canonical profile-owned proofContext/proofBytes.
 
-Before freeze define a wire-level delegate-proof union, for example:
-
-    delegate-proof =
-        openidentity-delegate-proof /
-        profile-principal-proof
-
-and bind both forms to the same core OI-014 signing purpose.
+Before G4 is fully closed, DG06/DG07 request bytes must migrate to the tagged OPENIDENTITY proof envelope and at least one PROFILE_PRINCIPAL positive/negative vector pair must prove the alternate branch.
 
 ### G5 — stable error coverage / naming pass
 
