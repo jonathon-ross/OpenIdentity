@@ -117,7 +117,7 @@ Candidate context includes at least:
 
 This prevents a valid OI-015 assertion prepared for one token exchange from being replayed with broader/different OAuth parameters.
 
-The exact deterministic context encoding is not yet frozen.
+The deterministic OAuthTokenExchangeContextV1 encoding is FROZEN-NORMATIVE v1 in `spec/cddl/openidentity-oauth-token-exchange-context-v1.cddl`. The broader OAuth bridge profile remains under design.
 
 ## 6. subject_token — RESOLVED DIRECTION
 
