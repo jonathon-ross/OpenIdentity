@@ -67,10 +67,38 @@ def ds02():
       "delegatedSubjectTokenBytesHex":tb.hex(),"delegatedSubjectTokenIdHex":mh(tb).hex()}
 
 
+
+def invalids():
+    out=[]
+    def add(i,e,a,**kw):out.append({"id":i,"expectedError":e,"attack":a,**kw})
+    add("DSI01","INVALID_DELEGATED_SUBJECT_VERSION","unsupported-version",submittedVersion=2,supportedVersion=1)
+    add("DSI02","EMPTY_DELEGATION_PATH","empty-path",pathLength=0,minimumPathLength=1)
+    add("DSI03","DELEGATION_PATH_TOO_DEEP","path-over-hard-ceiling",pathLength=17,maximumPathLength=16)
+
+    base=ds02()
+    parent=bytes.fromhex(base["parentGrantBytesHex"]);pid=bytes.fromhex(base["parentGrantIdHex"])
+    mutated=bytearray(parent);mutated[-1]^=1
+    add("DSI04","GRANT_ID_MISMATCH","mutated-grant-bytes-unchanged-id",
+        mutatedGrantBytesHex=bytes(mutated).hex(),submittedGrantIdHex=pid.hex(),recomputedGrantIdHex=mh(bytes(mutated)).hex())
+    alt=b"\x13\x20"+h(parent)
+    add("DSI05","INVALID_GRANT_EVIDENCE","unsupported-grantid-hash-profile",
+        submittedGrantIdHex=alt.hex(),expectedMultihashCode=0x12,submittedMultihashCode=0x13)
+
+    add("DSI06","PARENT_GRANT_MISMATCH","child-parent-id-does-not-match-previous",
+        previousGrantIdHex=base["parentGrantIdHex"],childParentGrantIdHex=mh(b"wrong-parent").hex())
+    add("DSI07","ROOT_GRANTOR_MISMATCH","root-grantor-changes-mid-path",
+        rootGrantorHex=base["rootGrantorHex"],childRootGrantorHex=bytes(range(1,33)).hex())
+    add("DSI08","ISSUER_DELEGATE_MISMATCH","child-issuer-not-parent-delegate",
+        parentDelegateHex=base["parentDelegateHex"],childIssuerHex=bytes(range(1,33)).hex())
+    add("DSI09","INVALID_DELEGATION_EVIDENCE","reordered-valid-grants",
+        originalGrantIdsHex=[base["parentGrantIdHex"],base["childGrantIdHex"]],
+        submittedGrantIdsHex=[base["childGrantIdHex"],base["parentGrantIdHex"]])
+    return out
+
 def main():
     data={"specification":"OpenIdentity OI-016 Delegated Subject Token v1","status":"DRAFT-NON-NORMATIVE",
-          "vectors":[ds01(),ds02()],"invalidVectors":[]}
+          "vectors":[ds01(),ds02()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI09 GENERATED")
 if __name__=="__main__":main()
