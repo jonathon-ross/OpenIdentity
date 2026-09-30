@@ -22,7 +22,7 @@ def main():
     d=json.loads(P.read_text())
     req("suite specification",d["specification"]=="OpenIdentity OI-015 Authentication Assertion v1")
     req("draft status",d["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs AA01-AA03",[x["id"] for x in d["vectors"]]==["AA01","AA02","AA03"])
+    req("vector IDs AA01-AA06",[x["id"] for x in d["vectors"]]==["AA01","AA02","AA03","AA04","AA05","AA06"])
     v=d["vectors"][0]
     identity=bytes(range(32));mid=bytes(range(32,48))
     k=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA01 authentication seed"))
@@ -88,6 +88,32 @@ def main():
     k3.public_key().verify(sig3,sign3);req("AA03 signature verifies",True)
     req("AA03 secured assertion bytes",v3["securedAssertionBytesHex"]==enc({1:assertion3,2:[{1:mid3,2:sig3}]}).hex())
 
+    v4=d["vectors"][3]
+    audience4=bytes([0x00,0xff,0x80,0x41,0x2f,0x00,0xfe])
+    req("AA04 audience exact opaque bytes",v4["audienceHex"]==audience4.hex())
+    try: audience4.decode("utf-8");utf8=False
+    except UnicodeDecodeError:utf8=True
+    req("AA04 audience need not be UTF-8",utf8)
+
+    v5=d["vectors"][4];identity5=bytes(range(64,96));oldmid5=bytes(range(0,16));newmid5=bytes(range(16,32));gen5=42
+    oldk5=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA05 old authentication seed"))
+    newk5=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA05 new authentication seed"))
+    oldap5=policy(oldmid5,oldk5.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+    newap5=policy(newmid5,newk5.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+    ctrlid5=bytes(range(32,48));ctrl5=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA05 controller seed"))
+    cp5=policy(ctrlid5,ctrl5.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+    before5={1:3,2:identity5,3:80,4:1,5:cp5,8:{1:gen5,2:oldap5},9:{1:0}}
+    after5={1:3,2:identity5,3:81,4:1,5:cp5,8:{1:gen5,2:newap5},9:{1:0}}
+    req("AA05 generation preserved",v5["generationBefore"]==gen5 and v5["generationAfter"]==gen5)
+    req("AA05 rotation changes StateHash",v5["preRotationStateHashHex"]==mh(enc(before5)).hex() and v5["stateHashHex"]==mh(enc(after5)).hex() and mh(enc(before5))!=mh(enc(after5)))
+    sign5=bytes.fromhex(v5["signingBytesHex"]);sig5=bytes.fromhex(v5["signatureHex"]);newk5.public_key().verify(sig5,sign5);req("AA05 current new policy signature verifies",True)
+
+    v6=d["vectors"][5]
+    oauthctx6=enc({1:b"https://as.example.test",2:b"client-123",3:b"https://api.example.test",4:b"urn:ietf:params:oauth:grant-type:token-exchange"})
+    req("AA06 deterministic OAuth context bytes",v6["contextBytesHex"]==oauthctx6.hex())
+    req("AA06 contextHash",v6["contextHashHex"]==mh(oauthctx6).hex())
+    req("AA06 OAuth purpose",v6["purpose"]=="openidentity.oauth.token-exchange")
+
     invalid={x["id"]:x for x in d["invalidVectors"]}
     req("invalid vector IDs AAI01-AAI23",set(invalid)=={f"AAI{i:02d}" for i in range(1,24)})
     expected={"AAI01":"INVALID_STATE_HASH","AAI02":"INVALID_AUTHENTICATION_GENERATION","AAI03":"IDENTITY_NOT_ACTIVE",
@@ -143,7 +169,7 @@ def main():
     req("AAI23 unsupported contextHash multihash",invalid["AAI23"]["submittedMultihashCode"]!=invalid["AAI23"]["expectedMultihashCode"])
 
     print("\n============================================")
-    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 + AAI01-AAI23 VERIFIED")
+    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA06 + AAI01-AAI23 VERIFIED")
     print("============================================")
 
 if __name__=="__main__":main()
