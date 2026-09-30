@@ -1,6 +1,6 @@
 # OpenIdentity OAuth 2.0 Delegated Agent Profile v1 — Pre-Freeze Conformance Review
 
-**Status:** DRAFT — pre-freeze review  
+**Status:** RELEASE RECORD — Delegated Agent Profile v1 FROZEN-NORMATIVE  
 **Profile:** `https://openidentity.org/oauth/profile/delegated-agent-v1`  
 **Specification:** `spec/oauth-delegated-agent-profile-v1.md`
 
@@ -14,7 +14,7 @@ It also does not replace the generic conformance suites of RFC 8693, RFC 8707, R
 
 ## 2. Current evidence
 
-The draft profile conformance bundle contains:
+The frozen normative profile conformance bundle contains:
 
 - positive vectors PX01-PX03;
 - adversarial vectors PXI01-PXI37;
@@ -139,15 +139,18 @@ This profile consumes and MUST NOT modify:
 - OI-016 Delegated Subject Token v1;
 - OAuthTokenExchangeContextV1.
 
-## 8. Requirements before profile byte freeze
+## 8. Release evidence
 
-1. run the unified delegated-agent profile pre-freeze gate;
-2. require Python PX01-PX03 + PXI01-PXI37 PASS;
-3. require Java PX01-PX03 + PXI01-PXI37 PASS;
-4. confirm all previously frozen OpenIdentity/context commitments remain unchanged;
-5. review specification/vector terminology and stable profile errors;
-6. confirm clean worktree after deterministic regeneration;
-7. only then create a profile conformance-bundle checksum candidate.
+The Delegated Agent Profile v1 release boundary is:
+
+- coverage: PX01-PX03 + PXI01-PXI37;
+- deterministic Python generation and independent Python verification: PASS;
+- independent Java verification: PASS;
+- all previously frozen OpenIdentity/context commitments/artifacts: unchanged;
+- exact generated conformance-bundle size: 12,428 bytes;
+- committed checksum: `checksums/oauth-delegated-agent-profile-v1.json.sha256`;
+- SHA-256: `7243796d82fa51344f86268951d155a8d61aaf2414ccc9625b11356032656037`;
+- post-commit candidate-inclusive release gate: PASS.
 
 ## 9. Freeze status
 
