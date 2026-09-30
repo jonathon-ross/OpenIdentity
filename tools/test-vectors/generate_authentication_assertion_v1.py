@@ -269,6 +269,26 @@ def invalids():
     add("AAI23","INVALID_AUTHENTICATION_ASSERTION","unsupported-context-hash-multihash",
         contextHashHex=bad_context_hash.hex(),expectedMultihashCode=0x12,submittedMultihashCode=0x13)
 
+    # AAI24-AAI31: pre-freeze semantic and structural gap closure.
+    add("AAI24","INVALID_ASSERTION_VERSION","unsupported-assertion-version",assertionVersion=2,supportedVersion=1)
+    add("AAI25","IDENTITY_MISMATCH","asserted-identity-differs-from-current-state",
+        assertedIdentityHex=bytes(range(32)).hex(),currentStateIdentityHex=bytes(range(1,33)).hex())
+    add("AAI26","INVALID_PROOF_SET","noncanonical-proof-order",
+        submittedMethodIdsHex=[bytes(range(16,32)).hex(),bytes(range(0,16)).hex()],
+        requiredOrder="unsigned-byte-lexicographic-ascending")
+    add("AAI27","INVALID_AUTHENTICATION_ASSERTION","nonce-too-long",
+        nonceLength=129,maximumNonceLength=128)
+    add("AAI28","INVALID_AUTHENTICATION_ASSERTION","audience-too-long",
+        audienceLength=2049,maximumAudienceLength=2048)
+    bad_state_hash=b"\x13\x20"+h(b"unsupported-state-hash")
+    add("AAI29","INVALID_AUTHENTICATION_ASSERTION","unsupported-state-hash-multihash",
+        stateHashHex=bad_state_hash.hex(),expectedMultihashCode=0x12,submittedMultihashCode=0x13)
+    add("AAI30","INVALID_TIME_RANGE","uint64-maximum-zero-range",
+        issuedAt=18446744073709551615,expiresAt=18446744073709551615)
+    add("AAI31","ASSERTION_LIFETIME_EXCEEDED","uint64-safe-lifetime-comparison",
+        issuedAt=18446744073709551314,expiresAt=18446744073709551615,maximumLifetime=300,
+        exactLifetime=301)
+
     return out
 
 def main():
@@ -281,6 +301,6 @@ def main():
     print("AA02 GENERATED")
     print("AA03 GENERATED")
     print("AA04-AA06 GENERATED")
-    print("AAI01-AAI23 GENERATED")
+    print("AAI01-AAI31 GENERATED")
 
 if __name__=="__main__":main()
