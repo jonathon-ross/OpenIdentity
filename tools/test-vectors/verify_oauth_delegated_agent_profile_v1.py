@@ -24,12 +24,15 @@ def main():
     jwt=v["expectedJwtProjection"];req("PX01 JWT sub",jwt["sub"]==root.hex());req("PX01 JWT act.sub",jwt["act"]["sub"]==actor.hex())
     req("PX01 JWT audience",jwt["aud"]==[target]);req("PX01 JWT scope",jwt["scope"]=="records.read records.write")
     req("PX01 JWT cnf.jkt",jwt["cnf"]["jkt"]==jkt);req("PX01 JWT exp",jwt["exp"]==exp)
-    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs PXI01-PXI17",set(inv)=={f"PXI{i:02d}" for i in range(1,18)})
+    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs PXI01-PXI27",set(inv)=={f"PXI{i:02d}" for i in range(1,28)})
     errors=["INVALID_SUBJECT_TOKEN_TYPE","INVALID_ACTOR_TOKEN_TYPE","INVALID_SUBJECT_TOKEN_TRANSPORT","INVALID_ACTOR_TOKEN_TRANSPORT",
             "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED",
             "SCOPE_NOT_AUTHORIZED","TARGET_NOT_AUTHORIZED","TARGET_SCOPE_PAIR_NOT_AUTHORIZED","CAPABILITY_PROFILE_MAPPING_UNAVAILABLE",
-            "AMBIGUOUS_TARGET","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE","ACTOR_BINDING_MISMATCH","ASSERTION_CONTEXT_BINDING_MISMATCH"]
-    req("PXI01-PXI17 stable errors",all(inv[f"PXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,18)))
+            "AMBIGUOUS_TARGET","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE","ACTOR_BINDING_MISMATCH","ASSERTION_CONTEXT_BINDING_MISMATCH",
+            "ACCESS_TOKEN_OUTLIVES_DELEGATION","ACCESS_TOKEN_LIFETIME_EXCEEDED","INVALID_SUBJECT_PROJECTION","INVALID_ACTOR_PROJECTION",
+            "OUTPUT_SCOPE_AMPLIFICATION","OUTPUT_AUDIENCE_AMPLIFICATION","MISSING_DPOP_CONFIRMATION","DPOP_TOKEN_BINDING_MISMATCH",
+            "REFRESH_TOKEN_NOT_ALLOWED","SENSITIVE_ERROR_DISCLOSURE"]
+    req("PXI01-PXI27 stable errors",all(inv[f"PXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,28)))
     req("PXI01 exact subject token type required",inv["PXI01"]["submitted"]!=inv["PXI01"]["required"])
     req("PXI02 exact actor token type required",inv["PXI02"]["submitted"]!=inv["PXI02"]["required"])
     req("PXI03 base64url padding rejected",inv["PXI03"]["paddingPresent"] is True and "=" in inv["PXI03"]["submitted"])
@@ -49,5 +52,16 @@ def main():
     req("PXI16 actor identity binding fails",inv["PXI16"]["terminalDelegateHex"]!=inv["PXI16"]["oi015IdentityHex"])
     req("PXI17 assertion/context binding fails",not inv["PXI17"]["actorAssertionIdMatches"] and not inv["PXI17"]["contextHashMatches"])
 
-    print("\n============================================");print("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 PX01 + PXI01-PXI17 VERIFIED");print("============================================")
+    req("PXI18 token outlives delegation",inv["PXI18"]["issuedExp"]>inv["PXI18"]["maximumAllowedExp"])
+    req("PXI19 token exceeds deployment maximum",inv["PXI19"]["issuedExp"]>inv["PXI19"]["maximumAllowedExp"])
+    req("PXI20 subject projection mismatch",inv["PXI20"]["issuedSub"]!=inv["PXI20"]["expectedSub"])
+    req("PXI21 actor projection mismatch",inv["PXI21"]["issuedActor"]!=inv["PXI21"]["expectedActor"])
+    req("PXI22 output scope amplification",not set(inv["PXI22"]["issuedScopes"]).issubset(set(inv["PXI22"]["authorizedScopes"])))
+    req("PXI23 output audience amplification",not set(inv["PXI23"]["issuedAudiences"]).issubset(set(inv["PXI23"]["authorizedAudiences"])))
+    req("PXI24 DPoP confirmation mandatory",inv["PXI24"]["cnfJktPresent"] is False)
+    req("PXI25 output DPoP key mismatch",inv["PXI25"]["issuedJkt"]!=inv["PXI25"]["expectedJkt"])
+    req("PXI26 response refresh token prohibited",inv["PXI26"]["refreshTokenPresent"] and not inv["PXI26"]["refreshTokensAllowed"])
+    req("PXI27 public error leaks internal state",inv["PXI27"]["forbiddenDisclosure"] in inv["PXI27"]["publicErrorDescription"])
+
+    print("\n============================================");print("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 PX01 + PXI01-PXI27 VERIFIED");print("============================================")
 if __name__=="__main__":main()
