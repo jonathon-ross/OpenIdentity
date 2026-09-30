@@ -182,7 +182,7 @@ OI-016 v1 does not provide selective disclosure or zero-knowledge delegation pro
 - DS01 — one direct grant plus matching OI-015 actor assertion;
 - DS02 — two-grant root-to-child path;
 - DS03 — path at maximum candidate depth;
-- DS04 — exact maximum evidence-size boundary;
+- DS04 — maximum constructed valid evidence-size boundary fixture at or below the total ceiling;
 - DS05 — registryDomain boundary/representation case;
 - DS06 — integration fixture proving DelegationEvidenceId is committed by OI-015 contextHash.
 
@@ -287,11 +287,11 @@ Exact maximum values are valid:
     registryDomain length = 128
     grantBytes length = 65,536
     grants.length = 16
-    DelegationEvidenceBytes length = 1,048,576
+    DelegationEvidenceBytes length = 1,048,576, when a valid structural encoding can reach it
 
 One unit above each applicable limit is invalid.
 
-Test vectors MUST pin exact-boundary and one-over-boundary behavior before freeze.
+Test vectors MUST pin exact boundaries where reachable. For aggregate encoded-size ceilings, conformance MUST at minimum pin a maximum constructed valid fixture below/equal to the ceiling and an invalid fixture above it; the review MUST NOT assume that every integer encoded size is reachable under all simultaneous structural bounds.
 
 ## 19. Commitment model — RESOLVED
 
