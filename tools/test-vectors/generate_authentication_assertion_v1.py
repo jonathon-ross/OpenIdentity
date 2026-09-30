@@ -182,6 +182,34 @@ def invalids():
     add("AAI17","AUTHENTICATION_POLICY_NOT_SATISFIED","insufficient-threshold",
         threshold=2,submittedMethodIdsHex=[pa.hex()],signatureHex=siga.hex())
 
+    # AAI18-AAI20: cross-domain replay and security-reset invalidation.
+    replay_key=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 replay authentication seed"))
+    replay_mid=bytes(range(208,224))
+    replay_assertion=enc({1:1,2:bytes(range(64,96)),3:mh(b"OI-015 replay state"),4:31,
+                          5:b"verifier-A",6:"openidentity.authentication",7:2001006000,8:2001006120,
+                          9:bytes(range(112,144)),10:mh(b"replay-context")})
+    replay_sign=enc(["OpenIdentity Authentication Assertion",1,replay_assertion,replay_mid])
+    replay_sig=replay_key.sign(replay_sign)
+    add("AAI18","PURPOSE_MISMATCH","cross-purpose-replay",
+        signedPurpose="openidentity.authentication",requestedPurpose="openidentity.oauth.token-exchange",
+        signingBytesHex=replay_sign.hex(),signatureHex=replay_sig.hex())
+    add("AAI19","AUDIENCE_MISMATCH","cross-audience-replay",
+        signedAudienceHex=b"verifier-A".hex(),requestedAudienceHex=b"verifier-B".hex(),
+        signingBytesHex=replay_sign.hex(),signatureHex=replay_sig.hex())
+    add("AAI20","INVALID_AUTHENTICATION_GENERATION","reset-invalidates-prepared-assertion",
+        assertedGeneration=31,currentGeneration=32,
+        preResetStateHashHex=mh(b"OI-015 replay state").hex(),postResetStateHashHex=mh(b"OI-015 post-reset state").hex(),
+        signingBytesHex=replay_sign.hex(),signatureHex=replay_sig.hex())
+
+    # AAI21-AAI23 are structural/schema boundary failures.
+    add("AAI21","INVALID_AUTHENTICATION_ASSERTION","invalid-purpose-character",
+        purpose="OpenIdentity.Authentication",reason="purpose contains uppercase ASCII")
+    add("AAI22","INVALID_AUTHENTICATION_ASSERTION","nonce-too-short",
+        nonceHex=bytes(range(15)).hex(),nonceLength=15,minimumNonceLength=16)
+    bad_context_hash=b"\x13\x20"+h(b"unsupported-context-hash")
+    add("AAI23","INVALID_AUTHENTICATION_ASSERTION","unsupported-context-hash-multihash",
+        contextHashHex=bad_context_hash.hex(),expectedMultihashCode=0x12,submittedMultihashCode=0x13)
+
     return out
 
 def main():
@@ -193,6 +221,6 @@ def main():
     print("AA01 GENERATED")
     print("AA02 GENERATED")
     print("AA03 GENERATED")
-    print("AAI01-AAI17 GENERATED")
+    print("AAI01-AAI23 GENERATED")
 
 if __name__=="__main__":main()
