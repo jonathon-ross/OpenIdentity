@@ -40,6 +40,13 @@ def main():
     a=args()
     run("Generate draft delegated-agent profile vectors",[sys.executable,"tools/test-vectors/generate_oauth_delegated_agent_profile_v1.py"])
     run("Verify draft delegated-agent profile vectors",[sys.executable,"tools/test-vectors/verify_oauth_delegated_agent_profile_v1.py"])
+    candidate=ROOT/"checksums"/"oauth-delegated-agent-profile-v1.json.sha256"
+    if candidate.is_file():
+        run("Verify delegated-agent profile byte-frozen candidate",
+            [sys.executable,"tools/test-vectors/verify_oauth_delegated_agent_profile_v1_freeze_candidate.py"])
+    else:
+        print("\n[Delegated-agent profile freeze candidate]")
+        print("[INFO] No candidate checksum present; semantic pre-freeze checks continue.")
     mvn=maven(a.maven)
     if not mvn:
         print("\nDELEGATED AGENT PROFILE v1 PRE-FREEZE GATE: FAIL (Maven executable not found)");raise SystemExit(1)
