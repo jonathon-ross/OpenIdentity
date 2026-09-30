@@ -161,9 +161,12 @@ public final class AuthenticationAssertionV1Vectors {
                 "ASSERTION_EXPIRED","ASSERTION_NOT_YET_VALID","UNAUTHORIZED_AUTHENTICATION_PROOF","DUPLICATE_AUTHENTICATION_PROOF",
                 "UNAUTHORIZED_AUTHENTICATION_PROOF","INVALID_AUTHENTICATION_SIGNATURE","AUTHENTICATION_POLICY_NOT_SATISFIED",
                 "PURPOSE_MISMATCH","AUDIENCE_MISMATCH","INVALID_AUTHENTICATION_GENERATION","INVALID_AUTHENTICATION_ASSERTION",
-                "INVALID_AUTHENTICATION_ASSERTION","INVALID_AUTHENTICATION_ASSERTION"};
+                "INVALID_AUTHENTICATION_ASSERTION","INVALID_AUTHENTICATION_ASSERTION",
+                "INVALID_ASSERTION_VERSION","IDENTITY_MISMATCH","INVALID_PROOF_SET","INVALID_AUTHENTICATION_ASSERTION",
+                "INVALID_AUTHENTICATION_ASSERTION","INVALID_AUTHENTICATION_ASSERTION","INVALID_TIME_RANGE","ASSERTION_LIFETIME_EXCEEDED"};
+        require("stable error table size",errors.length==xs.size());
         Map<String,JsonNode> m=new HashMap<>();
-        for(int i=0;i<31;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
+        for(int i=0;i<xs.size();i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
         JsonNode i1=m.get("AAI01");Key k=new Key("OpenIdentity OI-015 invalid authentication seed");
         require("AAI01 historical signature cryptographically verifies",k.verify(hex(i1.path("signingBytesHex").asText()),hex(i1.path("signatureHex").asText())));
         require("AAI01 historical StateHash is not current",!i1.path("historicalStateHashHex").asText().equals(i1.path("currentStateHashHex").asText()));
