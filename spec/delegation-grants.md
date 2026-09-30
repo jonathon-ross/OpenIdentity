@@ -582,6 +582,7 @@ Proposed signing structure:
     [
       "OpenIdentity Delegation Grant",
       1,
+      registryDomain,
       GrantBytes,
       grantorStateHash,
       delegationGeneration,
@@ -641,6 +642,7 @@ Authoritative grant registration/status uses a per-GrantId monotonic revision ch
 The canonical logical state is:
 
     RegisteredGrantState {
+        registryDomain
         grantId
         revision
         previousRecordHash
@@ -830,6 +832,105 @@ A public observer may learn that an opaque GrantId changed from ACTIVE to REVOKE
 
 A privacy profile requiring hidden status relationships needs an additional cryptographic construction and is outside the initial core.
 
+## 8C. Registry-domain binding and cross-registry replay
+
+GrantId identifies immutable grant intent and is intentionally portable across registries.
+
+Authoritative registration state is **not** portable by default.
+
+Every RegisteredGrantState belongs to exactly one immutable `registryDomain`.
+
+### RegistryDomain
+
+`registryDomain` is a canonical identifier for the authority domain whose ordering/finality rules determine which registration/status record is authoritative.
+
+It identifies an authority domain, not merely a network endpoint or server hostname.
+
+Examples of possible profile-defined authority domains include:
+
+- one specific OpenIdentity registry deployment;
+- one blockchain network plus one specific registration contract/program identity;
+- one enterprise trust domain;
+- one replicated-log authority.
+
+The final encoding/registry for `registryDomain` will be defined before wire freeze.
+
+A registry profile MUST define how its canonical registryDomain is derived and compared.
+
+### Record binding
+
+`registryDomain` is included in RegisteredGrantState and therefore in RecordBytes and RecordHash.
+
+Two otherwise identical registration records in different registry domains have different RecordHashes.
+
+A revision chain MUST remain in one registryDomain. A successor whose registryDomain differs from its predecessor is invalid.
+
+### Registration authorization domain
+
+Direct grant registration authorization MUST also bind to the intended registryDomain.
+
+The proposed direct grant signing structure is refined to:
+
+    [
+      "OpenIdentity Delegation Grant",
+      1,
+      registryDomain,
+      GrantBytes,
+      grantorStateHash,
+      delegationGeneration,
+      verificationMethodId
+    ]
+
+A signature authorizing registration in Registry A MUST NOT authorize registration in Registry B.
+
+Child-registration proofs likewise MUST bind the intended registryDomain in their eventual signing structure.
+
+### Status-transition domains
+
+Grantor revocation and delegate relinquishment signing structures MUST include the current RegisteredGrantState's registryDomain.
+
+This prevents a status proof prepared for one authority domain from being replayed against an independently registered copy in another.
+
+### Same GrantId in multiple registries
+
+Core OI-014 permits the same GrantId to be registered independently in more than one registryDomain only when the deployment/profile intentionally allows that behavior.
+
+Each registration is a separate authoritative state history:
+
+    (registryDomain A, GrantId) -> revision chain A
+    (registryDomain B, GrantId) -> revision chain B
+
+Revocation in A does not cryptographically mutate B.
+
+A relying-party profile MUST therefore define which registryDomain or set of registryDomains it trusts and, if multiple are trusted, how status is combined.
+
+Core OI-014 MUST NOT silently treat ACTIVE in one registry as overriding REVOKED in another, or vice versa.
+
+High-assurance profiles SHOULD avoid ambiguous multi-registry authority by naming exactly one authoritative registryDomain or defining explicit federation rules.
+
+### Cross-registry copying
+
+Copying RecordBytes from Registry A into Registry B does not create an authoritative B record because the embedded registryDomain remains A.
+
+Re-encoding the record with registryDomain B changes RecordBytes/RecordHash and requires fresh B-domain registration authorization.
+
+A transport bridge or blockchain mirror may reproduce A-domain records without becoming a new authority domain if it preserves the exact A-domain bytes and the relying party still evaluates authority as Registry A.
+
+### Registry migration/federation
+
+Migration of an authoritative grant history from one registryDomain to another is not implicit.
+
+A future federation/migration profile must define:
+
+- authorization to migrate;
+- treatment of existing ACTIVE/REVOKED status;
+- revision/history continuity;
+- conflict handling;
+- whether both domains remain authoritative;
+- relying-party trust semantics.
+
+Core OI-014 v1 does not infer migration from copied records.
+
 ## 9. Grant usability
 
 A registered grant is usable only if all of the following hold:
@@ -912,6 +1013,7 @@ Proposed grantor revocation signing structure:
     [
       "OpenIdentity Delegation Grant Revocation",
       1,
+      registryDomain,
       grantId,
       currentRecordHash,
       nextRevision,
@@ -924,6 +1026,7 @@ Proposed delegate relinquishment signing structure:
     [
       "OpenIdentity Delegation Grant Relinquishment",
       1,
+      registryDomain,
       grantId,
       currentRecordHash,
       nextRevision,
