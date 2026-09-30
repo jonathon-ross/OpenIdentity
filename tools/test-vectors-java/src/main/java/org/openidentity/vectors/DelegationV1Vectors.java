@@ -32,12 +32,61 @@ public final class DelegationV1Vectors {
     }
     private static byte[] policy(byte[] mid,byte[] m){return map(1,1,2,E(arr(E(map(1,mid,2,E(m))))));}
     private static String hx(JsonNode v,String n){return v.path(n).asText();}
+
+    private static void verifyDG02(JsonNode v)throws Exception{
+        byte[] registry="openidentity:test:oi014:dg02".getBytes(StandardCharsets.UTF_8), root=seq(64,32), delegate=seq(96,32);
+        byte[] ma=seq(0,16), mb=seq(16,16);
+        Ed25519Support ea=new Ed25519Support(sha("OpenIdentity OI-014 DG02 delegation A Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
+        Ed25519Support eb=new Ed25519Support(sha("OpenIdentity OI-014 DG02 delegation B Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
+        byte[] mtha=method2(ea.publicKey()),mthb=method2(eb.publicKey());
+        byte[] entries=arr(E(map(1,ma,2,E(mtha))),E(map(1,mb,2,E(mthb))));
+        byte[] dp=map(1,2,2,2,3,E(entries));
+
+        byte[] descriptor=map(1,1,2,"openidentity.test.exact-capability",3,1,
+                4,E(arr("document.write".getBytes(StandardCharsets.UTF_8))),5,1800,6,2);
+        byte[] ph=mh(descriptor);
+        require("DG02 ProfileDescriptor bytes",hx(v,"profileDescriptorBytesHex").equals(Hex.encode(descriptor)));
+        require("DG02 ProfileHash",hx(v,"profileHashHex").equals(Hex.encode(ph)));
+
+        byte[] pref=map(1,1,2,ph),cref=map(1,E(pref),2,"document.write".getBytes(StandardCharsets.UTF_8)),dc=map(1,E(cref));
+        byte[] grant=map(1,1,2,root,3,E(map(1,1,2,root)),4,E(map(1,1,2,delegate)),
+                5,E(arr(E(dc))),7,2000002800L,9,sha("OpenIdentity OI-014 DG02 nonce".getBytes(StandardCharsets.UTF_8)));
+        byte[] gid=mh(grant);
+        require("DG02 GrantBytes",hx(v,"grantBytesHex").equals(Hex.encode(grant)));
+        require("DG02 GrantId",hx(v,"grantIdHex").equals(Hex.encode(gid)));
+
+        byte[] state=map(1,3,2,root,3,11,4,1,5,E(dp),8,E(map(1,0)),9,E(map(1,9,2,E(dp))));
+        byte[] sh=mh(state);
+        require("DG02 current StateBytes",hx(v,"currentStateBytesHex").equals(Hex.encode(state)));
+        require("DG02 current StateHash",hx(v,"currentStateHashHex").equals(Hex.encode(sh)));
+
+        byte[] sa=arr("OpenIdentity Delegation Grant",1,registry,grant,sh,9,ma);
+        byte[] sb=arr("OpenIdentity Delegation Grant",1,registry,grant,sh,9,mb);
+        byte[] siga=ea.sign(sa),sigb=eb.sign(sb);
+        require("DG02 signing A",hx(v,"registrationSigningBytesAHex").equals(Hex.encode(sa)));
+        require("DG02 signing B",hx(v,"registrationSigningBytesBHex").equals(Hex.encode(sb)));
+        require("DG02 signature A",hx(v,"registrationSignatureAHex").equals(Hex.encode(siga)));
+        require("DG02 signature B",hx(v,"registrationSignatureBHex").equals(Hex.encode(sigb)));
+        require("DG02 both threshold signatures verify",ea.verify(sa,siga)&&eb.verify(sb,sigb));
+
+        byte[] pa=map(1,ma,2,siga),pb=map(1,mb,2,sigb);
+        byte[] request=map(1,registry,2,E(grant),3,sh,4,9,5,E(arr(E(pa),E(pb))));
+        require("DG02 canonical proof order",Hex.encode(ma).compareTo(Hex.encode(mb))<0);
+        require("DG02 registration request bytes",hx(v,"registrationRequestBytesHex").equals(Hex.encode(request)));
+
+        byte[] record=map(1,registry,2,gid,3,1,4,null,5,1,6,sh,7,9,8,2000001000L);
+        byte[] rh=mh(record);
+        require("DG02 RecordBytes",hx(v,"recordBytesHex").equals(Hex.encode(record)));
+        require("DG02 RecordHash",hx(v,"recordHashHex").equals(Hex.encode(rh)));
+    }
+
     public static void main(String[] args)throws Exception{
         Path file=Path.of("..","..","test-vectors","generated","delegation-v1.json");
         JsonNode rootJson=new ObjectMapper().readTree(Files.readString(file));
         require("suite specification","OpenIdentity OI-014 DelegationGrant v1".equals(rootJson.path("suite").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(rootJson.path("status").asText()));
         JsonNode v=rootJson.path("vectors").get(0);require("DG01 id","DG01".equals(v.path("id").asText()));
+        require("vector count",rootJson.path("vectors").size()==2);
 
         byte[] registry="openidentity:test:oi014:dg01".getBytes(StandardCharsets.UTF_8), root=seq(0,32), delegate=seq(32,32), mid=seq(0,16);
         Ed25519Support ed=new Ed25519Support(sha("OpenIdentity OI-014 DG01 delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
@@ -68,8 +117,9 @@ public final class DelegationV1Vectors {
         require("DG01 registration request bytes",hx(v,"registrationRequestBytesHex").equals(Hex.encode(request)));
         byte[] record=map(1,registry,2,gid,3,1,4,null,5,1,6,sh,7,4,8,2000000000L),rh=mh(record);
         require("DG01 RecordBytes",hx(v,"recordBytesHex").equals(Hex.encode(record)));require("DG01 RecordHash",hx(v,"recordHashHex").equals(Hex.encode(rh)));
+        verifyDG02(rootJson.path("vectors").get(1));
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG02 VERIFIED");
         System.out.println("============================================");
     }
 }
