@@ -31,13 +31,16 @@ public final class DelegatedAgentExchangeService {
         if(request.dpop()==null)throw new ProfileException(ProfileError.DPOP_REQUIRED);
 
         VerifiedDelegatedSubject subject=subjectVerifier.verify(request.subjectTokenBytes());
-        VerifiedAuthenticationAssertion actor=actorVerifier.verify(request.actorTokenBytes());
 
         List<String> targets=resolveTargets(request.resources(),request.audiences());
         OAuthTokenExchangeContextV1 context=new OAuthTokenExchangeContextV1(
                 request.authorizationServer(),request.clientId(),request.requestedTokenType(),
                 request.resources(),request.audiences(),request.scopes(),
                 subject.delegationEvidenceId(),request.dpop().jkt());
+        byte[] contextHash=OAuthTokenExchangeContextV1Encoder.contextHash(context);
+        VerifiedAuthenticationAssertion actor=actorVerifier.verify(new AuthenticationVerificationRequest(
+                request.actorTokenBytes(),request.authorizationServer().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                DelegatedAgentProfileVerifier.PURPOSE,request.actorNonce(),contextHash,request.now()));
 
         AuthorizationDecision decision;
         try {
