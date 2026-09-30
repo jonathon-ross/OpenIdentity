@@ -382,3 +382,8 @@ OI-015 Authentication Assertion v1 is FROZEN-NORMATIVE. See `spec/oi-015-authent
 ### OI-016 Delegated Subject Token
 
 OI-016 Delegated Subject Token v1 is FROZEN-NORMATIVE. It binds one exact frozen OI-014 delegation path to one exact frozen OI-015 actor assertion without introducing a third signature. See `spec/oi-016-delegated-subject-token-design-plan.md` and `spec/cddl/openidentity-delegated-subject-v1.cddl`.
+
+
+### OAuth Token Exchange Context v1
+
+`OAuthTokenExchangeContextV1` is FROZEN-NORMATIVE. It deterministically binds the OAuth token-exchange request, OI-016 DelegationEvidenceId, and mandatory delegated-agent DPoP key into frozen OI-015 `contextHash`. The broader OAuth bridge issuance profile remains under design. See `spec/cddl/openidentity-oauth-token-exchange-context-v1.cddl`.
