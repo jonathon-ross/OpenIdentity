@@ -260,22 +260,26 @@ Implementations SHOULD avoid logging full OI-014 GrantBytes, OI-016 tokens, OI-0
 
 Nested RFC 8693 act history is not required. The default JWT projection exposes only root subject and current actor.
 
-## 10. Conformance work remaining
+## 10. Conformance boundary
 
-Before this broader profile can become normative, conformance should cover at least:
+The profile conformance suite currently covers PX01-PX03 + PXI01-PXI37 in independent Python and Java implementations.
 
-- complete request-processing success path;
-- wrong subject_token_type / actor_token_type;
-- malformed base64url token transport;
-- DPoP missing/invalid/substituted key;
-- OI-016/OI-015 cross-binding failures;
-- capability/scope denial;
-- target/resource denial;
-- current-state failure versus unavailable state;
+It pins the OpenIdentity-specific interoperability surface across:
+
+- profile admission and exact token/grant types;
+- strict OpenIdentity token transport;
+- mandatory DPoP composition and three-way jkt binding;
+- current OI-014/OI-016 authority;
+- frozen OAuthTokenExchangeContextV1 reconstruction;
+- current OI-015 purpose/audience/identity/assertion/context binding;
+- Capability Profile target/scope mapping and atomic fulfillment;
+- assertion replay handling;
+- output subject/actor/audience/scope projection;
 - access-token expiration clipping;
-- no-refresh-token rule;
-- JWT sub/act/cnf.jkt projection;
-- public OAuth error projection;
-- discovery metadata profile advertisement.
+- no-refresh behavior;
+- discovery metadata;
+- safe public OAuth error projection.
 
-These are profile/runtime vectors and tests, not changes to frozen OI-014/OI-015/OI-016/context bytes.
+Generic RFC 9449 cryptographic proof conformance and generic RFC 9068/JWT validation remain delegated to conforming implementations of those standards rather than duplicated here.
+
+The profile remains non-normative until its conformance bundle is byte-frozen and the final release gate passes.
