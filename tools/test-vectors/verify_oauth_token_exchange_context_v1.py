@@ -24,13 +24,15 @@ def main():
     ctx={1:1,2:b"https://as.example.test",3:b"agent-client-016",4:b"urn:ietf:params:oauth:token-type:access_token",
          5:resources,6:audiences,7:scopes,8:eid,9:jkt}
     cb=enc(ctx);req("TX01 context bytes",v["contextBytesHex"]==cb.hex());req("TX01 contextHash",v["contextHashHex"]==mh(cb).hex())
-    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs TXI01-TXI26",set(inv)=={f"TXI{i:02d}" for i in range(1,27)})
+    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs TXI01-TXI35",set(inv)=={f"TXI{i:02d}" for i in range(1,36)})
     errors=["INVALID_CONTEXT_VERSION","DUPLICATE_SCOPE","NONCANONICAL_SCOPE_ORDER","DUPLICATE_RESOURCE","NONCANONICAL_RESOURCE_ORDER",
             "INVALID_RESOURCE","INVALID_RESOURCE","DUPLICATE_AUDIENCE","NONCANONICAL_AUDIENCE_ORDER","INVALID_SCOPE",
             "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT","TOO_MANY_RESOURCES","TOO_MANY_AUDIENCES","TOO_MANY_SCOPES",
             "INVALID_AUTHORIZATION_SERVER","INVALID_CLIENT_ID","INVALID_REQUESTED_TOKEN_TYPE","INVALID_RESOURCE","INVALID_AUDIENCE","INVALID_SCOPE",
-            "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT"]
-    req("TXI01-TXI26 stable errors",all(inv[f"TXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,27)))
+            "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT",
+            "AUTHORIZATION_SERVER_MISMATCH","CLIENT_ID_MISMATCH","REQUESTED_TOKEN_TYPE_MISMATCH","REQUESTED_TOKEN_TYPE_MISMATCH",
+            "RESOURCE_SET_MISMATCH","AUDIENCE_SET_MISMATCH","SCOPE_SET_MISMATCH","DELEGATION_EVIDENCE_MISMATCH","DPOP_KEY_MISMATCH"]
+    req("TXI01-TXI35 stable errors",all(inv[f"TXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,36)))
     req("TXI01 unsupported version",inv["TXI01"]["submittedVersion"]!=inv["TXI01"]["supportedVersion"])
     req("TXI02 duplicate scope",len(set(inv["TXI02"]["scopes"]))!=len(inv["TXI02"]["scopes"]))
     req("TXI03 scope order noncanonical",inv["TXI03"]["scopes"]!=inv["TXI03"]["canonicalScopes"])
@@ -56,5 +58,8 @@ def main():
     req("TXI25 invalid base64url character",any(c not in allowed for c in inv["TXI25"]["dpopJkt"]))
     req("TXI26 base64url padding forbidden","=" in inv["TXI26"]["dpopJkt"])
 
-    print("\n============================================");print("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 TX01-TX04 + TXI01-TXI26 VERIFIED");print("============================================")
+    for n in range(27,36):
+        x=inv[f"TXI{n:02d}"];req(f"TXI{n:02d} substitution changes contextHash",x["originalContextHashHex"]!=x["substitutedContextHashHex"])
+
+    print("\n============================================");print("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 TX01-TX04 + TXI01-TXI35 VERIFIED");print("============================================")
 if __name__=="__main__":main()
