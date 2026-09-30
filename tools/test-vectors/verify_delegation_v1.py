@@ -264,7 +264,7 @@ def main():
     pdesc9=profile_descriptor(2,principal_spec9,0,0,principal_params9); pdb9=enc(pdesc9); ph9=mh(pdb9); pref9={1:2,2:ph9}
     agent9=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG09 profile principal seed"))
     pub9=agent9.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
-    req("DG09 principal semantic spec hash",v9["principalSemanticSpecHashHex"]==mh(principal_spec9).hex())
+    req("DG09 principal semantic spec bytes",v9["principalSemanticSpecBytesHex"]==principal_spec9.hex())\n    req("DG09 principal semantic spec hash",v9["principalSemanticSpecHashHex"]==mh(principal_spec9).hex())
     req("DG09 principal ProfileDescriptor bytes",v9["principalProfileDescriptorBytesHex"]==pdb9.hex())
     req("DG09 principal ProfileHash",v9["principalProfileHashHex"]==ph9.hex())
     req("DG09 principalId",v9["principalIdHex"]==pub9.hex())
