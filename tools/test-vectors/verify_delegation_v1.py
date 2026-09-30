@@ -192,7 +192,45 @@ def main():
     crec6={1:reg6,2:cgid6,3:1,4:None,5:1,6:rsh6,7:gen6,8:2000021000}; crb6=enc(crec6); crh6=mh(crb6)
     req("DG06 child RecordBytes",v6["childRecordBytesHex"]==crb6.hex());req("DG06 child RecordHash",v6["childRecordHashHex"]==crh6.hex())
     req("DG06 depth 2",v6["childDepth"]==2)
+
+    invalid={x["id"]:x for x in data["invalidVectors"]}
+    req("invalid vector IDs DGI01-DGI06",set(invalid)=={f"DGI{i:02d}" for i in range(1,7)})
+    expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
+              "DGI03":"CROSS_DOMAIN_PROOF","DGI04":"INVALID_PREVIOUS_RECORD_HASH",
+              "DGI05":"CAPABILITY_ESCALATION","DGI06":"PARENT_GRANT_UNUSABLE"}
+    req("DGI01-DGI06 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
+
+    i1=invalid["DGI01"]
+    oldpub=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DGI01 old delegation seed")).public_key()
+    oldpub.verify(bytes.fromhex(i1["submittedSignatureHex"]),bytes.fromhex(i1["submittedSigningBytesHex"]))
+    req("DGI01 historical signature cryptographically verifies",True)
+    req("DGI01 old method is not current",i1["submittedMethodIdHex"]!=i1["currentDelegationPolicyMethodIdHex"])
+    req("DGI01 historical StateHash is not current",i1["historicalStateHashHex"]!=i1["currentStateHashHex"])
+
+    i2=invalid["DGI02"]
+    req("DGI02 claimed generation differs from current",i2["claimedGeneration"]!=i2["actualGeneration"])
+
+    i3=invalid["DGI03"]
+    sig3=bytes.fromhex(i3["submittedSignatureHex"])
+    pub3=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DGI02 delegation seed")).public_key()
+    pub3.verify(sig3,bytes.fromhex(i3["authorizedSigningBytesHex"]))
+    req("DGI03 signature verifies in Registry A domain",True)
+    try:
+        pub3.verify(sig3,bytes.fromhex(i3["requiredSigningBytesHex"]))
+        cross=False
+    except Exception:
+        cross=True
+    req("DGI03 signature rejected in Registry B domain",cross)
+
+    i4=invalid["DGI04"]
+    req("DGI04 submitted parent RecordHash is stale",i4["submittedParentRecordHashHex"]!=i4["currentParentRecordHashHex"])
+
+    i5=invalid["DGI05"]
+    req("DGI05 child capability absent from parent authority","document.admin" not in i5["parentCapabilities"] and i5["childCapabilities"]==["document.admin"])
+
+    i6=invalid["DGI06"]
+    req("DGI06 current parent is REVOKED",i6["currentParentStatus"]=="REVOKED")
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG06 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI06 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
