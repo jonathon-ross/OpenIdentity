@@ -13,7 +13,7 @@ def req(n,v):
     print(" ",n+": PASS")
 def main():
     d=json.loads(P.read_text());req("suite specification",d["specification"]=="OpenIdentity OI-016 Delegated Subject Token v1")
-    req("draft status",d["status"]=="DRAFT-NON-NORMATIVE");req("vector IDs DS01-DS02",[x["id"] for x in d["vectors"]]==["DS01","DS02"])
+    req("draft status",d["status"]=="DRAFT-NON-NORMATIVE");req("vector IDs DS01-DS06",[x["id"] for x in d["vectors"]]==["DS01","DS02","DS03","DS04","DS05","DS06"])
     v=d["vectors"][0];root=bytes(range(32));delegate=bytes(range(32,64))
     ph=mh(b"OI-016 DS01 capability profile");grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
       5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],7:2002003600,9:h(b"OpenIdentity OI-016 DS01 grant nonce")}
@@ -43,6 +43,16 @@ def main():
     ab2=enc(actor2);aid2=mh(ab2);req("DS02 actorAssertionId",v2["actorAssertionIdHex"]==aid2.hex())
     req("DS02 actor equals terminal delegate",v2["terminalDelegateHex"]==d2.hex())
     tb2=enc({1:1,2:evidence2,3:aid2});req("DS02 token bytes",v2["delegatedSubjectTokenBytesHex"]==tb2.hex());req("DS02 token id",v2["delegatedSubjectTokenIdHex"]==mh(tb2).hex())
+
+    v3=d["vectors"][2];req("DS03 exact 16-grant hard ceiling",v3["pathLength"]==16 and len(v3["grantIdsHex"])==16)
+    req("DS03 no duplicate GrantIds",len(set(v3["grantIdsHex"]))==16)
+    v4=d["vectors"][3];req("DS04 16 grants",v4["grantCount"]==16);req("DS04 evidence within 1 MiB",v4["delegationEvidenceLength"]<=v4["maximumDelegationEvidenceLength"])
+    req("DS04 all GrantBytes within 64 KiB",v4["allGrantBytesWithinLimit"] is True)
+    v5=d["vectors"][4];req("DS05 exact 128-byte registryDomain",v5["registryDomainLength"]==128 and len(bytes.fromhex(v5["registryDomainHex"]))==128)
+    v6=d["vectors"][5];eid6=bytes.fromhex(v6["delegationEvidenceIdHex"])
+    ctx6={1:1,2:b"https://as.example.test",3:b"client-016",4:eid6,5:b"https://api.example.test",6:b"records.read"}
+    cb6=enc(ctx6);req("DS06 context bytes",v6["contextBytesHex"]==cb6.hex());req("DS06 contextHash",v6["contextHashHex"]==mh(cb6).hex())
+    req("DS06 token-exchange purpose",v6["purpose"]=="openidentity.oauth.token-exchange")
 
     invalid={x["id"]:x for x in d["invalidVectors"]}
     req("invalid vector IDs DSI01-DSI22",set(invalid)=={f"DSI{i:02d}" for i in range(1,23)})
@@ -90,5 +100,5 @@ def main():
     req("DSI21 splice lacks parent linkage",i21["splicedNextParentGrantIdPresent"] is False)
     i22=invalid["DSI22"];req("DSI22 duplicate/cycle GrantId",len(set(i22["submittedGrantIdsHex"]))!=len(i22["submittedGrantIdsHex"]) and i22["submittedGrantIdsHex"].count(i22["duplicateGrantIdHex"])==2)
 
-    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS02 + DSI01-DSI22 VERIFIED");print("============================================")
+    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS06 + DSI01-DSI22 VERIFIED");print("============================================")
 if __name__=="__main__":main()
