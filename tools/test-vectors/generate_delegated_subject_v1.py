@@ -109,6 +109,40 @@ def invalids():
         embeddedEvidenceValid=True,authoritativeStateAvailable=False,
         requiredRegistryDomainHex=b"openidentity:test:oi016:ds02".hex(),requiredGrantIdHex=base2["parentGrantIdHex"])
 
+    # DSI16-DSI19: OI-016 <-> OI-015 cross-object binding attacks.
+    ds=ds02();expected_aid=bytes.fromhex(ds["actorAssertionIdHex"])
+    other_assertion={1:1,2:bytes(range(160,192)),3:mh(b"OI-016 DSI16 alternate actor state"),4:11,
+                     5:b"oi016-ds02-verifier",6:"openidentity.authentication",7:2002010001,8:2002010121,
+                     9:bytes(range(224,256)),10:mh(bytes.fromhex(ds["delegationEvidenceIdHex"]))}
+    other_ab=enc(other_assertion);other_aid=mh(other_ab)
+    add("DSI16","ACTOR_ASSERTION_ID_MISMATCH","subject-token-binds-different-assertion",
+        tokenActorAssertionIdHex=expected_aid.hex(),suppliedActorAssertionIdHex=other_aid.hex(),
+        suppliedAssertionBytesHex=other_ab.hex())
+
+    wrong_actor=bytes(range(1,33))
+    wrong_actor_assertion={1:1,2:wrong_actor,3:mh(b"OI-016 DSI17 wrong actor state"),4:3,
+                           5:b"oi016-ds02-verifier",6:"openidentity.authentication",7:2002010000,8:2002010120,
+                           9:bytes(range(64,96)),10:mh(bytes.fromhex(ds["delegationEvidenceIdHex"]))}
+    wrong_actor_ab=enc(wrong_actor_assertion)
+    add("DSI17","ACTOR_IDENTITY_MISMATCH","authenticated-actor-not-terminal-delegate",
+        terminalDelegateHex=ds["terminalDelegateHex"],authenticatedActorHex=wrong_actor.hex(),
+        actorAssertionIdHex=mh(wrong_actor_ab).hex())
+
+    other_eid=mh(b"OI-016 DSI18 different delegation evidence")
+    context_for_other=mh(other_eid)
+    add("DSI18","DELEGATION_CONTEXT_MISMATCH","actor-context-binds-different-evidence",
+        expectedDelegationEvidenceIdHex=ds["delegationEvidenceIdHex"],boundDelegationEvidenceIdHex=other_eid.hex(),
+        boundContextHashHex=context_for_other.hex())
+
+    same_actor=bytes.fromhex(ds["terminalDelegateHex"])
+    fresh_assertion={1:1,2:same_actor,3:mh(b"OI-016 DSI19 fresh same-actor state"),4:11,
+                     5:b"oi016-ds02-verifier",6:"openidentity.authentication",7:2002010002,8:2002010122,
+                     9:bytes(range(32,64)),10:mh(bytes.fromhex(ds["delegationEvidenceIdHex"]))}
+    fresh_ab=enc(fresh_assertion);fresh_aid=mh(fresh_ab)
+    add("DSI19","ACTOR_ASSERTION_ID_MISMATCH","different-valid-same-actor-assertion-swapped",
+        terminalDelegateHex=ds["terminalDelegateHex"],tokenActorAssertionIdHex=expected_aid.hex(),
+        substitutedActorAssertionIdHex=fresh_aid.hex(),substitutedAssertionBytesHex=fresh_ab.hex())
+
     return out
 
 def main():
@@ -116,5 +150,5 @@ def main():
           "vectors":[ds01(),ds02()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI15 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI19 GENERATED")
 if __name__=="__main__":main()
