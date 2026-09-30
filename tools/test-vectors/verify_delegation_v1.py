@@ -274,7 +274,7 @@ def main():
     req("DG09 acting profile matches proof profile",ph9.hex()==v9["principalProfileHashHex"])
 
     invalid={x["id"]:x for x in data["invalidVectors"]}
-    req("invalid vector IDs DGI01-DGI32",set(invalid)=={f"DGI{i:02d}" for i in range(1,33)})
+    req("invalid vector IDs DGI01-DGI39",set(invalid)=={f"DGI{i:02d}" for i in range(1,40)})
     expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
               "DGI03":"CROSS_DOMAIN_PROOF","DGI04":"INVALID_PREVIOUS_RECORD_HASH",
               "DGI05":"CAPABILITY_ESCALATION","DGI06":"PARENT_GRANT_UNUSABLE",
@@ -290,8 +290,12 @@ def main():
               "DGI25":"PARENT_GRANT_NOT_FOUND","DGI26":"PARENT_GRANT_NOT_FOUND",
               "DGI27":"REGISTRY_DOMAIN_MISMATCH","DGI28":"PARENT_GRANT_UNUSABLE",
               "DGI29":"PARENT_GRANT_UNUSABLE","DGI30":"DELEGATION_DEPTH_EXCEEDED",
-              "DGI31":"DELEGATION_CYCLE","DGI32":"PROFILE_SUBSTITUTION"}
-    req("DGI01-DGI32 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
+              "DGI31":"DELEGATION_CYCLE","DGI32":"PROFILE_SUBSTITUTION",
+              "DGI33":"UNKNOWN_PROFILE","DGI34":"PROFILE_HASH_MISMATCH",
+              "DGI35":"PROFILE_LIFETIME_EXCEEDED","DGI36":"RESOURCE_SCOPE_WIDENING",
+              "DGI37":"REVISION_OVERFLOW","DGI38":"ROOT_GRANTOR_NOT_ACTIVE",
+              "DGI39":"DELEGATION_POLICY_ABSENT"}
+    req("DGI01-DGI39 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
 
     i1=invalid["DGI01"]
     oldpub=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DGI01 old delegation seed")).public_key()
@@ -435,7 +439,18 @@ def main():
     i32=invalid["DGI32"]
     req("DGI32 proof profile differs from acting principal profile",
         i32["actingPrincipalProfileHashHex"]!=i32["submittedProofProfileHashHex"])
+
+    i33=invalid["DGI33"];req("DGI33 required profile descriptor unavailable",i33["descriptorAvailable"] is False)
+    i34=invalid["DGI34"];req("DGI34 supplied descriptor does not match committed ProfileHash",
+        i34["committedProfileHashHex"]!=i34["suppliedProfileHashHex"] and mh(bytes.fromhex(i34["suppliedProfileDescriptorBytesHex"])).hex()==i34["suppliedProfileHashHex"])
+    i35=invalid["DGI35"];req("DGI35 grant lifetime exceeds profile maximum",
+        i35["grantExpiresAt"]-i35["grantNotBefore"]>i35["profileMaximumLifetime"])
+    i36=invalid["DGI36"];req("DGI36 child resource widens parent scope",
+        bytes.fromhex(i36["parentResourceConstraintHex"])==b"tenant:A" and bytes.fromhex(i36["childResourceConstraintHex"])==b"*")
+    i37=invalid["DGI37"];req("DGI37 current revision is uint64 max",i37["currentRevision"]==18446744073709551615)
+    i38=invalid["DGI38"];req("DGI38 rootGrantor is DEACTIVATED",i38["rootStatus"]=="DEACTIVATED")
+    i39=invalid["DGI39"];req("DGI39 current DelegationPolicy absent",i39["rootStatus"]=="ACTIVE" and i39["delegationPolicyPresent"] is False)
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG09 + DGI01-DGI32 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG09 + DGI01-DGI39 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
