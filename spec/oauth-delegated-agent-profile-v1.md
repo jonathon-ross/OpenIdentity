@@ -1,6 +1,6 @@
 # OpenIdentity OAuth 2.0 Delegated Agent Profile v1
 
-**Status:** Design draft; non-normative  
+**Status:** FROZEN-NORMATIVE v1  
 **Profile identifier:** `https://openidentity.org/oauth/profile/delegated-agent-v1`
 
 ## 1. Purpose
@@ -282,4 +282,4 @@ It pins the OpenIdentity-specific interoperability surface across:
 
 Generic RFC 9449 cryptographic proof conformance and generic RFC 9068/JWT validation remain delegated to conforming implementations of those standards rather than duplicated here.
 
-The profile remains non-normative until its conformance bundle is byte-frozen and the final release gate passes.
+The profile is FROZEN-NORMATIVE v1. Frozen profile semantics and conformance-bundle bytes MUST NOT change without explicit profile/version evolution.
