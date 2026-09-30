@@ -51,7 +51,7 @@ public final class SampleOpenIdentityFixture {
   RegisteredGrantStateResolver records=(reg,id)->Arrays.equals(id,gid)?new RegisteredGrantState(registry,gid,1,RegisteredGrantState.ACTIVE,rootState,9,now-10):null;
   RootDelegationStateResolver roots=id->new RootDelegationState(root,rootState,true,9);
   var oi014=new DefaultOi014GrantVerifier(records,roots,profiles);
-  var oi016=new Oi016DelegatedSubjectVerifier(new Oi016Verifier(oi014,profiles),Instant::now);
+  var oi016=new Oi016DelegatedSubjectVerifier(new Oi016Verifier(oi014,profiles),() -> Instant.now().getEpochSecond());
   AuthenticationStateResolver states=id->new CurrentAuthenticationState(actor,authState,true,new AuthenticationPolicySnapshot(5,1,List.of(new AuthenticationMethod(methodId,key.generatePublicKey().getEncoded()))));
   var oi015=new Oi015AuthenticationAssertionVerifier(new Oi015Verifier(states,300));
   CapabilityMapper mapper=(subject,target,scope)->target.equals("https://api.example.test/")&&scope.equals("records.read");
