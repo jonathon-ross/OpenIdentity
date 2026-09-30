@@ -42,11 +42,14 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         require("PX01 JWT scope","records.read records.write".equals(jwt.path("scope").asText()));
         require("PX01 JWT cnf.jkt",jkt.equals(jwt.path("cnf").path("jkt").asText()));
         require("PX01 JWT exp",jwt.path("exp").asLong()==exp);
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==17);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==27);
         String[] errors={"INVALID_SUBJECT_TOKEN_TYPE","INVALID_ACTOR_TOKEN_TYPE","INVALID_SUBJECT_TOKEN_TRANSPORT","INVALID_ACTOR_TOKEN_TRANSPORT",
                 "DPOP_REQUIRED","DPOP_CONTEXT_MISMATCH","DPOP_TOKEN_BINDING_MISMATCH","REFRESH_TOKEN_NOT_ALLOWED",
                 "SCOPE_NOT_AUTHORIZED","TARGET_NOT_AUTHORIZED","TARGET_SCOPE_PAIR_NOT_AUTHORIZED","CAPABILITY_PROFILE_MAPPING_UNAVAILABLE",
-                "AMBIGUOUS_TARGET","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE","ACTOR_BINDING_MISMATCH","ASSERTION_CONTEXT_BINDING_MISMATCH"};
+                "AMBIGUOUS_TARGET","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE","ACTOR_BINDING_MISMATCH","ASSERTION_CONTEXT_BINDING_MISMATCH",
+                "ACCESS_TOKEN_OUTLIVES_DELEGATION","ACCESS_TOKEN_LIFETIME_EXCEEDED","INVALID_SUBJECT_PROJECTION","INVALID_ACTOR_PROJECTION",
+                "OUTPUT_SCOPE_AMPLIFICATION","OUTPUT_AUDIENCE_AMPLIFICATION","MISSING_DPOP_CONFIRMATION","DPOP_TOKEN_BINDING_MISMATCH",
+                "REFRESH_TOKEN_NOT_ALLOWED","SENSITIVE_ERROR_DISCLOSURE"};
         Map<String,JsonNode> m=new HashMap<>();for(int i=0;i<xs.size();i++){JsonNode x=xs.get(i);String id=String.format("PXI%02d",i+1);
             require(id+" stable error",id.equals(x.path("id").asText())&&errors[i].equals(x.path("expectedError").asText()));m.put(id,x);}
         require("PXI01 exact subject token type required",!m.get("PXI01").path("submitted").asText().equals(m.get("PXI01").path("required").asText()));
@@ -67,8 +70,20 @@ public final class OAuthDelegatedAgentProfileV1Vectors {
         require("PXI15 current state unavailable",!m.get("PXI15").path("authoritativeStateAvailable").asBoolean());
         require("PXI16 actor identity binding fails",!m.get("PXI16").path("terminalDelegateHex").asText().equals(m.get("PXI16").path("oi015IdentityHex").asText()));
         require("PXI17 assertion/context binding fails",!m.get("PXI17").path("actorAssertionIdMatches").asBoolean()&&!m.get("PXI17").path("contextHashMatches").asBoolean());
+        require("PXI18 token outlives delegation",m.get("PXI18").path("issuedExp").asLong()>m.get("PXI18").path("maximumAllowedExp").asLong());
+        require("PXI19 token exceeds deployment maximum",m.get("PXI19").path("issuedExp").asLong()>m.get("PXI19").path("maximumAllowedExp").asLong());
+        require("PXI20 subject projection mismatch",!m.get("PXI20").path("issuedSub").asText().equals(m.get("PXI20").path("expectedSub").asText()));
+        require("PXI21 actor projection mismatch",!m.get("PXI21").path("issuedActor").asText().equals(m.get("PXI21").path("expectedActor").asText()));
+        Set<String> a22=new HashSet<>();for(JsonNode x:m.get("PXI22").path("authorizedScopes"))a22.add(x.asText());boolean amp22=false;for(JsonNode x:m.get("PXI22").path("issuedScopes"))if(!a22.contains(x.asText()))amp22=true;
+        require("PXI22 output scope amplification",amp22);
+        Set<String> a23=new HashSet<>();for(JsonNode x:m.get("PXI23").path("authorizedAudiences"))a23.add(x.asText());boolean amp23=false;for(JsonNode x:m.get("PXI23").path("issuedAudiences"))if(!a23.contains(x.asText()))amp23=true;
+        require("PXI23 output audience amplification",amp23);
+        require("PXI24 DPoP confirmation mandatory",!m.get("PXI24").path("cnfJktPresent").asBoolean());
+        require("PXI25 output DPoP key mismatch",!m.get("PXI25").path("issuedJkt").asText().equals(m.get("PXI25").path("expectedJkt").asText()));
+        require("PXI26 response refresh token prohibited",m.get("PXI26").path("refreshTokenPresent").asBoolean()&&!m.get("PXI26").path("refreshTokensAllowed").asBoolean());
+        require("PXI27 public error leaks internal state",m.get("PXI27").path("publicErrorDescription").asText().contains(m.get("PXI27").path("forbiddenDisclosure").asText()));
         System.out.println("\n============================================");
-        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01 + PXI01-PXI17 VERIFIED");
+        System.out.println("OPENIDENTITY OAUTH DELEGATED AGENT PROFILE v1 JAVA PX01 + PXI01-PXI27 VERIFIED");
         System.out.println("============================================");
     }
 }
