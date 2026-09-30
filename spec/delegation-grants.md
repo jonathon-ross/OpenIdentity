@@ -925,8 +925,7 @@ The canonical logical state is:
         revision
         previousRecordHash
         status
-        grantBytes
-        grantorStateHash
+        rootGrantorStateHash
         delegationGeneration
         registeredAt
     }
@@ -1432,7 +1431,7 @@ A child grant MUST contain exactly one `parentGrantId`.
 
 At child registration, the parent MUST be an authoritative, usable registered grant.
 
-The child registration record MUST preserve the parentGrantId binding.
+The child GrantBytes MUST preserve the parentGrantId binding. The minimal RegisteredGrantState need not duplicate parentGrantId because its GrantId commits to those exact child GrantBytes.
 
 At use time, every ancestor required by the chain MUST remain usable. A revoked, expired, generation-invalid, deactivated, or otherwise unusable ancestor makes all descendants unusable.
 
@@ -1477,6 +1476,55 @@ A child remains transitively dependent on its parent.
 If the root grant's bound delegation generation becomes invalid, the root grant becomes unusable and every descendant becomes unusable even if child records themselves have not changed.
 
 A child grant MUST NOT substitute a newer root generation to escape an invalidated parent chain.
+
+## 12B. Deterministic descendant-chain verification
+
+The minimal RegisteredGrantState is sufficient for descendant verification without trusting a separate parent index because parent linkage is committed inside each child's GrantBytes.
+
+A relying party evaluating a child or deeper descendant MUST possess or retrieve the complete GrantBytes for every grant required by the ancestry path.
+
+For a grant G in registryDomain R, verification proceeds:
+
+1. reconstruct exact canonical GrantBytes(G);
+2. compute GrantId(G) and require an authoritative current RegisteredGrantState at key `(R, GrantId(G))`;
+3. validate that record's revision chain, status, root delegation generation compatibility, rootGrantor ACTIVE status, time bounds, profiles, and delegate authentication as applicable;
+4. if G has no parentGrantId, require its direct-grant root/issuer semantics and stop ancestry traversal;
+5. if G has parentGrantId P, obtain exact GrantBytes(P);
+6. recompute GrantId(P) and require exact equality with G.parentGrantId;
+7. resolve the authoritative current RegisteredGrantState at `(R, P)`;
+8. require the parent to be usable;
+9. require G.rootGrantor == P.rootGrantor and G.issuer == P.delegate;
+10. evaluate capability/resource/time/profile attenuation and explicit redelegation authority from P to G;
+11. repeat with P until a direct root grant is reached;
+12. enforce acyclicity and the applicable maximum chain depth throughout traversal.
+
+A verifier MUST NOT trust an external database field, search index, API relationship, graph edge, or transport-supplied parent object unless the retrieved parent's exact canonical GrantBytes recompute to the parentGrantId committed by the child.
+
+An index may answer "where can I retrieve parentGrantId P?" It cannot answer "this other grant is the parent" authoritatively.
+
+### Missing ancestry material
+
+GrantId commitment provides integrity, not availability.
+
+If any required ancestor GrantBytes, authoritative registration state, pinned profile descriptor, or root identity state cannot be obtained and validated, descendant authorization MUST fail closed.
+
+A verifier MUST NOT skip an unavailable ancestor and continue from a higher ancestor.
+
+### Public-anchor privacy
+
+`parentGrantId` does not need to be duplicated in RegisteredGrantState.
+
+Duplicating it would make public registration graphs easier to correlate while adding no cryptographic authority: the authoritative child GrantId already commits to child GrantBytes, and those bytes commit to parentGrantId.
+
+Deployments may maintain private indexes for efficient traversal. Public graph indexing is optional metadata and not part of core authority.
+
+### Registration-time versus use-time validation
+
+Child registration performs the same parent binding and attenuation checks against the then-current parent chain.
+
+Grant use MUST re-evaluate current ancestor usability because a parent may later become revoked, expired, generation-invalid, or otherwise unusable without changing the descendant's own RegisteredGrantState.
+
+Thus successful historical child registration is necessary but not sufficient for current descendant use.
 
 ## 13. AI-agent delegation
 
