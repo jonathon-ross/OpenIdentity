@@ -3,6 +3,7 @@
 **Status:** Design draft; non-normative  
 **Protocol dependency:** ProtocolVersion 2 / IdentityState v3 candidate  
 **Purpose:** Define constrained delegation without transferring root identity authority
+**Draft wire schema:** `spec/cddl/openidentity-delegation-v1.cddl`
 
 ## 1. Security objective
 
@@ -1480,6 +1481,71 @@ Invalid/security:
 - revoked grant reactivation attempt;
 - duplicate REGISTER replay attempting to refresh registeredAt or create a second ACTIVE history;
 - nonce-changed replacement grant signed by historical/rotated-out authority.
+
+## 17A. Stable core error taxonomy
+
+The initial OI-014 conformance profile uses stable semantic error labels. Wire/API transport mapping is deployment-owned, but independent implementations must agree on the underlying rejection class.
+
+Initial core errors:
+
+    INVALID_DELEGATION_GRANT
+    INVALID_GRANT_VERSION
+    INVALID_ROOT_GRANTOR
+    INVALID_ISSUER
+    INVALID_DELEGATE
+    INVALID_CAPABILITY_SET
+    INVALID_RESOURCE_CONSTRAINT
+    UNKNOWN_PROFILE
+    PROFILE_HASH_MISMATCH
+    INVALID_TIME_RANGE
+    GRANT_EXPIRED_AT_REGISTRATION
+    PROFILE_LIFETIME_EXCEEDED
+    INVALID_NONCE
+
+    INVALID_GRANT_ID
+    GRANT_HASH_COLLISION
+    INVALID_REGISTRY_DOMAIN
+    GRANT_ALREADY_REGISTERED
+    GRANT_REVOKED
+    GRANT_NOT_REGISTERED
+
+    ROOT_GRANTOR_NOT_ACTIVE
+    DELEGATION_POLICY_ABSENT
+    INVALID_ROOT_STATE_HASH
+    INVALID_DELEGATION_GENERATION
+    UNAUTHORIZED_GRANT_REGISTRATION
+    INVALID_REGISTRATION_PROOF
+    CROSS_DOMAIN_PROOF
+
+    PARENT_GRANT_REQUIRED
+    PARENT_GRANT_NOT_FOUND
+    PARENT_GRANT_UNUSABLE
+    ROOT_GRANTOR_MISMATCH
+    ISSUER_PARENT_DELEGATE_MISMATCH
+    REDELEGATION_NOT_AUTHORIZED
+    CAPABILITY_ESCALATION
+    RESOURCE_SCOPE_WIDENING
+    CHILD_TIME_WIDENING
+    PROFILE_SUBSTITUTION
+    DELEGATION_CYCLE
+    DELEGATION_DEPTH_EXCEEDED
+
+    INVALID_GRANT_REVISION
+    INVALID_PREVIOUS_RECORD_HASH
+    RECORD_HASH_MISMATCH
+    RECORD_HASH_COLLISION
+    REVISION_OVERFLOW
+    REGISTRY_DOMAIN_MISMATCH
+
+    UNAUTHORIZED_REVOCATION
+    INVALID_REVOCATION_PROOF
+    UNAUTHORIZED_RELINQUISHMENT
+    INVALID_RELINQUISHMENT_PROOF
+    TERMINAL_GRANT_STATE
+
+A verifier SHOULD report the most specific stable error it can determine without weakening validation ordering or leaking deployment-sensitive information.
+
+Profiles may define additional profile-specific errors, but they MUST NOT redefine the meaning of these core labels.
 
 ## 18. Open design questions before wire freeze
 
