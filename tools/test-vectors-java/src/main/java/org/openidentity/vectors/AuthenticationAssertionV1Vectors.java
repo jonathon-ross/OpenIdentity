@@ -126,11 +126,13 @@ public final class AuthenticationAssertionV1Vectors {
 
 
     static void verifyInvalids(JsonNode d)throws Exception{
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==8);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==17);
         String[] errors={"INVALID_STATE_HASH","INVALID_AUTHENTICATION_GENERATION","IDENTITY_NOT_ACTIVE","AUTHENTICATION_POLICY_ABSENT",
-                "AUDIENCE_MISMATCH","PURPOSE_MISMATCH","NONCE_MISMATCH","CONTEXT_HASH_MISMATCH"};
+                "AUDIENCE_MISMATCH","PURPOSE_MISMATCH","NONCE_MISMATCH","CONTEXT_HASH_MISMATCH","INVALID_TIME_RANGE","ASSERTION_LIFETIME_EXCEEDED",
+                "ASSERTION_EXPIRED","ASSERTION_NOT_YET_VALID","UNAUTHORIZED_AUTHENTICATION_PROOF","DUPLICATE_AUTHENTICATION_PROOF",
+                "UNAUTHORIZED_AUTHENTICATION_PROOF","INVALID_AUTHENTICATION_SIGNATURE","AUTHENTICATION_POLICY_NOT_SATISFIED"};
         Map<String,JsonNode> m=new HashMap<>();
-        for(int i=0;i<8;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
+        for(int i=0;i<17;i++){JsonNode v=xs.get(i);String id=String.format("AAI%02d",i+1);require(id+" stable error",id.equals(v.path("id").asText())&&errors[i].equals(v.path("expectedError").asText()));m.put(id,v);}
         JsonNode i1=m.get("AAI01");Key k=new Key("OpenIdentity OI-015 invalid authentication seed");
         require("AAI01 historical signature cryptographically verifies",k.verify(hex(i1.path("signingBytesHex").asText()),hex(i1.path("signatureHex").asText())));
         require("AAI01 historical StateHash is not current",!i1.path("historicalStateHashHex").asText().equals(i1.path("currentStateHashHex").asText()));
@@ -141,6 +143,18 @@ public final class AuthenticationAssertionV1Vectors {
         require("AAI06 purpose mismatch",!m.get("AAI06").path("expectedPurpose").asText().equals(m.get("AAI06").path("assertedPurpose").asText()));
         require("AAI07 nonce mismatch",!m.get("AAI07").path("expectedNonceHex").asText().equals(m.get("AAI07").path("assertedNonceHex").asText()));
         require("AAI08 contextHash mismatch",!m.get("AAI08").path("expectedContextHashHex").asText().equals(m.get("AAI08").path("assertedContextHashHex").asText()));
+        require("AAI09 invalid zero time range",m.get("AAI09").path("expiresAt").asLong()<=m.get("AAI09").path("issuedAt").asLong());
+        require("AAI10 lifetime exceeds 300",m.get("AAI10").path("expiresAt").asLong()-m.get("AAI10").path("issuedAt").asLong()>m.get("AAI10").path("maximumLifetime").asLong());
+        require("AAI11 expiresAt boundary is expired",m.get("AAI11").path("verificationTime").asLong()>=m.get("AAI11").path("expiresAt").asLong());
+        require("AAI12 before issuedAt",m.get("AAI12").path("verificationTime").asLong()<m.get("AAI12").path("issuedAt").asLong());
+        JsonNode i13=m.get("AAI13");boolean auth13=false;for(JsonNode x:i13.path("authenticationMethodIdsHex"))if(x.asText().equals(i13.path("submittedMethodIdHex").asText()))auth13=true;
+        require("AAI13 controller method not in AuthenticationPolicy",!auth13);
+        JsonNode i14=m.get("AAI14");require("AAI14 duplicate proof method",i14.path("submittedMethodIdsHex").get(0).asText().equals(i14.path("submittedMethodIdsHex").get(1).asText()));
+        JsonNode i15=m.get("AAI15");require("AAI15 unauthorized extra exists despite threshold",i15.path("submittedMethodIdsHex").size()>i15.path("authorizedThreshold").asInt());
+        JsonNode i16=m.get("AAI16");Key ka=new Key("OpenIdentity OI-015 proof attack A seed");
+        require("AAI16 valid baseline signature verifies",ka.verify(hex(i16.path("signingBytesHex").asText()),hex(i16.path("validSignatureHex").asText())));
+        require("AAI16 corrupted signature rejected",!ka.verify(hex(i16.path("signingBytesHex").asText()),hex(i16.path("invalidSignatureHex").asText())));
+        JsonNode i17=m.get("AAI17");require("AAI17 threshold not satisfied",i17.path("submittedMethodIdsHex").size()<i17.path("threshold").asInt());
     }
 
     static Path findVectorFile()throws Exception{
@@ -161,7 +175,7 @@ public final class AuthenticationAssertionV1Vectors {
         require("vector count",d.path("vectors").size()==3);
         verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 + AAI01-AAI08 VERIFIED");
+        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 + AAI01-AAI17 VERIFIED");
         System.out.println("============================================");
     }
 }
