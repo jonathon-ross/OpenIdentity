@@ -3,6 +3,7 @@ package org.openidentity.spring;
 import org.openidentity.oauth.AuthorizationDecision;
 import org.springframework.security.oauth2.core.*;
 import org.springframework.security.oauth2.server.authorization.authentication.*;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContextHolder;
 import org.springframework.security.oauth2.server.authorization.token.*;
