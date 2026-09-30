@@ -12,16 +12,21 @@ public final class OpenIdentityTokenExchangeAuthenticationProvider implements Au
  private final DelegatedAgentExchangeService exchange;
  private final String authorizationServer;
  private final Clock clock;
+ private final OpenIdentitySpringTokenIssuer tokenIssuer;
 
- public OpenIdentityTokenExchangeAuthenticationProvider(DelegatedAgentExchangeService exchange,String authorizationServer,Clock clock){
-  this.exchange=Objects.requireNonNull(exchange);this.authorizationServer=Objects.requireNonNull(authorizationServer);this.clock=Objects.requireNonNull(clock);
+ public OpenIdentityTokenExchangeAuthenticationProvider(DelegatedAgentExchangeService exchange,String authorizationServer,Clock clock,OpenIdentitySpringTokenIssuer tokenIssuer){
+  this.exchange=Objects.requireNonNull(exchange);this.authorizationServer=Objects.requireNonNull(authorizationServer);this.clock=Objects.requireNonNull(clock);this.tokenIssuer=Objects.requireNonNull(tokenIssuer);
  }
  @Override public Authentication authenticate(Authentication authentication){
   var a=(OpenIdentityTokenExchangeAuthenticationToken)authentication;
   String clientId=clientId(a.clientPrincipal());
   var request=new DelegatedAgentExchangeRequest(authorizationServer,clientId,a.requestedTokenType(),a.resources(),a.audiences(),a.scopes(),
       a.subjectToken(),a.actorToken(),a.actorNonce(),new ValidatedDpopProof(a.dpopJkt()),clock.instant().getEpochSecond());
-  try{return new OpenIdentityAuthenticatedGrant(a.clientPrincipal(),exchange.exchange(request));}
+  try{
+   var grant=new OpenIdentityAuthenticatedGrant(a.clientPrincipal(),exchange.exchange(request));
+   if(!(a.clientPrincipal() instanceof OAuth2ClientAuthenticationToken client))throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.INVALID_REQUEST));
+   return tokenIssuer.issue(client,grant);
+  }
   catch(ProfileException e){throw OpenIdentityProfileErrorMapper.toOAuth(e);}
  }
  private static String clientId(Authentication a){
