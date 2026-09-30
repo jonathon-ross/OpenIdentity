@@ -152,7 +152,10 @@ public final class AuthenticationAssertionV1Vectors {
         JsonNode i13=m.get("AAI13");boolean auth13=false;for(JsonNode x:i13.path("authenticationMethodIdsHex"))if(x.asText().equals(i13.path("submittedMethodIdHex").asText()))auth13=true;
         require("AAI13 controller method not in AuthenticationPolicy",!auth13);
         JsonNode i14=m.get("AAI14");require("AAI14 duplicate proof method",i14.path("submittedMethodIdsHex").get(0).asText().equals(i14.path("submittedMethodIdsHex").get(1).asText()));
-        JsonNode i15=m.get("AAI15");require("AAI15 unauthorized extra exists despite threshold",i15.path("submittedMethodIdsHex").size()>i15.path("authorizedThreshold").asInt());
+        JsonNode i15=m.get("AAI15");Set<String> auth15=new HashSet<>();for(JsonNode x:i15.path("authorizedMethodIdsHex"))auth15.add(x.asText());
+        int authorizedSubmitted=0;boolean unauthorizedExtra=false;for(JsonNode x:i15.path("submittedMethodIdsHex")){if(auth15.contains(x.asText()))authorizedSubmitted++;else unauthorizedExtra=true;}
+        require("AAI15 threshold is otherwise satisfied",authorizedSubmitted>=i15.path("authorizedThreshold").asInt());
+        require("AAI15 unauthorized extra method exists",unauthorizedExtra);
         JsonNode i16=m.get("AAI16");Key ka=new Key("OpenIdentity OI-015 proof attack A seed");
         require("AAI16 valid baseline signature verifies",ka.verify(hex(i16.path("signingBytesHex").asText()),hex(i16.path("validSignatureHex").asText())));
         require("AAI16 corrupted signature rejected",!ka.verify(hex(i16.path("signingBytesHex").asText()),hex(i16.path("invalidSignatureHex").asText())));
@@ -163,7 +166,7 @@ public final class AuthenticationAssertionV1Vectors {
         require("AAI19 audience replay rejected",!m.get("AAI19").path("signedAudienceHex").asText().equals(m.get("AAI19").path("requestedAudienceHex").asText()));
         require("AAI20 reset generation invalidates assertion",m.get("AAI20").path("assertedGeneration").asLong()!=m.get("AAI20").path("currentGeneration").asLong());
         require("AAI20 post-reset StateHash differs",!m.get("AAI20").path("preResetStateHashHex").asText().equals(m.get("AAI20").path("postResetStateHashHex").asText()));
-        require("AAI21 purpose violates lowercase ASCII grammar",m.get("AAI21").path("purpose").asText().matches(".*[A-Z].*"));
+        require("AAI21 purpose violates lowercase ASCII grammar",!m.get("AAI21").path("purpose").asText().matches("^[a-z0-9](?:[a-z0-9._-]{0,253}[a-z0-9])?$"));
         require("AAI22 nonce below minimum",m.get("AAI22").path("nonceLength").asInt()<m.get("AAI22").path("minimumNonceLength").asInt());
         require("AAI23 unsupported contextHash multihash",m.get("AAI23").path("submittedMultihashCode").asInt()!=m.get("AAI23").path("expectedMultihashCode").asInt());
     }
