@@ -81,10 +81,36 @@ def invalids():
     add("TXI26","INVALID_DPOP_JKT","padding-not-allowed",
         dpopJkt=("A"*42)+"=",length=43,invalidCharacter="=")
 
+    # TXI27-TXI35: one-dimension context substitution attacks.
+    base=tx01();base_hash=base["contextHashHex"]
+    eid=bytes.fromhex(base["delegationEvidenceIdHex"]);jkt=base["dpopJkt"].encode()
+    resources=[x.encode() for x in base["resources"]];audiences=[x.encode() for x in base["audiences"]];scopes=[x.encode() for x in base["scopes"]]
+    def changed_hash(**kw):
+        ctx={1:1,2:kw.get("authorizationServer",base["authorizationServer"].encode()),
+             3:kw.get("clientId",base["clientId"].encode()),
+             5:kw.get("resources",resources),6:kw.get("audiences",audiences),7:kw.get("scopes",scopes),
+             8:kw.get("delegationEvidenceId",eid),9:kw.get("dpopJkt",jkt)}
+        rt=kw.get("requestedTokenType",base["requestedTokenType"].encode())
+        if rt is not None:ctx[4]=rt
+        return mh(enc(ctx)).hex()
+    cases=[
+      ("TXI27","AUTHORIZATION_SERVER_MISMATCH","authorization-server-substitution",{"authorizationServer":b"https://other-as.example.test"}),
+      ("TXI28","CLIENT_ID_MISMATCH","client-substitution",{"clientId":b"other-client"}),
+      ("TXI29","REQUESTED_TOKEN_TYPE_MISMATCH","requested-token-type-substitution",{"requestedTokenType":b"urn:ietf:params:oauth:token-type:jwt"}),
+      ("TXI30","REQUESTED_TOKEN_TYPE_MISMATCH","requested-token-type-removed",{"requestedTokenType":None}),
+      ("TXI31","RESOURCE_SET_MISMATCH","resource-set-substitution",{"resources":sorted([b"https://api.example.test/v1"])}),
+      ("TXI32","AUDIENCE_SET_MISMATCH","audience-set-substitution",{"audiences":sorted([b"records-service"])}),
+      ("TXI33","SCOPE_SET_MISMATCH","scope-set-substitution",{"scopes":sorted([b"records.read"])}),
+      ("TXI34","DELEGATION_EVIDENCE_MISMATCH","delegation-evidence-substitution",{"delegationEvidenceId":mh(b"different delegation evidence")}),
+      ("TXI35","DPOP_KEY_MISMATCH","dpop-key-substitution",{"dpopJkt":base64.urlsafe_b64encode(h(b"different DPoP key")).rstrip(b"=")})
+    ]
+    for i,e,a,kw in cases:
+        add(i,e,a,originalContextHashHex=base_hash,substitutedContextHashHex=changed_hash(**kw))
+
     return out
 
 def main():
     d={"specification":"OpenIdentity OAuth Token Exchange Context v1","status":"DRAFT-NON-NORMATIVE","vectors":[tx01(),tx02(),tx03(),tx04()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(d,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("TX01-TX04 GENERATED");print("TXI01-TXI26 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("TX01-TX04 GENERATED");print("TXI01-TXI35 GENERATED")
 if __name__=="__main__":main()
