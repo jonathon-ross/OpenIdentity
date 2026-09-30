@@ -273,6 +273,42 @@ def build_dg07():
       "registeredAtBefore":registered_at,"registeredAtAfter":registered_at}
 
 
+
+def build_dg08():
+    registry=b"openidentity:test:oi014:dg08"
+    root=bytes(range(100,132)); delegate=bytes(range(132,164))
+    old_id=bytes(range(92,108)); new_id=bytes(range(108,124))
+    oldpriv,_,oldm=key("OpenIdentity OI-014 DG08 old delegation Ed25519 seed",old_id)
+    newpriv,_,newm=key("OpenIdentity OI-014 DG08 new delegation Ed25519 seed",new_id)
+    oldp=policy(old_id,oldm); newp=policy(new_id,newm)
+    desc={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:7200,6:2}; ph=mh(enc(desc))
+    grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
+           5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],7:2000700000,9:seed("OpenIdentity OI-014 DG08 nonce")}
+    gb=enc(grant); gid=mh(gb); gen=44
+    before={1:3,2:root,3:70,4:1,5:oldp,8:{1:0},9:{1:gen,2:oldp}}
+    bb=enc(before); bh=mh(bb)
+    regsign=enc(["OpenIdentity Delegation Grant",1,registry,gb,bh,gen,old_id]); regsig=oldpriv.sign(regsign)
+    r1={1:registry,2:gid,3:1,4:None,5:1,6:bh,7:gen,8:2000690000}; r1b=enc(r1); r1h=mh(r1b)
+    # Planned A->B rotation preserves existing grants and generation.
+    after={1:3,2:root,3:71,4:1,5:oldp,8:{1:0},9:{1:gen,2:newp}}
+    ab=enc(after); ah=mh(ab)
+    revsign=enc(["OpenIdentity Delegation Grant Revocation",1,registry,gid,r1h,2,ah,new_id])
+    revsig=newpriv.sign(revsign)
+    revreq={1:registry,2:gid,3:r1h,4:2,5:ah,6:2,7:[{1:new_id,2:revsig}]}
+    r2={1:registry,2:gid,3:2,4:r1h,5:2,6:bh,7:gen,8:2000690000}; r2b=enc(r2); r2h=mh(r2b)
+    return {"id":"DG08","description":"Current DelegationPolicy B revokes grant originally registered by policy A after PRESERVE_EXISTING rotation","expected":"PASS",
+      "grantBytesHex":gb.hex(),"grantIdHex":gid.hex(),
+      "registrationStateBytesHex":bb.hex(),"registrationStateHashHex":bh.hex(),
+      "registrationSigningBytesHex":regsign.hex(),"registrationSignatureHex":regsig.hex(),
+      "activeRecordBytesHex":r1b.hex(),"activeRecordHashHex":r1h.hex(),
+      "currentStateBytesHex":ab.hex(),"currentStateHashHex":ah.hex(),
+      "delegationGenerationBefore":gen,"delegationGenerationAfter":gen,
+      "historicalDelegationMethodIdHex":old_id.hex(),"currentDelegationMethodIdHex":new_id.hex(),
+      "revocationSigningBytesHex":revsign.hex(),"revocationSignatureHex":revsig.hex(),
+      "revocationRequestBytesHex":enc(revreq).hex(),
+      "revokedRecordBytesHex":r2b.hex(),"revokedRecordHashHex":r2h.hex()}
+
+
 def build_invalids():
     out=[]
     def add(i,error,attack,**kw): out.append({"id":i,"expected":"REJECT","error":error,"attack":attack,**kw})
@@ -602,7 +638,7 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06(),build_dg07()],"invalidVectors":build_invalids()}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06(),build_dg07(),build_dg08()],"invalidVectors":build_invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
@@ -613,5 +649,6 @@ def main():
     print("DG05 VERIFIED")
     print("DG06 VERIFIED")
     print("DG07 VERIFIED")
+    print("DG08 VERIFIED")
     print("DGI01-DGI06 GENERATED")
 if __name__=="__main__": main()
