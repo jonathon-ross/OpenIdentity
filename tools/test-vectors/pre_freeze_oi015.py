@@ -53,6 +53,13 @@ def main():
     a=args()
     run("Generate draft OI-015 vectors",[sys.executable,"tools/test-vectors/generate_authentication_assertion_v1.py"])
     run("Verify draft OI-015 vectors",[sys.executable,"tools/test-vectors/verify_authentication_assertion_v1.py"])
+    candidate=ROOT/"checksums"/"authentication-assertion-v1.json.sha256"
+    if candidate.is_file():
+        run("Verify OI-015 byte-frozen candidate",
+            [sys.executable,"tools/test-vectors/verify_authentication_assertion_v1_freeze_candidate.py"])
+    else:
+        print("\n[OI-015 freeze candidate]")
+        print("[INFO] No candidate checksum present; semantic pre-freeze checks continue.")
     mvn=maven(a.maven)
     if not mvn:
         print("\nOI-015 PRE-FREEZE GATE: FAIL (Maven executable not found)")
