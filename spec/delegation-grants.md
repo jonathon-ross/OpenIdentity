@@ -1,9 +1,9 @@
 # OI-014 — DelegationGrant and Authoritative Registration
 
-**Status:** Design draft; non-normative  
-**Protocol dependency:** ProtocolVersion 2 / IdentityState v3 candidate  
+**Status:** FROZEN-NORMATIVE v1  
+**Protocol dependency:** ProtocolVersion 2 / IdentityState v3  
 **Purpose:** Define constrained delegation without transferring root identity authority
-**Draft wire schema:** `spec/cddl/openidentity-delegation-v1.cddl`
+**Normative wire schema:** `spec/cddl/openidentity-delegation-v1.cddl`
 
 ## 1. Security objective
 
