@@ -25,6 +25,25 @@ def tx01():
       "resources":[x.decode() for x in resources],"audiences":[x.decode() for x in audiences],"scopes":[x.decode() for x in scopes],
       "delegationEvidenceIdHex":eid.hex(),"dpopJkt":jkt.decode(),"contextBytesHex":cb.hex(),"contextHashHex":ch.hex()}
 
+
+def boundary_context(resources,audiences,scopes,label):
+    eid=mh(("OpenIdentity OAuth "+label+" evidence").encode())
+    jkt=base64.urlsafe_b64encode(h(("OpenIdentity OAuth "+label+" DPoP").encode())).rstrip(b"=")
+    ctx={1:1,2:b"https://as.example.test",3:b"boundary-client",5:sorted(resources),6:sorted(audiences),
+         7:sorted(scopes),8:eid,9:jkt}
+    cb=enc(ctx)
+    return {"id":label,"description":"Exact collection-count boundary","expected":"PASS",
+            "resourceCount":len(resources),"audienceCount":len(audiences),"scopeCount":len(scopes),
+            "contextBytesHex":cb.hex(),"contextHashHex":mh(cb).hex()}
+
+def tx02():
+    return boundary_context([f"https://api{i:02d}.example.test/".encode() for i in range(16)],[],[],"TX02")
+def tx03():
+    return boundary_context([],[f"aud-{i:02d}".encode() for i in range(16)],[],"TX03")
+def tx04():
+    return boundary_context([],[],[f"s{i:02d}".encode() for i in range(64)],"TX04")
+
+
 def invalids():
     out=[]
     def add(i,e,a,**kw):out.append({"id":i,"expectedError":e,"attack":a,**kw})
@@ -45,10 +64,27 @@ def invalids():
         submittedHex=(b"\x13\x20"+h(b"wrong hash profile")).hex(),expectedMultihashCode=0x12,submittedMultihashCode=0x13)
     add("TXI12","INVALID_DPOP_JKT","missing-dpop-jkt",dpopJktPresent=False,required=True)
     add("TXI13","INVALID_DPOP_JKT","wrong-dpop-jkt-length",dpopJktLength=42,requiredLength=43)
+    add("TXI14","TOO_MANY_RESOURCES","resource-count-over-limit",count=17,maximum=16)
+    add("TXI15","TOO_MANY_AUDIENCES","audience-count-over-limit",count=17,maximum=16)
+    add("TXI16","TOO_MANY_SCOPES","scope-count-over-limit",count=65,maximum=64)
+    add("TXI17","INVALID_AUTHORIZATION_SERVER","authorization-server-too-long",length=2049,maximum=2048)
+    add("TXI18","INVALID_CLIENT_ID","client-id-too-long",length=513,maximum=512)
+    add("TXI19","INVALID_REQUESTED_TOKEN_TYPE","requested-token-type-too-long",length=2049,maximum=2048)
+    add("TXI20","INVALID_RESOURCE","resource-too-long",length=2049,maximum=2048)
+    add("TXI21","INVALID_AUDIENCE","audience-too-long",length=1025,maximum=1024)
+    add("TXI22","INVALID_SCOPE","scope-too-long",length=257,maximum=256)
+    add("TXI23","INVALID_DELEGATION_EVIDENCE_ID","malformed-multihash-length-prefix",
+        submittedHex=(b"\x12\x1f"+bytes(32)).hex(),submittedDigestLengthPrefix=31,requiredDigestLengthPrefix=32)
+    add("TXI24","INVALID_DELEGATION_EVIDENCE_ID","malformed-multihash-total-length",submittedLength=33,requiredLength=34)
+    add("TXI25","INVALID_DPOP_JKT","invalid-base64url-character",
+        dpopJkt=("A"*42)+"+",length=43,invalidCharacter="+")
+    add("TXI26","INVALID_DPOP_JKT","padding-not-allowed",
+        dpopJkt=("A"*42)+"=",length=43,invalidCharacter="=")
+
     return out
 
 def main():
-    d={"specification":"OpenIdentity OAuth Token Exchange Context v1","status":"DRAFT-NON-NORMATIVE","vectors":[tx01()],"invalidVectors":invalids()}
+    d={"specification":"OpenIdentity OAuth Token Exchange Context v1","status":"DRAFT-NON-NORMATIVE","vectors":[tx01(),tx02(),tx03(),tx04()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(d,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("TX01 GENERATED");print("TXI01-TXI13 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("TX01-TX04 GENERATED");print("TXI01-TXI26 GENERATED")
 if __name__=="__main__":main()
