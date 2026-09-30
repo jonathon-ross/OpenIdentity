@@ -670,6 +670,42 @@ def build_invalids():
         actingPrincipalIdHex=ppid.hex(),profileCoreActionBytesHex=action.hex(),
         proofContextHex=context.hex(),proofBytesHex=proof.hex(),delegateProofBytesHex=enc(mismatched_proof).hex())
 
+    # DGI33-DGI39: final security-significant pre-freeze gaps.
+    add("DGI33","UNKNOWN_PROFILE","unresolvable-profile",
+        profileHashHex=mh(b"OI-014 deliberately unavailable profile descriptor").hex(),
+        descriptorAvailable=False)
+
+    ph_desc=exact_profile([b"document.read"],3600,2); ph_bytes=enc(ph_desc); good_ph=mh(ph_bytes)
+    tampered_desc=dict(ph_desc); tampered_desc[4]=3599; tampered_bytes=enc(tampered_desc)
+    add("DGI34","PROFILE_HASH_MISMATCH","profile-descriptor-hash-mismatch",
+        committedProfileHashHex=good_ph.hex(),suppliedProfileDescriptorBytesHex=tampered_bytes.hex(),
+        suppliedProfileHashHex=mh(tampered_bytes).hex())
+
+    add("DGI35","PROFILE_LIFETIME_EXCEEDED","profile-max-lifetime-exceeded",
+        profileMaximumLifetime=3600,grantNotBefore=2000900000,grantExpiresAt=2000903601)
+
+    # Vector-local resource profile: parent scope "tenant:A", child widens to "*".
+    resource_spec=b"OpenIdentity OI-014 Test Profile: resource-scope v1\nSemantics: tenant:A is narrower than wildcard *.\n"
+    resource_desc=profile_descriptor(1,resource_spec,3600,2,enc({1:b"tenant-scope"})); resource_ph=mh(enc(resource_desc))
+    parent_resource=b"tenant:A"; child_resource=b"*"
+    add("DGI36","RESOURCE_SCOPE_WIDENING","child-resource-widening",
+        profileDescriptorBytesHex=enc(resource_desc).hex(),profileHashHex=resource_ph.hex(),
+        parentResourceConstraintHex=parent_resource.hex(),childResourceConstraintHex=child_resource.hex())
+
+    add("DGI37","REVISION_OVERFLOW","grant-revision-overflow",
+        currentRevision=18446744073709551615,attemptedTransition="REVOKE")
+
+    inactive_root=bytes(range(10,42))
+    inactive_state={1:3,2:inactive_root,3:99,4:2,5:{1:1,2:[]},8:{1:0},9:{1:1}}
+    add("DGI38","ROOT_GRANTOR_NOT_ACTIVE","direct-registration-root-deactivated",
+        rootStateBytesHex=enc(inactive_state).hex(),rootStatus="DEACTIVATED")
+
+    no_dp_root=bytes(range(42,74))
+    no_dp_state={1:3,2:no_dp_root,3:100,4:1,5:{1:1,2:[]},8:{1:0},9:{1:5}}
+    add("DGI39","DELEGATION_POLICY_ABSENT","direct-registration-no-delegation-policy",
+        rootStateBytesHex=enc(no_dp_state).hex(),rootStatus="ACTIVE",
+        delegationGeneration=5,delegationPolicyPresent=False)
+
     return out
 
 
