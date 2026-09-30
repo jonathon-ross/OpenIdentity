@@ -29,7 +29,7 @@ def main():
     data=json.loads(FILE.read_text())
     req("suite specification",data["suite"]=="OpenIdentity OI-014 DelegationGrant v1")
     req("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs DG01-DG08",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04","DG05","DG06","DG07","DG08"])
+    req("vector IDs DG01-DG09",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04","DG05","DG06","DG07","DG08","DG09"])
     v=data["vectors"][0]
     registry=b"openidentity:test:oi014:dg01"; root=bytes(range(32)); delegate=bytes(range(32,64)); mid=bytes(range(16))
     priv=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG01 delegation Ed25519 seed"))
@@ -258,8 +258,22 @@ def main():
     r2_8={1:reg8,2:gid8,3:2,4:r1h8,5:2,6:bh8,7:gen8,8:2000690000}; r2b8=enc(r2_8)
     req("DG08 revoked RecordBytes",v8["revokedRecordBytesHex"]==r2b8.hex());req("DG08 revoked RecordHash",v8["revokedRecordHashHex"]==mh(r2b8).hex())
 
+    v9=data["vectors"][8]
+    principal_spec9=b"OpenIdentity OI-014 Test Principal Profile: ed25519-agent v1\nSemantics: principalId is 32-byte Ed25519 public key; proofBytes is Ed25519 over coreActionBytes concatenated with proofContext.\n"
+    principal_params9=enc({1:32,2:b"ed25519",3:b"coreActionBytes||proofContext"})
+    pdesc9=profile_descriptor(2,principal_spec9,0,0,principal_params9); pdb9=enc(pdesc9); ph9=mh(pdb9); pref9={1:2,2:ph9}
+    agent9=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG09 profile principal seed"))
+    pub9=agent9.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    req("DG09 principal semantic spec hash",v9["principalSemanticSpecHashHex"]==mh(principal_spec9).hex())
+    req("DG09 principal ProfileDescriptor bytes",v9["principalProfileDescriptorBytesHex"]==pdb9.hex())
+    req("DG09 principal ProfileHash",v9["principalProfileHashHex"]==ph9.hex())
+    req("DG09 principalId",v9["principalIdHex"]==pub9.hex())
+    core9=bytes.fromhex(v9["profileCoreActionBytesHex"]); ctx9=bytes.fromhex(v9["proofContextHex"]); proof9=bytes.fromhex(v9["profileProofBytesHex"])
+    agent9.public_key().verify(proof9,core9+ctx9);req("DG09 profile-owned proof verifies",True)
+    req("DG09 acting profile matches proof profile",ph9.hex()==v9["principalProfileHashHex"])
+
     invalid={x["id"]:x for x in data["invalidVectors"]}
-    req("invalid vector IDs DGI01-DGI31",set(invalid)=={f"DGI{i:02d}" for i in range(1,32)})
+    req("invalid vector IDs DGI01-DGI32",set(invalid)=={f"DGI{i:02d}" for i in range(1,33)})
     expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
               "DGI03":"CROSS_DOMAIN_PROOF","DGI04":"INVALID_PREVIOUS_RECORD_HASH",
               "DGI05":"CAPABILITY_ESCALATION","DGI06":"PARENT_GRANT_UNUSABLE",
@@ -275,8 +289,8 @@ def main():
               "DGI25":"PARENT_GRANT_NOT_FOUND","DGI26":"PARENT_GRANT_NOT_FOUND",
               "DGI27":"REGISTRY_DOMAIN_MISMATCH","DGI28":"PARENT_GRANT_UNUSABLE",
               "DGI29":"PARENT_GRANT_UNUSABLE","DGI30":"DELEGATION_DEPTH_EXCEEDED",
-              "DGI31":"DELEGATION_CYCLE"}
-    req("DGI01-DGI31 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
+              "DGI31":"DELEGATION_CYCLE","DGI32":"PROFILE_SUBSTITUTION"}
+    req("DGI01-DGI32 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
 
     i1=invalid["DGI01"]
     oldpub=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DGI01 old delegation seed")).public_key()
@@ -416,7 +430,11 @@ def main():
     i31=invalid["DGI31"]
     req("DGI31 proposed GrantId already appears in ancestor chain",
         i31["proposedGrantIdHex"] in i31["ancestorGrantIdsHex"])
+
+    i32=invalid["DGI32"]
+    req("DGI32 proof profile differs from acting principal profile",
+        i32["actingPrincipalProfileHashHex"]!=i32["submittedProofProfileHashHex"])
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG08 + DGI01-DGI31 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG09 + DGI01-DGI32 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
