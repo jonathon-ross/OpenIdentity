@@ -24,10 +24,22 @@ public final class Oi016Verifier {
    if(grants.size()>g.maximumDelegationDepth())throw new ProfileException(ProfileError.INVALID_REQUEST);
    expiry=Math.min(expiry,g.expiresAt());
    if(i>0){VerifiedGrant prev=grants.get(i-1);if(g.parentGrantId()==null||!MessageDigest.isEqual(prev.grantId(),g.parentGrantId()))throw new ProfileException(ProfileError.INVALID_REQUEST);
-    if(!MessageDigest.isEqual(prev.delegate(),g.issuer()))throw new ProfileException(ProfileError.INVALID_REQUEST);}
+    if(!MessageDigest.isEqual(prev.delegate(),g.issuer()))throw new ProfileException(ProfileError.INVALID_REQUEST);
+    enforceAttenuation(prev,g);}
   }
   if(verificationTime>=expiry)throw new ProfileException(ProfileError.DELEGATION_NOT_CURRENTLY_USABLE);
   VerifiedGrant terminal=grants.getLast();byte[] eid=Sha256Multihash.digest(evidence.exactEvidenceBytes());
   return new VerifiedDelegatedSubject(rootId,terminal.delegate(),token.actorAssertionId(),eid,expiry,terminal.effectiveCapabilities());
+ }
+ private void enforceAttenuation(VerifiedGrant parent,VerifiedGrant child){
+  Map<String,List<CapabilityRef>> p=group(parent.capabilities()),c=group(child.capabilities());
+  for(var e:c.entrySet()){
+   List<CapabilityRef> pc=p.get(e.getKey());if(pc==null)throw new ProfileException(ProfileError.TARGET_SCOPE_PAIR_NOT_AUTHORIZED);
+   CapabilityProfile profile=profiles.resolve(e.getValue().getFirst().profileHash());
+   if(profile==null||!profile.permitsChild(pc,e.getValue()))throw new ProfileException(ProfileError.TARGET_SCOPE_PAIR_NOT_AUTHORIZED);
+  }
+ }
+ private static Map<String,List<CapabilityRef>> group(List<CapabilityRef> xs){
+  Map<String,List<CapabilityRef>> m=new HashMap<>();for(CapabilityRef x:xs)m.computeIfAbsent(HexFormat.of().formatHex(x.profileHash()),k->new ArrayList<>()).add(x);return m;
  }
 }
