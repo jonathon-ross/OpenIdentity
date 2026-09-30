@@ -44,5 +44,21 @@ def main():
     req("DS02 actor equals terminal delegate",v2["terminalDelegateHex"]==d2.hex())
     tb2=enc({1:1,2:evidence2,3:aid2});req("DS02 token bytes",v2["delegatedSubjectTokenBytesHex"]==tb2.hex());req("DS02 token id",v2["delegatedSubjectTokenIdHex"]==mh(tb2).hex())
 
-    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS02 VERIFIED");print("============================================")
+    invalid={x["id"]:x for x in d["invalidVectors"]}
+    req("invalid vector IDs DSI01-DSI09",set(invalid)=={f"DSI{i:02d}" for i in range(1,10)})
+    expected={"DSI01":"INVALID_DELEGATED_SUBJECT_VERSION","DSI02":"EMPTY_DELEGATION_PATH","DSI03":"DELEGATION_PATH_TOO_DEEP",
+              "DSI04":"GRANT_ID_MISMATCH","DSI05":"INVALID_GRANT_EVIDENCE","DSI06":"PARENT_GRANT_MISMATCH",
+              "DSI07":"ROOT_GRANTOR_MISMATCH","DSI08":"ISSUER_DELEGATE_MISMATCH","DSI09":"INVALID_DELEGATION_EVIDENCE"}
+    req("DSI01-DSI09 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+    req("DSI01 unsupported version",invalid["DSI01"]["submittedVersion"]!=invalid["DSI01"]["supportedVersion"])
+    req("DSI02 empty path",invalid["DSI02"]["pathLength"]<invalid["DSI02"]["minimumPathLength"])
+    req("DSI03 path too deep",invalid["DSI03"]["pathLength"]>invalid["DSI03"]["maximumPathLength"])
+    req("DSI04 mutated bytes change GrantId",invalid["DSI04"]["submittedGrantIdHex"]!=invalid["DSI04"]["recomputedGrantIdHex"])
+    req("DSI05 unsupported GrantId multihash",invalid["DSI05"]["submittedMultihashCode"]!=invalid["DSI05"]["expectedMultihashCode"])
+    req("DSI06 parent mismatch",invalid["DSI06"]["previousGrantIdHex"]!=invalid["DSI06"]["childParentGrantIdHex"])
+    req("DSI07 rootGrantor mismatch",invalid["DSI07"]["rootGrantorHex"]!=invalid["DSI07"]["childRootGrantorHex"])
+    req("DSI08 issuer/delegate mismatch",invalid["DSI08"]["parentDelegateHex"]!=invalid["DSI08"]["childIssuerHex"])
+    req("DSI09 valid grants reordered",invalid["DSI09"]["submittedGrantIdsHex"]==list(reversed(invalid["DSI09"]["originalGrantIdsHex"])))
+
+    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS02 + DSI01-DSI09 VERIFIED");print("============================================")
 if __name__=="__main__":main()
