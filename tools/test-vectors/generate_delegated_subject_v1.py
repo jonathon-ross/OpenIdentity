@@ -93,6 +93,22 @@ def invalids():
     add("DSI09","INVALID_DELEGATION_EVIDENCE","reordered-valid-grants",
         originalGrantIdsHex=[base["parentGrantIdHex"],base["childGrantIdHex"]],
         submittedGrantIdsHex=[base["childGrantIdHex"],base["parentGrantIdHex"]])
+    # DSI10-DSI15: immutable evidence remains valid; authoritative current state controls usability.
+    base2=ds02()
+    add("DSI10","DELEGATION_NOT_CURRENTLY_USABLE","current-record-revoked",
+        embeddedEvidenceValid=True,authoritativeStateAvailable=True,currentStatus="REVOKED")
+    add("DSI11","DELEGATION_NOT_CURRENTLY_USABLE","ancestor-relinquished",
+        embeddedEvidenceValid=True,authoritativeStateAvailable=True,ancestorRelinquished=True)
+    add("DSI12","DELEGATION_NOT_CURRENTLY_USABLE","root-delegation-generation-invalidated",
+        embeddedEvidenceValid=True,authoritativeStateAvailable=True,boundDelegationGeneration=7,currentDelegationGeneration=8)
+    add("DSI13","DELEGATION_NOT_CURRENTLY_USABLE","root-identity-deactivated",
+        embeddedEvidenceValid=True,authoritativeStateAvailable=True,currentRootStatus="DEACTIVATED")
+    add("DSI14","DELEGATION_NOT_CURRENTLY_USABLE","expired-ancestor",
+        embeddedEvidenceValid=True,authoritativeStateAvailable=True,verificationTime=2002014000,ancestorExpiresAt=2002013999)
+    add("DSI15","DELEGATION_STATE_UNAVAILABLE","authoritative-current-record-unavailable",
+        embeddedEvidenceValid=True,authoritativeStateAvailable=False,
+        requiredRegistryDomainHex=b"openidentity:test:oi016:ds02".hex(),requiredGrantIdHex=base2["parentGrantIdHex"])
+
     return out
 
 def main():
@@ -100,5 +116,5 @@ def main():
           "vectors":[ds01(),ds02()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI09 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI15 GENERATED")
 if __name__=="__main__":main()
