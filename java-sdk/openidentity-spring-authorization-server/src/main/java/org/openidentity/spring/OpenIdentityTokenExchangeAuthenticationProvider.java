@@ -21,7 +21,7 @@ public final class OpenIdentityTokenExchangeAuthenticationProvider implements Au
   String clientId=clientId(a.clientPrincipal());
   var request=new DelegatedAgentExchangeRequest(authorizationServer,clientId,a.requestedTokenType(),a.resources(),a.audiences(),a.scopes(),
       a.subjectToken(),a.actorToken(),a.actorNonce(),new ValidatedDpopProof(a.dpopJkt()),clock.instant().getEpochSecond());
-  try{return new OpenIdentityAuthorizationDecisionAuthentication(exchange.exchange(request));}
+  try{return new OpenIdentityAuthenticatedGrant(a.clientPrincipal(),exchange.exchange(request));}
   catch(ProfileException e){throw OpenIdentityProfileErrorMapper.toOAuth(e);}
  }
  private static String clientId(Authentication a){
