@@ -229,6 +229,50 @@ def build_dg06():
       "capabilityAttenuated":True,"lifetimeAttenuated":True,
       "parentRedelegationAuthorized":True,"childDepth":2}
 
+
+def build_dg07():
+    registry=b"openidentity:test:oi014:dg07"
+    root=bytes(range(30,62)); delegate=bytes(range(62,94))
+    delegation_id=bytes(range(60,76)); auth_id=bytes(range(76,92))
+    dpriv,_,dm=key("OpenIdentity OI-014 DG07 root delegation Ed25519 seed",delegation_id)
+    apriv,_,am=key("OpenIdentity OI-014 DG07 delegate authentication Ed25519 seed",auth_id)
+    dp=policy(delegation_id,dm); ap=policy(auth_id,am)
+    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:3600,6:2}
+    pbytes=enc(descriptor); ph=mh(pbytes)
+    grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},
+           5:[{1:{1:{1:1,2:ph},2:b"document.read"}}],
+           7:2000600000,9:seed("OpenIdentity OI-014 DG07 nonce")}
+    gb=enc(grant); gid=mh(gb); dgen=33
+    root_state={1:3,2:root,3:60,4:1,5:dp,8:{1:0},9:{1:dgen,2:dp}}
+    rsb=enc(root_state); rsh=mh(rsb)
+    regsign=enc(["OpenIdentity Delegation Grant",1,registry,gb,rsh,dgen,delegation_id])
+    regsig=dpriv.sign(regsign)
+    registered_at=2000590000
+    r1={1:registry,2:gid,3:1,4:None,5:1,6:rsh,7:dgen,8:registered_at}
+    r1b=enc(r1); r1h=mh(r1b)
+
+    agen=11
+    delegate_state={1:3,2:delegate,3:17,4:1,5:ap,8:{1:agen,2:ap},9:{1:0}}
+    dsb=enc(delegate_state); dsh=mh(dsb)
+    relsign=enc(["OpenIdentity Delegation Grant Relinquishment",1,registry,gid,r1h,2,dsh,agen,auth_id])
+    relsig=apriv.sign(relsign)
+    relreq={1:registry,2:gid,3:r1h,4:2,5:dsh,6:agen,7:[{1:auth_id,2:relsig}]}
+    r2={1:registry,2:gid,3:2,4:r1h,5:2,6:rsh,7:dgen,8:registered_at}
+    r2b=enc(r2); r2h=mh(r2b)
+    return {"id":"DG07","description":"OPENIDENTITY delegate relinquishes its ACTIVE grant using current AuthenticationAuthority","expected":"PASS",
+      "grantBytesHex":gb.hex(),"grantIdHex":gid.hex(),
+      "rootStateBytesHex":rsb.hex(),"rootStateHashHex":rsh.hex(),
+      "registrationSigningBytesHex":regsign.hex(),"registrationSignatureHex":regsig.hex(),
+      "activeRecordBytesHex":r1b.hex(),"activeRecordHashHex":r1h.hex(),
+      "delegateStateBytesHex":dsb.hex(),"delegateStateHashHex":dsh.hex(),
+      "authenticationGeneration":agen,"authenticationMethodIdHex":auth_id.hex(),
+      "relinquishmentSigningBytesHex":relsign.hex(),"relinquishmentSignatureHex":relsig.hex(),
+      "relinquishmentRequestBytesHex":enc(relreq).hex(),
+      "revokedRecordBytesHex":r2b.hex(),"revokedRecordHashHex":r2h.hex(),
+      "grantIdAfterRelinquishmentHex":gid.hex(),"delegationGenerationBefore":dgen,"delegationGenerationAfter":dgen,
+      "registeredAtBefore":registered_at,"registeredAtAfter":registered_at}
+
+
 def build_invalids():
     out=[]
     def add(i,error,attack,**kw): out.append({"id":i,"expected":"REJECT","error":error,"attack":attack,**kw})
@@ -558,7 +602,7 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06()],"invalidVectors":build_invalids()}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02(),build_dg03(),build_dg04(),build_dg05(),build_dg06(),build_dg07()],"invalidVectors":build_invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
@@ -568,5 +612,6 @@ def main():
     print("DG04 VERIFIED")
     print("DG05 VERIFIED")
     print("DG06 VERIFIED")
+    print("DG07 VERIFIED")
     print("DGI01-DGI06 GENERATED")
 if __name__=="__main__": main()
