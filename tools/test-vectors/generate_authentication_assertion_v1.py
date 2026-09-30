@@ -150,6 +150,38 @@ def invalids():
     add("AAI07","NONCE_MISMATCH","wrong-nonce",expectedNonceHex=base[9].hex(),assertedNonceHex=wrongnonce[9].hex())
     wrongctx=dict(base);wrongctx[10]=mh(b"attacker-context")
     add("AAI08","CONTEXT_HASH_MISMATCH","context-substitution",expectedContextHashHex=base[10].hex(),assertedContextHashHex=wrongctx[10].hex())
+    add("AAI09","INVALID_TIME_RANGE","expires-at-issued-at",issuedAt=2001004000,expiresAt=2001004000)
+    add("AAI10","ASSERTION_LIFETIME_EXCEEDED","301-second-lifetime",issuedAt=2001004000,expiresAt=2001004301,maximumLifetime=300)
+    add("AAI11","ASSERTION_EXPIRED","exclusive-expires-at-boundary",issuedAt=2001004000,expiresAt=2001004100,verificationTime=2001004100)
+    add("AAI12","ASSERTION_NOT_YET_VALID","before-issued-at",issuedAt=2001004000,expiresAt=2001004100,verificationTime=2001003999)
+
+    pa=bytes(range(128,144));pb=bytes(range(144,160));pc=bytes(range(160,176))
+    ka=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 proof attack A seed"))
+    kb=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 proof attack B seed"))
+    kc=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 proof attack C seed"))
+    pubs=[ka.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw),kb.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw),kc.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)]
+    pap=threshold_policy([(pa,pubs[0]),(pb,pubs[1]),(pc,pubs[2])],2)
+    attack_assertion=enc({1:1,2:bytes(range(32)),3:mh(b"AAI proof attack state"),4:22,5:b"proof-verifier",6:"openidentity.authentication",
+                          7:2001005000,8:2001005120,9:bytes(range(80,112)),10:mh(b"proof-context")})
+    sa=enc(["OpenIdentity Authentication Assertion",1,attack_assertion,pa]);siga=ka.sign(sa)
+    sb=enc(["OpenIdentity Authentication Assertion",1,attack_assertion,pb]);sigb=kb.sign(sb)
+    controller=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 proof attack controller seed"))
+    controller_id=bytes(range(176,192));controller_sig=controller.sign(enc(["OpenIdentity Authentication Assertion",1,attack_assertion,controller_id]))
+    add("AAI13","UNAUTHORIZED_AUTHENTICATION_PROOF","controller-policy-substitution",
+        authenticationMethodIdsHex=[pa.hex(),pb.hex(),pc.hex()],submittedMethodIdHex=controller_id.hex(),submittedSignatureHex=controller_sig.hex())
+    add("AAI14","DUPLICATE_AUTHENTICATION_PROOF","duplicate-proof-method",
+        submittedMethodIdsHex=[pa.hex(),pa.hex()],signatureHex=siga.hex())
+    outsider=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 proof attack outsider seed"));outsider_id=bytes(range(192,208))
+    outsider_sig=outsider.sign(enc(["OpenIdentity Authentication Assertion",1,attack_assertion,outsider_id]))
+    add("AAI15","UNAUTHORIZED_AUTHENTICATION_PROOF","unauthorized-extra-despite-threshold",
+        submittedMethodIdsHex=[pa.hex(),pb.hex(),outsider_id.hex()],authorizedThreshold=2,
+        signatureAHex=siga.hex(),signatureBHex=sigb.hex(),outsiderSignatureHex=outsider_sig.hex())
+    bad=bytearray(siga);bad[0]^=1
+    add("AAI16","INVALID_AUTHENTICATION_SIGNATURE","invalid-signature",
+        methodIdHex=pa.hex(),signingBytesHex=sa.hex(),validSignatureHex=siga.hex(),invalidSignatureHex=bytes(bad).hex())
+    add("AAI17","AUTHENTICATION_POLICY_NOT_SATISFIED","insufficient-threshold",
+        threshold=2,submittedMethodIdsHex=[pa.hex()],signatureHex=siga.hex())
+
     return out
 
 def main():
@@ -161,6 +193,6 @@ def main():
     print("AA01 GENERATED")
     print("AA02 GENERATED")
     print("AA03 GENERATED")
-    print("AAI01-AAI08 GENERATED")
+    print("AAI01-AAI17 GENERATED")
 
 if __name__=="__main__":main()
