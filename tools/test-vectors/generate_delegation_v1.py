@@ -400,6 +400,61 @@ def build_invalids():
         currentRegistryDomainHex=preg.hex(),attemptedRegistryDomainHex=other_registry.hex(),
         currentRecordBytesHex=rr1b.hex(),attemptedRecordBytesHex=enc(moved).hex())
 
+    # DGI19-DGI24: OPENIDENTITY delegate AuthenticationAuthority attacks.
+    areg=b"openidentity:test:oi014:auth-attacks"; aroot=bytes(range(20,52)); issuer=bytes(range(52,84)); target=bytes(range(84,116))
+    authid=bytes(range(20,36)); ctrlid=bytes(range(36,52))
+    authpriv,_,authm=_ed25519("OpenIdentity OI-014 auth attack authentication seed",20) if False else key("OpenIdentity OI-014 auth attack authentication seed",authid)
+    ctrlpriv,_,ctrlm=key("OpenIdentity OI-014 auth attack controller seed",ctrlid)
+    ap=policy(authid,authm); cp=policy(ctrlid,ctrlm); agen=4
+    istate={1:3,2:issuer,3:12,4:1,5:cp,8:{1:agen,2:ap},9:{1:0}}
+    isb=enc(istate); ish=mh(isb)
+    fake_parent_id=mh(b"OI-014 auth attack parent"); fake_parent_rh=mh(b"OI-014 auth attack parent record")
+    achild={1:1,2:aroot,3:{1:1,2:issuer},4:{1:1,2:target},5:[read],
+            7:2000400000,8:fake_parent_id,9:seed("OI-014 auth attack child nonce")}
+    acb=enc(achild)
+    good_child_sign=enc(["OpenIdentity Delegation Child Grant",1,areg,acb,fake_parent_id,fake_parent_rh,ish,agen,authid])
+
+    # ControllerPolicy key signs the child domain, but is wrong purpose authority.
+    ctrl_child_sign=enc(["OpenIdentity Delegation Child Grant",1,areg,acb,fake_parent_id,fake_parent_rh,ish,agen,ctrlid])
+    ctrl_child_sig=ctrlpriv.sign(ctrl_child_sign)
+    add("DGI19","INVALID_REGISTRATION_PROOF","controller-policy-as-delegate-authentication",
+        delegateStateBytesHex=isb.hex(),authenticationMethodIdHex=authid.hex(),submittedMethodIdHex=ctrlid.hex(),
+        submittedSigningBytesHex=ctrl_child_sign.hex(),submittedSignatureHex=ctrl_child_sig.hex())
+
+    # Historical AuthenticationPolicy proof after state advances/rotates.
+    newauthid=bytes(range(52,68)); _,_,newauthm=key("OpenIdentity OI-014 auth attack new authentication seed",newauthid)
+    newap=policy(newauthid,newauthm)
+    newstate={1:3,2:issuer,3:13,4:1,5:cp,8:{1:agen,2:newap},9:{1:0}}
+    nsb=enc(newstate); nsh=mh(nsb)
+    oldsig=authpriv.sign(good_child_sign)
+    add("DGI20","INVALID_ROOT_STATE_HASH","stale-delegate-authentication-state",
+        historicalDelegateStateHashHex=ish.hex(),currentDelegateStateBytesHex=nsb.hex(),currentDelegateStateHashHex=nsh.hex(),
+        submittedSigningBytesHex=good_child_sign.hex(),submittedSignatureHex=oldsig.hex(),
+        historicalAuthenticationMethodIdHex=authid.hex(),currentAuthenticationMethodIdHex=newauthid.hex())
+
+    wronggen=agen-1
+    wronggen_sign=enc(["OpenIdentity Delegation Child Grant",1,areg,acb,fake_parent_id,fake_parent_rh,ish,wronggen,authid])
+    wronggen_sig=authpriv.sign(wronggen_sign)
+    add("DGI21","INVALID_DELEGATION_GENERATION","wrong-authentication-generation",
+        currentAuthenticationGeneration=agen,submittedAuthenticationGeneration=wronggen,
+        submittedSigningBytesHex=wronggen_sign.hex(),submittedSignatureHex=wronggen_sig.hex())
+
+    absent={1:3,2:issuer,3:14,4:1,5:cp,8:{1:agen},9:{1:0}}
+    add("DGI22","INVALID_REGISTRATION_PROOF","authentication-policy-absent",
+        delegateStateBytesHex=enc(absent).hex(),authenticationGeneration=agen,authenticationPolicyPresent=False)
+
+    deactivated={1:3,2:issuer,3:15,4:2,5:cp,8:{1:agen,2:ap},9:{1:0}}
+    add("DGI23","INVALID_REGISTRATION_PROOF","deactivated-delegate-child-issuance",
+        delegateStateBytesHex=enc(deactivated).hex(),delegateStatus="DEACTIVATED",authenticationPolicyPresent=True)
+
+    grant_for_rel=mh(b"OI-014 DGI24 grant"); rec_for_rel=mh(b"OI-014 DGI24 record")
+    childpurpose=enc(["OpenIdentity Delegation Child Grant",1,areg,acb,fake_parent_id,fake_parent_rh,ish,agen,authid])
+    childpurpose_sig=authpriv.sign(childpurpose)
+    relpurpose=enc(["OpenIdentity Delegation Grant Relinquishment",1,areg,grant_for_rel,rec_for_rel,2,ish,agen,authid])
+    add("DGI24","CROSS_DOMAIN_PROOF","child-proof-as-relinquishment",
+        childSigningBytesHex=childpurpose.hex(),relinquishmentSigningBytesHex=relpurpose.hex(),
+        submittedSignatureHex=childpurpose_sig.hex())
+
     return out
 
 
