@@ -56,22 +56,11 @@
 
 ## 3. Release-blocking gaps before byte freeze
 
-### G1 — delegate StateHash error taxonomy — RESOLVED\n\n`INVALID_DELEGATE_STATE_HASH` is distinct from `INVALID_ROOT_STATE_HASH`; DGI20 uses the delegate-specific error.\n\n### G2 — current DelegationPolicy revocation positive path
+### G1 — delegate StateHash error taxonomy — RESOLVED\n\n`INVALID_DELEGATE_STATE_HASH` is distinct from `INVALID_ROOT_STATE_HASH`; DGI20 uses the delegate-specific error.\n\n### G2 — current DelegationPolicy revocation positive path — RESOLVED\n\nDG08 proves current DelegationPolicy B can revoke a surviving grant originally registered by historical policy A after PRESERVE_EXISTING rotation. Python and Java verification pass.\n\n### G3 — profile descriptor wire schema — DESIGN RESOLVED; VECTOR MIGRATION REQUIRED
 
-DG04 proves ControllerPolicy emergency revocation. The specification also permits current DelegationPolicy revocation, but no positive vector currently proves that authorization path.
+OI-014 now defines a canonical ProfileDescriptor envelope containing descriptorVersion, profileKind, semanticSpecHash, maxGrantLifetime, maxDelegationDepth, and deterministic profile-owned parameter bytes.
 
-Add one positive vector before freeze.
-
-### G3 — profile descriptor wire schema
-
-Vectors use deterministic vector-local ProfileDescriptor maps to derive ProfileHash, but the candidate CDDL defines ProfileRef without a normative ProfileDescriptor CDDL.
-
-Before freeze, either:
-
-1. define the core ProfileDescriptor canonical wire schema; or
-2. explicitly move ProfileDescriptor encoding to a separate profile-registry specification and remove any implication that OI-014 core freezes those descriptor bytes.
-
-A profileHash cannot be independently interoperable without an unambiguous canonical descriptor representation.
+Before G3 is fully closed, existing DG/DGI vector-local profile descriptors must be migrated to this envelope and independently reconstructed in Python and Java.
 
 ### G4 — PROFILE_PRINCIPAL proof envelope
 
