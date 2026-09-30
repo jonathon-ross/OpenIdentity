@@ -35,6 +35,38 @@ registry-domain = bytes .size (1..128)
 ; 32 bytes provides 256 bits of grant-intent separation entropy.
 delegation-nonce = bytes .size 32
 
+;
+; ---------------------------------------------------------------------------
+; ProfileDescriptor
+; ---------------------------------------------------------------------------
+
+profile-descriptor-version = 1
+
+; Exact immutable normative profile specification bytes are separately
+; content-addressed. OI-014 v1 uses SHA2-256 Multihash only.
+semantic-spec-hash = sha256-multihash
+
+profile-descriptor = {
+    1 => profile-descriptor-version,
+    2 => profile-kind,
+    3 => semantic-spec-hash,
+    4 => uint64,                     ; maxGrantLifetime seconds; 0 for PRINCIPAL
+    5 => uint64,                     ; maxDelegationDepth; 0 for PRINCIPAL
+    6 => bytes                       ; deterministic profile-owned parameters
+}
+
+; ProfileBytes = deterministic CBOR(profile-descriptor)
+; profileHash  = 0x12 || 0x20 || SHA-256(ProfileBytes)
+; ProfileRef.profileKind MUST equal profile-descriptor.profileKind.
+;
+; CAPABILITY:
+;   maxGrantLifetime > 0
+;   maxDelegationDepth >= 1
+;
+; PRINCIPAL:
+;   maxGrantLifetime = 0
+;   maxDelegationDepth = 0
+
 ; ---------------------------------------------------------------------------
 ; ProfileRef
 ; ---------------------------------------------------------------------------
