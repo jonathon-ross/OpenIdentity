@@ -125,6 +125,35 @@ public final class AuthenticationAssertionV1Vectors {
     }
 
 
+
+    static void verifyAA04(JsonNode v)throws Exception{
+        byte[] audience=new byte[]{0,(byte)0xff,(byte)0x80,0x41,0x2f,0,(byte)0xfe};
+        require("AA04 audience exact opaque bytes",v.path("audienceHex").asText().equals(hx(audience)));
+        require("AA04 audience contains non-UTF8 octets",(audience[1]&255)==255&&(audience[2]&255)==128);
+    }
+
+    static void verifyAA05(JsonNode v)throws Exception{
+        byte[] identity=seq(64,32),oldmid=seq(0,16),newmid=seq(16,16);long generation=42;
+        Key oldk=new Key("OpenIdentity OI-015 AA05 old authentication seed"),newk=new Key("OpenIdentity OI-015 AA05 new authentication seed");
+        byte[] oldap=singlePolicy(oldmid,oldk.pub()),newap=singlePolicy(newmid,newk.pub());
+        byte[] ctrlid=seq(32,16);Key ctrl=new Key("OpenIdentity OI-015 AA05 controller seed");byte[] cp=singlePolicy(ctrlid,ctrl.pub());
+        byte[] before=map(1,3,2,identity,3,80,4,1,5,E(cp),8,E(map(1,generation,2,E(oldap))),9,E(map(1,0)));
+        byte[] after=map(1,3,2,identity,3,81,4,1,5,E(cp),8,E(map(1,generation,2,E(newap))),9,E(map(1,0)));
+        require("AA05 generation preserved",v.path("generationBefore").asLong()==generation&&v.path("generationAfter").asLong()==generation);
+        require("AA05 pre-rotation StateHash",v.path("preRotationStateHashHex").asText().equals(hx(mh(before))));
+        require("AA05 current StateHash",v.path("stateHashHex").asText().equals(hx(mh(after))));
+        require("AA05 rotation changes StateHash",!Arrays.equals(mh(before),mh(after)));
+        require("AA05 current new policy signature verifies",newk.verify(hex(v.path("signingBytesHex").asText()),hex(v.path("signatureHex").asText())));
+    }
+
+    static void verifyAA06(JsonNode v)throws Exception{
+        byte[] ctx=map(1,"https://as.example.test".getBytes(StandardCharsets.UTF_8),2,"client-123".getBytes(StandardCharsets.UTF_8),
+                3,"https://api.example.test".getBytes(StandardCharsets.UTF_8),4,"urn:ietf:params:oauth:grant-type:token-exchange".getBytes(StandardCharsets.UTF_8));
+        require("AA06 deterministic OAuth context bytes",v.path("contextBytesHex").asText().equals(hx(ctx)));
+        require("AA06 contextHash",v.path("contextHashHex").asText().equals(hx(mh(ctx))));
+        require("AA06 OAuth purpose","openidentity.oauth.token-exchange".equals(v.path("purpose").asText()));
+    }
+
     static void verifyInvalids(JsonNode d)throws Exception{
         JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==23);
         String[] errors={"INVALID_STATE_HASH","INVALID_AUTHENTICATION_GENERATION","IDENTITY_NOT_ACTIVE","AUTHENTICATION_POLICY_ABSENT",
@@ -186,10 +215,10 @@ public final class AuthenticationAssertionV1Vectors {
         JsonNode d=JSON.readTree(Files.readString(p));
         require("suite specification","OpenIdentity OI-015 Authentication Assertion v1".equals(d.path("specification").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(d.path("status").asText()));
-        require("vector count",d.path("vectors").size()==3);
-        verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));verifyInvalids(d);
+        require("vector count",d.path("vectors").size()==6);
+        verifyAA01(d.path("vectors").get(0));verifyAA02(d.path("vectors").get(1));verifyAA03(d.path("vectors").get(2));verifyAA04(d.path("vectors").get(3));verifyAA05(d.path("vectors").get(4));verifyAA06(d.path("vectors").get(5));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA03 + AAI01-AAI23 VERIFIED");
+        System.out.println("OI-015 AUTHENTICATION ASSERTION v1 JAVA AA01-AA06 + AAI01-AAI23 VERIFIED");
         System.out.println("============================================");
     }
 }
