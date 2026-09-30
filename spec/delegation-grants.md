@@ -456,11 +456,127 @@ Registration MUST fail if a required profile is unknown or unsupported. Implemen
 
 ### Profile versioning
 
-A profileId MUST identify semantics immutably enough that later profile changes cannot retroactively broaden an already-registered grant.
+A ProfileRef MUST cryptographically identify immutable semantics through its profileHash so later profile changes cannot retroactively broaden an already-registered grant.
 
-An incompatible capability or resource semantic change requires a new profile identity/version.
+An incompatible capability or resource semantic change necessarily produces a new profileHash and therefore a new ProfileRef.
 
 Registries and verifiers MUST evaluate a registered grant using the profile semantics identified by its GrantBytes, not whatever newer profile happens to exist at evaluation time.
+
+## 4C. Cryptographically pinned profile semantics
+
+Profile identity is security-critical. OI-014 MUST NOT rely on a mutable human-readable profile name, URL, registry entry, package version, or vendor label as the sole identifier of capability or principal semantics.
+
+The core logical reference is refined to:
+
+    ProfileRef {
+        profileKind
+        profileHash
+    }
+
+where `profileKind` distinguishes the semantic class of profile, such as capability/resource semantics or external-principal semantics, and `profileHash` is a SHA2-256 Multihash commitment to the exact canonical profile descriptor.
+
+The initial profile hash construction is:
+
+    ProfileBytes = deterministic canonical encoding of ProfileDescriptor
+    profileHash  = 0x12 || 0x20 || SHA-256(ProfileBytes)
+
+As with GrantId and RecordHash, OI-014 v1 accepts only the SHA2-256 Multihash profile.
+
+Human-readable profile names, versions, URIs, package coordinates, or vendor identifiers MAY appear inside the descriptor or resolution metadata, but they are not substitutes for profileHash.
+
+### ProfileDescriptor
+
+A profile descriptor defines the immutable semantics required by OI-014 to interpret the profile.
+
+A capability/resource profile descriptor MUST commit, directly or by immutable referenced material, to at least:
+
+- the recognized capability identifier universe or deterministic identifier rules;
+- capability coverage/implication semantics;
+- resource-constraint encoding and validation rules;
+- resource coverage/subset semantics;
+- redelegation semantics;
+- maximum grant lifetime;
+- maximum delegation-chain depth;
+- any profile-specific registration/use constraints.
+
+A principal profile descriptor MUST commit to at least:
+
+- canonical principalId syntax;
+- principal equality semantics;
+- authentication/control proof requirements;
+- key-rotation continuity rules;
+- attestation identity semantics when applicable;
+- relinquishment authorization/proof rules.
+
+A descriptor may reference external specifications only when the reference is immutable and unambiguous. A mutable "latest" URL or mutable package tag is insufficient for security semantics.
+
+### Resolution and verification
+
+Before interpreting a profile-owned field, a conforming registry/verifier SHALL:
+
+1. obtain the ProfileDescriptor or an equivalent immutable representation;
+2. reconstruct its canonical ProfileBytes;
+3. recompute profileHash;
+4. require exact equality with the ProfileRef;
+5. require the expected profileKind;
+6. evaluate the grant using those pinned semantics.
+
+If the profile cannot be resolved or its hash does not verify, processing MUST fail closed.
+
+A verifier MUST NOT substitute a locally newer descriptor merely because it has the same display name.
+
+### CapabilityRef refinement
+
+The capability identity becomes:
+
+    CapabilityRef {
+        profile: ProfileRef(CAPABILITY)
+        capabilityId
+    }
+
+Two capabilities from descriptors with different profileHash values are different capability identities even if their human-readable names and capabilityId bytes are identical.
+
+A child grant cannot switch profileHash during attenuation unless the parent profile semantics explicitly define and cryptographically pin a safe cross-profile mapping. Core OI-014 v1 defines no implicit cross-profile mapping.
+
+### PROFILE_PRINCIPAL refinement
+
+A profile-defined principal becomes:
+
+    DelegatePrincipal {
+        principalType = PROFILE_PRINCIPAL
+        principalProfile: ProfileRef(PRINCIPAL)
+        principalId
+    }
+
+Two external principals interpreted under different principal-profile hashes are not the same canonical principal merely because their principalId/display strings match.
+
+### Registry consistency
+
+Registries do not get to redefine profile semantics.
+
+If Registry A and Registry B process the same GrantBytes, the embedded ProfileRefs require both to evaluate the same pinned profile descriptors.
+
+A registry MAY refuse to support a profile. It MUST NOT accept the grant while silently applying different semantics.
+
+### Profile evolution
+
+Any incompatible semantic change produces different ProfileBytes and therefore a different profileHash.
+
+Compatible editorial changes that do not affect canonical ProfileBytes may be published as explanatory material, but normative semantic changes require a new ProfileRef.
+
+There is no in-place mutation of the semantics identified by an existing profileHash.
+
+A migration from Profile A to Profile B requires a new DelegationGrant/GrantId unless a future profile-migration mechanism explicitly defines otherwise.
+
+### Profile-descriptor availability
+
+Content addressing proves descriptor integrity, not availability.
+
+Deployments/profiles MUST provide a way for conforming registries and relying parties to obtain required descriptors.
+
+A profile descriptor may be distributed through an OpenIdentity registry, HTTPS, package artifact, content-addressed store, application bundle, or another mechanism, provided the verifier checks the exact profileHash before use.
+
+Unavailable required profile semantics cause fail-closed behavior.
 
 ## 5. Canonical bytes and GrantId
 
