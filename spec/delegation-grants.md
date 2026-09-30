@@ -735,6 +735,121 @@ Profiles MAY prohibit subdelegation entirely.
 
 The core protocol MUST NOT infer transitive authority merely because A delegated to B and B delegated to C.
 
+## 12A. Subdelegation authorization
+
+Subdelegation is forbidden by default.
+
+Holding a capability does not imply authority to delegate that capability to another principal. A parent delegate may create a child grant only when the parent grant explicitly contains profile-defined authority permitting redelegation of the relevant capability/resource envelope.
+
+Core OI-014 deliberately does not define one ambient universal `subdelegate=true` bit. Subdelegation authority is itself expressed through capability-profile semantics so profiles can constrain what may be redelegated.
+
+Conceptually, a profile may define authority equivalent to:
+
+    mayRedelegate(
+        delegatedCapability,
+        resourceConstraint,
+        childPrincipalClass?,
+        additionalLimits?
+    )
+
+The exact representation belongs to the capability profile.
+
+### Two independent authorization tests
+
+For every child DelegatedCapability, registration MUST establish both:
+
+1. **possession:** the parent grant itself authorizes the parent delegate for the child capability/resource; and
+2. **redelegation authority:** the parent grant explicitly authorizes that delegate to redelegate that capability/resource.
+
+Passing only one test is insufficient.
+
+For example, a parent may be allowed to use `email.send` without being allowed to grant `email.send` to another principal.
+
+### Strict attenuation
+
+Subdelegation can only narrow authority.
+
+For every child capability/resource entry:
+
+- the parent must cover the child capability;
+- the parent resource constraint must cover the child resource constraint;
+- the parent's redelegation authority must cover the child capability/resource;
+- child time boundaries must be within the parent boundaries;
+- child profile constraints must be equal or stricter;
+- the child cannot add authority from a profile unsupported by the parent;
+- the child cannot convert use-only authority into redelegable authority unless the parent explicitly permits redelegation of that redelegation right.
+
+A profile MAY forbid redelegating subdelegation authority itself. High-risk profiles SHOULD do so unless multi-level delegation is a deliberate requirement.
+
+### No implicit transitivity
+
+If A grants authority to B and B grants authority to C, C receives only the authority explicitly present in its registered child grant.
+
+C does not inherit all of A's or B's capabilities.
+
+Likewise:
+
+    A -> B
+    B -> C
+
+does not imply:
+
+    A -> C
+
+for any capability not explicitly authorized by the child grant and validated through the complete parent chain.
+
+### Parent-chain binding
+
+A child grant MUST contain exactly one `parentGrantId`.
+
+At child registration, the parent MUST be an authoritative, usable registered grant.
+
+The child registration record MUST preserve the parentGrantId binding.
+
+At use time, every ancestor required by the chain MUST remain usable. A revoked, expired, generation-invalid, deactivated, or otherwise unusable ancestor makes all descendants unusable.
+
+A child MUST NOT be re-parented after registration. Equivalent authority under a different parent requires a new grant and GrantId.
+
+### Cycle prevention
+
+The parent chain MUST be acyclic.
+
+A child registration MUST be rejected if its GrantId already appears anywhere in the proposed ancestor chain.
+
+More generally, a registry MUST NOT establish a parent relationship that would make a RegisteredGrant an ancestor of itself.
+
+Because GrantId is content-derived and parentGrantId is part of GrantBytes, changing the parent produces different GrantBytes and a different GrantId.
+
+### Chain depth
+
+Core OI-014 requires every registration profile to define a finite maximum delegation-chain depth.
+
+Direct grants from the root OpenIdentity grantor are depth 1. A child of a depth-1 grant is depth 2, and so on.
+
+Registration MUST reject a child whose resulting depth exceeds the profile maximum.
+
+A multi-profile child grant MUST satisfy the most restrictive applicable chain-depth limit.
+
+Core OI-014 does not define one universal depth because risk and operational requirements vary by profile, but an unbounded profile is not conforming.
+
+### Child grant authorization
+
+A child grant is still registered through authoritative OI-014 registration.
+
+The parent delegate must authenticate as the parent grant's DelegatePrincipal and provide the proof required by the applicable subdelegation profile.
+
+The original root grantor's current DelegationPolicy does not need to sign each child unless the applicable profile explicitly requires co-authorization.
+
+This preserves useful delegated autonomy while ensuring every child is traceable to a registered parent and cannot exceed the parent's authority.
+
+### Generation relationship
+
+A child remains transitively dependent on its parent.
+
+If the root grant's bound delegation generation becomes invalid, the root grant becomes unusable and every descendant becomes unusable even if child records themselves have not changed.
+
+A child grant MUST NOT substitute a newer root generation to escape an invalidated parent chain.
+
 ## 13. AI-agent delegation
 
 An AI agent is not a special source of authority. It is a delegate principal operating under the same grant model.
@@ -836,7 +951,7 @@ The following require deliberate decisions before assigning final CDDL labels:
 3. **RESOLVED:** resources and deterministic coverage/subset semantics are profile-owned; core binds resource constraints to individual capabilities and fails closed when attenuation cannot be established;
 4. **RESOLVED:** core supports native OPENIDENTITY and extensible PROFILE_PRINCIPAL; AI agents/workloads are profile-defined, not core types; principal identity is separate from proof material;
 5. **RESOLVED:** core requires finite expiry but no universal maximum; every registration profile MUST define and enforce a maximum lifetime;
-6. whether subdelegation is core-enabled or profile-opt-in;
+6. **RESOLVED:** subdelegation is forbidden by default and requires explicit profile-defined redelegation authority for the capability/resource being passed; every profile defines finite maximum chain depth;
 7. authoritative registration/status transaction format;
 8. **RESOLVED:** current grantor ControllerPolicy or current DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
 9. **RESOLVED:** registration records use a per-GrantId uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
