@@ -808,7 +808,7 @@ If `(registryDomain, GrantId)` already has an authoritative RegisteredGrantState
 - refresh `registeredAt`;
 - extend validity;
 - erase REVOKED status;
-- replace grantorStateHash or delegationGeneration;
+- replace rootGrantorStateHash or delegationGeneration;
 - reset previousRecordHash;
 - otherwise treat replayed registration as a new grant.
 
@@ -872,12 +872,12 @@ Proposed signing structure:
       1,
       registryDomain,
       GrantBytes,
-      grantorStateHash,
+      rootGrantorStateHash,
       delegationGeneration,
       verificationMethodId
     ]
 
-The grantorStateHash MUST identify the exact current ACTIVE IdentityState used during registration.
+The rootGrantorStateHash MUST identify the exact current ACTIVE IdentityState used during registration.
 
 delegationGeneration MUST equal that state's DelegationAuthority.generation.
 
@@ -1011,7 +1011,7 @@ The privacy-preserving logical anchor is:
         revision
         previousRecordHash
         status
-        grantorStateHash
+        rootGrantorStateHash
         delegationGeneration
         registeredAt
     }
@@ -1085,7 +1085,7 @@ Core OI-014 intentionally does not require the minimal public registration ancho
 
 Those values remain cryptographically committed by GrantId.
 
-`grantorStateHash` is retained because registration authorization is bound to one exact authoritative grantor state. Deployments should recognize that StateHash itself may still permit correlation when an observer has access to identity-state history.
+`rootGrantorStateHash` is retained because registration authorization is bound to one exact authoritative grantor state. Deployments should recognize that StateHash itself may still permit correlation when an observer has access to identity-state history.
 
 A stronger privacy profile MAY replace direct public exposure of some registration context with a verifiable commitment/proof mechanism, but that is outside core OI-014 v1 and must not weaken current-state/generation validation.
 
@@ -1153,7 +1153,7 @@ The proposed direct grant signing structure is refined to:
       1,
       registryDomain,
       GrantBytes,
-      grantorStateHash,
+      rootGrantorStateHash,
       delegationGeneration,
       verificationMethodId
     ]
