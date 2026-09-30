@@ -461,6 +461,101 @@ A future cryptographic-agility revision may generalize the permitted GrantId mul
 
 Registration metadata such as registration time, registry location, status, and bound delegation generation is not included in GrantBytes and therefore does not change GrantId.
 
+## 5A. GrantId and RecordHash hash profile
+
+OI-014 v1 fixes both GrantId and RegisteredGrantState RecordHash to the SHA2-256 Multihash profile.
+
+The exact construction is:
+
+    digest     = SHA-256(canonicalBytes)
+    identifier = 0x12 || 0x20 || digest
+
+where:
+
+- `0x12` is the Multihash code for SHA2-256;
+- `0x20` is the 32-byte digest length;
+- `digest` is exactly 32 bytes.
+
+For grants:
+
+    GrantId = 0x12 || 0x20 || SHA-256(GrantBytes)
+
+For registered grant-state records:
+
+    RecordHash = 0x12 || 0x20 || SHA-256(RecordBytes)
+
+This deliberately matches the current OpenIdentity StateHash construction.
+
+### One algorithm in OI-014 v1
+
+Multihash framing does not make the initial OI-014 profile algorithm-agile.
+
+A conforming OI-014 v1 implementation MUST emit and accept only:
+
+    algorithm code = 0x12
+    digest length  = 0x20
+
+for GrantId and RecordHash.
+
+An identifier using another Multihash algorithm code or digest length is invalid under OI-014 v1 even if the implementation knows how to compute that algorithm.
+
+Implementations MUST NOT negotiate, substitute, upgrade, or downgrade the hash algorithm during registration, lookup, parent-chain validation, revocation, or grant use.
+
+### Identifier equality
+
+GrantId equality is exact byte equality of the complete 34-byte Multihash.
+
+RecordHash equality is exact byte equality of the complete 34-byte Multihash.
+
+Implementations MUST NOT compare only the digest bytes while ignoring the Multihash prefix.
+
+Implementations MUST NOT treat alternate hashes of the same canonical bytes as aliases for one GrantId or RecordHash.
+
+This prevents a registry from representing one grant under multiple algorithm-derived identities.
+
+### Canonical input
+
+GrantId is computed only from exact canonical GrantBytes.
+
+RecordHash is computed only from exact canonical RecordBytes.
+
+A verifier MUST NOT hash:
+
+- decoded object models with implementation-dependent ordering;
+- JSON projections;
+- transport envelopes;
+- proof collections not defined as part of the canonical object;
+- registry metadata outside RecordBytes;
+- textual/display encodings of identifiers.
+
+A verifier reconstructs the applicable deterministic CBOR bytes and hashes those exact bytes.
+
+### Collision handling
+
+A registry MUST NOT establish two semantically different canonical GrantBytes under the same GrantId.
+
+If submitted GrantBytes hash to an already-known GrantId, the registry MUST compare exact canonical GrantBytes.
+
+- If the bytes are identical, the submission refers to the same immutable grant intent and is handled according to registration/replay rules.
+- If the bytes differ, the registry MUST fail closed and surface a hash-collision/integrity error. It MUST NOT overwrite, merge, or choose one object silently.
+
+The analogous rule applies to RecordHash and RecordBytes.
+
+### Future hash agility
+
+A future OpenIdentity protocol/OI-014 revision MAY permit additional Multihash algorithms.
+
+Such a revision MUST define:
+
+- exactly which algorithms are permitted;
+- whether identifiers created under different algorithms may coexist;
+- migration and lookup semantics;
+- parentGrantId behavior across hash profiles;
+- collision/alias handling;
+- whether an existing grant can ever acquire a new identifier.
+
+OI-014 v1 implementations MUST NOT anticipate that future revision by accepting additional algorithms today.
+
 ## 6. Delegation authorization signature
 
 Registration requires DelegationPolicy authorization over the exact GrantBytes and the exact grantor state context.
@@ -955,7 +1050,7 @@ The following require deliberate decisions before assigning final CDDL labels:
 7. authoritative registration/status transaction format;
 8. **RESOLVED:** current grantor ControllerPolicy or current DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
 9. **RESOLVED:** registration records use a per-GrantId uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
-10. whether GrantId remains SHA2-256-only in the first release or uses a general Multihash bound;
+10. **RESOLVED:** OI-014 v1 GrantId and RecordHash are exactly SHA2-256 Multihash (0x12 0x20 + 32-byte digest); alternate algorithms are invalid until a future protocol revision;
 11. privacy implications of public registration and whether commitments/private registries are allowed;
 12. resolution/discovery API semantics for registered grants.
 
