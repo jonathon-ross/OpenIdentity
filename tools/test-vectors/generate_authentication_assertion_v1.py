@@ -55,12 +55,52 @@ def aa01():
       "securedAssertionBytesHex":enc(secured).hex()
     }
 
+
+def threshold_policy(entries,threshold):
+    return {1:2,2:threshold,3:[{1:mid,2:method(mid,pub)} for mid,pub in sorted(entries,key=lambda x:x[0])]}
+
+def aa02():
+    identity=bytes(range(96,128))
+    # Deliberately define/sign methods in noncanonical order C,A,B.
+    aid=bytes(range(16,32));bid=bytes(range(32,48));cid=bytes(range(48,64))
+    ak=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA02 auth A seed"))
+    bk=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA02 auth B seed"))
+    ck=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA02 auth C seed"))
+    apub=ak.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    bpub=bk.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    cpub=ck.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    ap=threshold_policy([(cid,cpub),(aid,apub),(bid,bpub)],2)
+    controller_id=bytes(range(64,80))
+    ctrl=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA02 controller seed"))
+    ctrlpub=ctrl.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    cp=policy(controller_id,ctrlpub)
+    generation=12
+    state={1:3,2:identity,3:34,4:1,5:cp,8:{1:generation,2:ap},9:{1:0}}
+    sb=enc(state);sh=mh(sb)
+    context=b"OpenIdentity OI-015 AA02 threshold context"
+    assertion={1:1,2:identity,3:sh,4:generation,5:b"threshold-verifier",6:"openidentity.authentication",
+               7:2001001000,8:2001001180,9:bytes(range(128,160)),10:mh(context)}
+    ab=enc(assertion);assertion_id=mh(ab)
+    # Sign C then A; canonical secured proof order must be A then C.
+    csign=enc(["OpenIdentity Authentication Assertion",1,ab,cid]);csig=ck.sign(csign)
+    asign=enc(["OpenIdentity Authentication Assertion",1,ab,aid]);asig=ak.sign(asign)
+    proofs=sorted([{1:cid,2:csig},{1:aid,2:asig}],key=lambda p:p[1])
+    secured={1:assertion,2:proofs}
+    return {"id":"AA02","description":"2-of-3 AuthenticationPolicy with canonical proof ordering","expected":"PASS",
+      "stateBytesHex":sb.hex(),"stateHashHex":sh.hex(),"assertionBytesHex":ab.hex(),"assertionIdHex":assertion_id.hex(),
+      "methodAIdHex":aid.hex(),"methodCIdHex":cid.hex(),"signingABytesHex":asign.hex(),"signingCBytesHex":csign.hex(),
+      "signatureAHex":asig.hex(),"signatureCHex":csig.hex(),
+      "generatedProofOrder":["C","A"],"canonicalProofOrder":["A","C"],
+      "securedAssertionBytesHex":enc(secured).hex()}
+
+
 def main():
     data={"specification":"OpenIdentity OI-015 Authentication Assertion v1",
-          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01()],"invalidVectors":[]}
+          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01(),aa02()],"invalidVectors":[]}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
     print("Wrote",OUT.relative_to(ROOT))
     print("AA01 GENERATED")
+    print("AA02 GENERATED")
 
 if __name__=="__main__":main()
