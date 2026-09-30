@@ -194,11 +194,14 @@ def main():
     req("DG06 depth 2",v6["childDepth"]==2)
 
     invalid={x["id"]:x for x in data["invalidVectors"]}
-    req("invalid vector IDs DGI01-DGI06",set(invalid)=={f"DGI{i:02d}" for i in range(1,7)})
+    req("invalid vector IDs DGI01-DGI12",set(invalid)=={f"DGI{i:02d}" for i in range(1,13)})
     expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
               "DGI03":"CROSS_DOMAIN_PROOF","DGI04":"INVALID_PREVIOUS_RECORD_HASH",
-              "DGI05":"CAPABILITY_ESCALATION","DGI06":"PARENT_GRANT_UNUSABLE"}
-    req("DGI01-DGI06 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
+              "DGI05":"CAPABILITY_ESCALATION","DGI06":"PARENT_GRANT_UNUSABLE",
+              "DGI07":"ROOT_GRANTOR_MISMATCH","DGI08":"ISSUER_PARENT_DELEGATE_MISMATCH",
+              "DGI09":"CHILD_TIME_WIDENING","DGI10":"REDELEGATION_NOT_AUTHORIZED",
+              "DGI11":"PROFILE_SUBSTITUTION","DGI12":"TERMINAL_GRANT_STATE"}
+    req("DGI01-DGI12 stable errors",all(invalid[k]["error"]==v for k,v in expected.items()))
 
     i1=invalid["DGI01"]
     oldpub=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DGI01 old delegation seed")).public_key()
@@ -230,7 +233,28 @@ def main():
 
     i6=invalid["DGI06"]
     req("DGI06 current parent is REVOKED",i6["currentParentStatus"]=="REVOKED")
+
+    i7=invalid["DGI07"]
+    req("DGI07 child rootGrantor differs from parent",i7["childRootGrantorHex"]!=i7["parentRootGrantorHex"])
+
+    i8=invalid["DGI08"]
+    req("DGI08 child issuer differs from parent delegate",i8["childIssuerHex"]!=i8["parentDelegateHex"])
+
+    i9=invalid["DGI09"]
+    req("DGI09 child expiry exceeds parent",i9["childExpiresAt"]>i9["parentExpiresAt"])
+
+    i10=invalid["DGI10"]
+    req("DGI10 parent lacks explicit redelegation authority",
+        i10["parentCapabilities"]==["document.read"] and i10["requestedChildCapabilities"]==["document.read"])
+
+    i11=invalid["DGI11"]
+    req("DGI11 same capability name under different profile hash",
+        i11["parentProfileHashHex"]!=i11["childProfileHashHex"] and bytes.fromhex(i11["capabilityIdHex"])==b"document.read")
+
+    i12=invalid["DGI12"]
+    req("DGI12 current grant state is terminal REVOKED",i12["currentRevision"]==2 and i12["currentStatus"]=="REVOKED")
+    req("DGI12 attempted duplicate REGISTER tries revision 1",i12["attemptedNewRevision"]==1)
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI06 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI12 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
