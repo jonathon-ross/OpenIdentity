@@ -22,7 +22,7 @@ def main():
     d=json.loads(P.read_text())
     req("suite specification",d["specification"]=="OpenIdentity OI-015 Authentication Assertion v1")
     req("draft status",d["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs AA01-AA02",[x["id"] for x in d["vectors"]]==["AA01","AA02"] and d["invalidVectors"]==[])
+    req("vector IDs AA01-AA03",[x["id"] for x in d["vectors"]]==["AA01","AA02","AA03"] and d["invalidVectors"]==[])
     v=d["vectors"][0]
     identity=bytes(range(32));mid=bytes(range(32,48))
     k=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA01 authentication seed"))
@@ -71,8 +71,25 @@ def main():
     secured2={1:assertion2,2:[{1:aid,2:asig},{1:cid2,2:csig}]}
     req("AA02 secured assertion bytes",v2["securedAssertionBytesHex"]==enc(secured2).hex())
 
+    v3=d["vectors"][2]
+    identity3=bytes(range(160,192));mid3=bytes(range(80,96))
+    k3=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA03 authentication seed"))
+    pub3=k3.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw);ap3=policy(mid3,pub3)
+    ctrlid3=bytes(range(96,112));ctrl3=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 AA03 controller seed"))
+    ctrlpub3=ctrl3.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw);cp3=policy(ctrlid3,ctrlpub3)
+    state3={1:3,2:identity3,3:55,4:1,5:cp3,8:{1:19,2:ap3},9:{1:0}};sb3=enc(state3);sh3=mh(sb3)
+    req("AA03 StateBytes",v3["stateBytesHex"]==sb3.hex());req("AA03 StateHash",v3["stateHashHex"]==sh3.hex())
+    issued3=2001002000;expires3=issued3+300;ctx3=b"OpenIdentity OI-015 AA03 exact lifetime boundary"
+    assertion3={1:1,2:identity3,3:sh3,4:19,5:b"lifetime-boundary-verifier",6:"openidentity.authentication",
+                7:issued3,8:expires3,9:bytes(range(192,224)),10:mh(ctx3)}
+    ab3=enc(assertion3);req("AA03 AssertionBytes",v3["assertionBytesHex"]==ab3.hex());req("AA03 AssertionId",v3["assertionIdHex"]==mh(ab3).hex())
+    req("AA03 exact 300-second lifetime",expires3-issued3==300)
+    sign3=enc(["OpenIdentity Authentication Assertion",1,ab3,mid3]);sig3=bytes.fromhex(v3["signatureHex"])
+    k3.public_key().verify(sig3,sign3);req("AA03 signature verifies",True)
+    req("AA03 secured assertion bytes",v3["securedAssertionBytesHex"]==enc({1:assertion3,2:[{1:mid3,2:sig3}]}).hex())
+
     print("\n============================================")
-    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA02 VERIFIED")
+    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 VERIFIED")
     print("============================================")
 
 if __name__=="__main__":main()
