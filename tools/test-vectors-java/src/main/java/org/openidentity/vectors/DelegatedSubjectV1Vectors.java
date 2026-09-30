@@ -107,11 +107,12 @@ public final class DelegatedSubjectV1Vectors {
 
 
     static void verifyInvalids(JsonNode d)throws Exception{
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==15);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==19);
         String[] errors={"INVALID_DELEGATED_SUBJECT_VERSION","EMPTY_DELEGATION_PATH","DELEGATION_PATH_TOO_DEEP","GRANT_ID_MISMATCH",
                 "INVALID_GRANT_EVIDENCE","PARENT_GRANT_MISMATCH","ROOT_GRANTOR_MISMATCH","ISSUER_DELEGATE_MISMATCH","INVALID_DELEGATION_EVIDENCE",
                 "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE",
-                "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE"};
+                "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE",
+                "ACTOR_ASSERTION_ID_MISMATCH","ACTOR_IDENTITY_MISMATCH","DELEGATION_CONTEXT_MISMATCH","ACTOR_ASSERTION_ID_MISMATCH"};
         require("stable error table size",errors.length==xs.size());
         Map<String,JsonNode> m=new HashMap<>();
         for(int i=0;i<xs.size();i++){JsonNode v=xs.get(i);String id=String.format("DSI%02d",i+1);
@@ -135,6 +136,13 @@ public final class DelegatedSubjectV1Vectors {
         require("DSI13 root identity DEACTIVATED",m.get("DSI13").path("authoritativeStateAvailable").asBoolean()&&"DEACTIVATED".equals(m.get("DSI13").path("currentRootStatus").asText()));
         require("DSI14 ancestor expired",m.get("DSI14").path("authoritativeStateAvailable").asBoolean()&&m.get("DSI14").path("verificationTime").asLong()>=m.get("DSI14").path("ancestorExpiresAt").asLong());
         require("DSI15 authoritative state unavailable",!m.get("DSI15").path("authoritativeStateAvailable").asBoolean());
+        JsonNode i16=m.get("DSI16");require("DSI16 different assertion id",!i16.path("tokenActorAssertionIdHex").asText().equals(i16.path("suppliedActorAssertionIdHex").asText()));
+        require("DSI16 supplied assertion id reconstructs",i16.path("suppliedActorAssertionIdHex").asText().equals(hx(mh(HexFormat.of().parseHex(i16.path("suppliedAssertionBytesHex").asText())))));
+        JsonNode i17=m.get("DSI17");require("DSI17 actor identity differs from terminal delegate",!i17.path("terminalDelegateHex").asText().equals(i17.path("authenticatedActorHex").asText()));
+        JsonNode i18=m.get("DSI18");require("DSI18 context binds different evidence",!i18.path("expectedDelegationEvidenceIdHex").asText().equals(i18.path("boundDelegationEvidenceIdHex").asText()));
+        require("DSI18 bound context hash reconstructs",i18.path("boundContextHashHex").asText().equals(hx(mh(HexFormat.of().parseHex(i18.path("boundDelegationEvidenceIdHex").asText())))));
+        JsonNode i19=m.get("DSI19");require("DSI19 same actor but different assertion id",!i19.path("tokenActorAssertionIdHex").asText().equals(i19.path("substitutedActorAssertionIdHex").asText()));
+        require("DSI19 substituted assertion id reconstructs",i19.path("substitutedActorAssertionIdHex").asText().equals(hx(mh(HexFormat.of().parseHex(i19.path("substitutedAssertionBytesHex").asText())))));
     }
 
     public static void main(String[] args)throws Exception{
@@ -145,7 +153,7 @@ public final class DelegatedSubjectV1Vectors {
         require("vector IDs DS01-DS02",d.path("vectors").size()==2&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS02".equals(d.path("vectors").get(1).path("id").asText()));
         verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI15 VERIFIED");
+        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI19 VERIFIED");
         System.out.println("============================================");
     }
 }
