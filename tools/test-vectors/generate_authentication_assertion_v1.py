@@ -94,13 +94,38 @@ def aa02():
       "securedAssertionBytesHex":enc(secured).hex()}
 
 
+
+def aa03():
+    identity=bytes(range(160,192));mid=bytes(range(80,96))
+    priv=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA03 authentication seed"))
+    pub=priv.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw);ap=policy(mid,pub)
+    controller_id=bytes(range(96,112))
+    ctrl=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 AA03 controller seed"))
+    ctrlpub=ctrl.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw);cp=policy(controller_id,ctrlpub)
+    generation=19
+    state={1:3,2:identity,3:55,4:1,5:cp,8:{1:generation,2:ap},9:{1:0}}
+    sb=enc(state);sh=mh(sb)
+    issued=2001002000;expires=issued+300
+    context=b"OpenIdentity OI-015 AA03 exact lifetime boundary"
+    assertion={1:1,2:identity,3:sh,4:generation,5:b"lifetime-boundary-verifier",
+               6:"openidentity.authentication",7:issued,8:expires,9:bytes(range(192,224)),10:mh(context)}
+    ab=enc(assertion);aid=mh(ab)
+    signing=enc(["OpenIdentity Authentication Assertion",1,ab,mid]);sig=priv.sign(signing)
+    secured={1:assertion,2:[{1:mid,2:sig}]}
+    return {"id":"AA03","description":"Exact normative 300-second assertion lifetime boundary","expected":"PASS",
+      "stateBytesHex":sb.hex(),"stateHashHex":sh.hex(),"issuedAt":issued,"expiresAt":expires,
+      "assertionBytesHex":ab.hex(),"assertionIdHex":aid.hex(),"authenticationMethodIdHex":mid.hex(),
+      "signingBytesHex":signing.hex(),"signatureHex":sig.hex(),"securedAssertionBytesHex":enc(secured).hex()}
+
+
 def main():
     data={"specification":"OpenIdentity OI-015 Authentication Assertion v1",
-          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01(),aa02()],"invalidVectors":[]}
+          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01(),aa02(),aa03()],"invalidVectors":[]}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
     print("Wrote",OUT.relative_to(ROOT))
     print("AA01 GENERATED")
     print("AA02 GENERATED")
+    print("AA03 GENERATED")
 
 if __name__=="__main__":main()
