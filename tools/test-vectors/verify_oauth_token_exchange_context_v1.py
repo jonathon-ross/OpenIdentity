@@ -12,7 +12,7 @@ def req(n,v):
     print(" ",n+": PASS")
 def main():
     d=json.loads(P.read_text());req("suite specification",d["specification"]=="OpenIdentity OAuth Token Exchange Context v1")
-    req("draft status",d["status"]=="DRAFT-NON-NORMATIVE");req("vector IDs TX01-TX04",[x["id"] for x in d["vectors"]]==["TX01","TX02","TX03","TX04"])
+    req("draft status",d["status"]=="DRAFT-NON-NORMATIVE");req("vector IDs TX01-TX05",[x["id"] for x in d["vectors"]]==["TX01","TX02","TX03","TX04","TX05"])
     v=d["vectors"][0];eid=mh(b"OpenIdentity OAuth TX01 delegation evidence")
     jkt=base64.urlsafe_b64encode(h(b"OpenIdentity OAuth TX01 DPoP public JWK")).rstrip(b"=")
     resources=sorted([b"https://api.example.test/v2",b"https://api.example.test/v1"])
@@ -24,15 +24,16 @@ def main():
     ctx={1:1,2:b"https://as.example.test",3:b"agent-client-016",4:b"urn:ietf:params:oauth:token-type:access_token",
          5:resources,6:audiences,7:scopes,8:eid,9:jkt}
     cb=enc(ctx);req("TX01 context bytes",v["contextBytesHex"]==cb.hex());req("TX01 contextHash",v["contextHashHex"]==mh(cb).hex())
-    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs TXI01-TXI35",set(inv)=={f"TXI{i:02d}" for i in range(1,36)})
+    inv={x["id"]:x for x in d["invalidVectors"]};req("invalid vector IDs TXI01-TXI40",set(inv)=={f"TXI{i:02d}" for i in range(1,41)})
     errors=["INVALID_CONTEXT_VERSION","DUPLICATE_SCOPE","NONCANONICAL_SCOPE_ORDER","DUPLICATE_RESOURCE","NONCANONICAL_RESOURCE_ORDER",
             "INVALID_RESOURCE","INVALID_RESOURCE","DUPLICATE_AUDIENCE","NONCANONICAL_AUDIENCE_ORDER","INVALID_SCOPE",
             "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT","TOO_MANY_RESOURCES","TOO_MANY_AUDIENCES","TOO_MANY_SCOPES",
             "INVALID_AUTHORIZATION_SERVER","INVALID_CLIENT_ID","INVALID_REQUESTED_TOKEN_TYPE","INVALID_RESOURCE","INVALID_AUDIENCE","INVALID_SCOPE",
             "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT",
             "AUTHORIZATION_SERVER_MISMATCH","CLIENT_ID_MISMATCH","REQUESTED_TOKEN_TYPE_MISMATCH","REQUESTED_TOKEN_TYPE_MISMATCH",
-            "RESOURCE_SET_MISMATCH","AUDIENCE_SET_MISMATCH","SCOPE_SET_MISMATCH","DELEGATION_EVIDENCE_MISMATCH","DPOP_KEY_MISMATCH"]
-    req("TXI01-TXI35 stable errors",all(inv[f"TXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,36)))
+            "RESOURCE_SET_MISMATCH","AUDIENCE_SET_MISMATCH","SCOPE_SET_MISMATCH","DELEGATION_EVIDENCE_MISMATCH","DPOP_KEY_MISMATCH",
+            "INVALID_AUTHORIZATION_SERVER","INVALID_CLIENT_ID","INVALID_REQUESTED_TOKEN_TYPE","INVALID_REQUESTED_TOKEN_TYPE","INVALID_AUTHORIZATION_SERVER"]
+    req("TXI01-TXI40 stable errors",all(inv[f"TXI{i:02d}"]["expectedError"]==errors[i-1] for i in range(1,41)))
     req("TXI01 unsupported version",inv["TXI01"]["submittedVersion"]!=inv["TXI01"]["supportedVersion"])
     req("TXI02 duplicate scope",len(set(inv["TXI02"]["scopes"]))!=len(inv["TXI02"]["scopes"]))
     req("TXI03 scope order noncanonical",inv["TXI03"]["scopes"]!=inv["TXI03"]["canonicalScopes"])
@@ -61,5 +62,14 @@ def main():
     for n in range(27,36):
         x=inv[f"TXI{n:02d}"];req(f"TXI{n:02d} substitution changes contextHash",x["originalContextHashHex"]!=x["substitutedContextHashHex"])
 
-    print("\n============================================");print("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 TX01-TX04 + TXI01-TXI35 VERIFIED");print("============================================")
+    v5=d["vectors"][4];req("TX05 requested token type absent",v5["requestedTokenTypePresent"] is False)
+    req("TX05 empty collections valid",v5["resourceCount"]==v5["audienceCount"]==v5["scopeCount"]==0)
+    req("TX05 non-HTTP absolute AS URI valid",v5["authorizationServer"].startswith("urn:"))
+    req("TXI36 empty authorization server",inv["TXI36"]["length"]<inv["TXI36"]["minimum"])
+    req("TXI37 empty client id",inv["TXI37"]["length"]<inv["TXI37"]["minimum"])
+    req("TXI38 present empty requested token type",inv["TXI38"]["present"] and inv["TXI38"]["length"]<inv["TXI38"]["minimum"])
+    req("TXI39 requested token type must be URI",inv["TXI39"]["uriValid"] is False)
+    req("TXI40 authorization server must be URI",inv["TXI40"]["uriValid"] is False)
+
+    print("\n============================================");print("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 TX01-TX05 + TXI01-TXI40 VERIFIED");print("============================================")
 if __name__=="__main__":main()
