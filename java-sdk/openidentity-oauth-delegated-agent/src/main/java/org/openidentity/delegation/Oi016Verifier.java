@@ -7,7 +7,11 @@ import java.util.*;
 
 public final class Oi016Verifier {
  private final Oi014GrantVerifier grantVerifier;
- public Oi016Verifier(Oi014GrantVerifier grantVerifier){this.grantVerifier=Objects.requireNonNull(grantVerifier);}
+ private final CapabilityProfileResolver profiles;
+ public Oi016Verifier(Oi014GrantVerifier grantVerifier,CapabilityProfileResolver profiles){
+  this.grantVerifier=Objects.requireNonNull(grantVerifier);
+  this.profiles=Objects.requireNonNull(profiles);
+ }
  public VerifiedDelegatedSubject verify(byte[] exactTokenBytes,long verificationTime){
   DelegatedSubjectToken token;try{token=Oi016Codec.decode(exactTokenBytes);}catch(IllegalArgumentException e){throw new ProfileException(ProfileError.INVALID_REQUEST,e);}
   DelegationEvidence evidence=token.evidence();if(evidence.exactEvidenceBytes().length>1_048_576)throw new ProfileException(ProfileError.INVALID_REQUEST);
