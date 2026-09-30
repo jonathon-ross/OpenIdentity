@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 final class OpenIdentitySpringAdapterTest {
  static String b64(byte[] b){return Base64.getUrlEncoder().withoutPadding().encodeToString(b);}
  static String jkt(){return b64(new byte[32]);}
+ static ValidatedDpopProofResult dpop(){return new ValidatedDpopProofResult(jkt(),org.springframework.security.oauth2.jwt.Jwt.withTokenValue("proof").header("alg","none").header("jwk",Map.of("kty","oct","k","AA")).claim("jti","test").build());}
 
  @Test void converterClaimsOnlyExactOpenIdentityTokenExchange(){
   var req=new MockHttpServletRequest();req.setParameter("grant_type","urn:ietf:params:oauth:grant-type:token-exchange");
@@ -19,7 +20,7 @@ final class OpenIdentitySpringAdapterTest {
   req.setParameter("subject_token",b64(new byte[]{1,2}));req.setParameter("actor_token",b64(new byte[]{3,4}));req.setParameter("scope","read write");
   var client=new TestingAuthenticationToken("client","",List.of());client.setAuthenticated(true);SecurityContextHolder.getContext().setAuthentication(client);
   try{
-   var c=new OpenIdentityTokenExchangeAuthenticationConverter(r->jkt(),r->new byte[32]);
+   var c=new OpenIdentityTokenExchangeAuthenticationConverter(r->dpop(),r->new byte[32]);
    var a=(OpenIdentityTokenExchangeAuthenticationToken)c.convert(req);assertNotNull(a);assertEquals(List.of("read","write"),a.scopes());assertEquals(jkt(),a.dpopJkt());
   }finally{SecurityContextHolder.clearContext();}
  }
@@ -29,7 +30,7 @@ final class OpenIdentitySpringAdapterTest {
   req.setParameter("subject_token_type",OpenIdentityOAuthParameters.SUBJECT_TOKEN_TYPE);req.setParameter("actor_token_type",OpenIdentityOAuthParameters.ACTOR_TOKEN_TYPE);
   req.setParameter("subject_token","AQ==");req.setParameter("actor_token","Aw");
   var client=new TestingAuthenticationToken("client","",List.of());client.setAuthenticated(true);SecurityContextHolder.getContext().setAuthentication(client);
-  try{var c=new OpenIdentityTokenExchangeAuthenticationConverter(r->jkt(),r->new byte[32]);assertThrows(org.springframework.security.oauth2.core.OAuth2AuthenticationException.class,()->c.convert(req));}
+  try{var c=new OpenIdentityTokenExchangeAuthenticationConverter(r->dpop(),r->new byte[32]);assertThrows(org.springframework.security.oauth2.core.OAuth2AuthenticationException.class,()->c.convert(req));}
   finally{SecurityContextHolder.clearContext();}
  }
 
