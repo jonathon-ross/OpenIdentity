@@ -23,7 +23,7 @@ public final class OpenIdentitySpringTokenIssuer {
       .authorizationGrantType(new AuthorizationGrantType("urn:ietf:params:oauth:grant-type:token-exchange"))
       .authorizationGrant(grant)
       .authorizedScopes(new LinkedHashSet<>(d.scopes()))
-      .tokenType(OAuth2TokenType.ACCESS_TOKEN)
+      .tokenType(OAuth2TokenType.ACCESS_TOKEN)\n      .put(OAuth2TokenContext.DPOP_PROOF_KEY,grant.dpop().proof())
       .build();
   OAuth2Token generated=tokenGenerator.generate(context);if(generated==null)throw invalid();
   OAuth2AccessToken access;
