@@ -57,6 +57,13 @@ def main():
     args=parse_args()
     run("Generate draft OI-014 vectors",[sys.executable,"tools/test-vectors/generate_delegation_v1.py"])
     run("Verify draft OI-014 vectors",[sys.executable,"tools/test-vectors/verify_delegation_v1.py"])
+    candidate=ROOT/"checksums"/"delegation-v1.json.sha256"
+    if candidate.is_file():
+        run("Verify committed OI-014 byte-frozen candidate",
+            [sys.executable,"tools/test-vectors/verify_delegation_v1_freeze_candidate.py"])
+    else:
+        print("\n[OI-014 freeze candidate]")
+        print("[INFO] No committed candidate checksum yet; semantic pre-freeze checks continue.")
     java=ROOT/"tools"/"test-vectors-java"
     maven=resolve_maven(args.maven)
     if not maven:
@@ -78,7 +85,7 @@ def main():
     print("\n============================================================")
     print("OI-014 PRE-FREEZE RELEASE GATE: PASS")
     print("============================================================")
-    print("\nStatus: draft vectors verified; NOT byte-frozen.")
+    print("\nStatus: semantic vectors verified; committed byte-frozen candidate verified when present; NOT YET NORMATIVE.")
     print("Next: inspect git status/diff, then create a freeze candidate only if intentional.")
 
 if __name__=="__main__":
