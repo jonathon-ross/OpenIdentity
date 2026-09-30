@@ -118,14 +118,49 @@ def aa03():
       "signingBytesHex":signing.hex(),"signatureHex":sig.hex(),"securedAssertionBytesHex":enc(secured).hex()}
 
 
+
+def invalids():
+    out=[]
+    def add(i,e,a,**kw):out.append({"id":i,"expectedError":e,"attack":a,**kw})
+    identity=bytes(range(224,256));mid=bytes(range(112,128))
+    k=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 invalid authentication seed"))
+    pub=k.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw);ap=policy(mid,pub)
+    ctrlid=bytes(range(0,16));ctrl=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 invalid controller seed"))
+    cp=policy(ctrlid,ctrl.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+    historical={1:3,2:identity,3:70,4:1,5:cp,8:{1:8,2:ap},9:{1:0}}
+    current={1:3,2:identity,3:71,4:1,5:cp,8:{1:9,2:ap},9:{1:0}}
+    hsh=mh(enc(historical));csh=mh(enc(current))
+    base={1:1,2:identity,3:csh,4:9,5:b"expected-verifier",6:"openidentity.authentication",
+          7:2001003000,8:2001003120,9:bytes(range(16,48)),10:mh(b"expected-context")}
+    stale=dict(base);stale[3]=hsh;stale[4]=8
+    stale_b=enc(stale);stale_sign=enc(["OpenIdentity Authentication Assertion",1,stale_b,mid]);stale_sig=k.sign(stale_sign)
+    add("AAI01","INVALID_STATE_HASH","historical-state-valid-signature",
+        historicalStateHashHex=hsh.hex(),currentStateHashHex=csh.hex(),signingBytesHex=stale_sign.hex(),signatureHex=stale_sig.hex())
+    add("AAI02","INVALID_AUTHENTICATION_GENERATION","stale-authentication-generation",
+        assertedGeneration=8,currentGeneration=9)
+    deactivated=dict(current);deactivated[4]=2
+    add("AAI03","IDENTITY_NOT_ACTIVE","deactivated-identity",currentStateBytesHex=enc(deactivated).hex(),currentStatus="DEACTIVATED")
+    noap={1:3,2:identity,3:72,4:1,5:cp,8:{1:9},9:{1:0}}
+    add("AAI04","AUTHENTICATION_POLICY_ABSENT","authentication-policy-absent",currentStateBytesHex=enc(noap).hex(),authenticationPolicyPresent=False)
+    wrongaud=dict(base);wrongaud[5]=b"other-verifier"
+    add("AAI05","AUDIENCE_MISMATCH","wrong-audience",expectedAudienceHex=base[5].hex(),assertedAudienceHex=wrongaud[5].hex())
+    wrongpurpose=dict(base);wrongpurpose[6]="openidentity.oauth.token-exchange"
+    add("AAI06","PURPOSE_MISMATCH","wrong-purpose",expectedPurpose=base[6],assertedPurpose=wrongpurpose[6])
+    wrongnonce=dict(base);wrongnonce[9]=bytes(range(48,80))
+    add("AAI07","NONCE_MISMATCH","wrong-nonce",expectedNonceHex=base[9].hex(),assertedNonceHex=wrongnonce[9].hex())
+    wrongctx=dict(base);wrongctx[10]=mh(b"attacker-context")
+    add("AAI08","CONTEXT_HASH_MISMATCH","context-substitution",expectedContextHashHex=base[10].hex(),assertedContextHashHex=wrongctx[10].hex())
+    return out
+
 def main():
     data={"specification":"OpenIdentity OI-015 Authentication Assertion v1",
-          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01(),aa02(),aa03()],"invalidVectors":[]}
+          "status":"DRAFT-NON-NORMATIVE","vectors":[aa01(),aa02(),aa03()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
     print("Wrote",OUT.relative_to(ROOT))
     print("AA01 GENERATED")
     print("AA02 GENERATED")
     print("AA03 GENERATED")
+    print("AAI01-AAI08 GENERATED")
 
 if __name__=="__main__":main()
