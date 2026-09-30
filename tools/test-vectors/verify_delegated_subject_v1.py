@@ -55,7 +55,7 @@ def main():
     req("DS06 token-exchange purpose",v6["purpose"]=="openidentity.oauth.token-exchange")
 
     invalid={x["id"]:x for x in d["invalidVectors"]}
-    req("invalid vector IDs DSI01-DSI22",set(invalid)=={f"DSI{i:02d}" for i in range(1,23)})
+    req("invalid vector IDs DSI01-DSI28",set(invalid)=={f"DSI{i:02d}" for i in range(1,29)})
     expected={"DSI01":"INVALID_DELEGATED_SUBJECT_VERSION","DSI02":"EMPTY_DELEGATION_PATH","DSI03":"DELEGATION_PATH_TOO_DEEP",
               "DSI04":"GRANT_ID_MISMATCH","DSI05":"INVALID_GRANT_EVIDENCE","DSI06":"PARENT_GRANT_MISMATCH",
               "DSI07":"ROOT_GRANTOR_MISMATCH","DSI08":"ISSUER_DELEGATE_MISMATCH","DSI09":"INVALID_DELEGATION_EVIDENCE",
@@ -65,8 +65,11 @@ def main():
               "DSI16":"ACTOR_ASSERTION_ID_MISMATCH","DSI17":"ACTOR_IDENTITY_MISMATCH",
               "DSI18":"DELEGATION_CONTEXT_MISMATCH","DSI19":"ACTOR_ASSERTION_ID_MISMATCH",
               "DSI20":"DELEGATION_EVIDENCE_TOO_LARGE","DSI21":"INVALID_DELEGATION_EVIDENCE",
-              "DSI22":"INVALID_DELEGATION_EVIDENCE"}
-    req("DSI01-DSI22 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+              "DSI22":"INVALID_DELEGATION_EVIDENCE","DSI23":"INVALID_DELEGATED_SUBJECT_TOKEN",
+              "DSI24":"INVALID_ROOT_GRANT","DSI25":"INVALID_DELEGATION_EVIDENCE",
+              "DSI26":"INVALID_DELEGATION_EVIDENCE","DSI27":"INVALID_GRANT_EVIDENCE",
+              "DSI28":"INVALID_DELEGATED_SUBJECT_TOKEN"}
+    req("DSI01-DSI28 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
     req("DSI01 unsupported version",invalid["DSI01"]["submittedVersion"]!=invalid["DSI01"]["supportedVersion"])
     req("DSI02 empty path",invalid["DSI02"]["pathLength"]<invalid["DSI02"]["minimumPathLength"])
     req("DSI03 path too deep",invalid["DSI03"]["pathLength"]>invalid["DSI03"]["maximumPathLength"])
@@ -100,5 +103,12 @@ def main():
     req("DSI21 splice lacks parent linkage",i21["splicedNextParentGrantIdPresent"] is False)
     i22=invalid["DSI22"];req("DSI22 duplicate/cycle GrantId",len(set(i22["submittedGrantIdsHex"]))!=len(i22["submittedGrantIdsHex"]) and i22["submittedGrantIdsHex"].count(i22["duplicateGrantIdHex"])==2)
 
-    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS06 + DSI01-DSI22 VERIFIED");print("============================================")
+    req("DSI23 malformed top-level token shape",invalid["DSI23"]["submittedTopLevelType"]!=invalid["DSI23"]["requiredTopLevelType"])
+    req("DSI24 first element is not root/direct grant",invalid["DSI24"]["parentGrantIdPresent"] is True)
+    req("DSI25 empty registryDomain",invalid["DSI25"]["registryDomainLength"]<invalid["DSI25"]["minimumRegistryDomainLength"])
+    req("DSI26 registryDomain above maximum",invalid["DSI26"]["registryDomainLength"]>invalid["DSI26"]["maximumRegistryDomainLength"])
+    req("DSI27 malformed GrantId length",invalid["DSI27"]["submittedGrantIdLength"]!=invalid["DSI27"]["requiredGrantIdLength"])
+    req("DSI28 malformed actorAssertionId length",invalid["DSI28"]["submittedActorAssertionIdLength"]!=invalid["DSI28"]["requiredActorAssertionIdLength"])
+
+    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS06 + DSI01-DSI28 VERIFIED");print("============================================")
 if __name__=="__main__":main()
