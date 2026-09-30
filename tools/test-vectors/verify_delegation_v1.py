@@ -16,6 +16,14 @@ def req(n,v):
     if not v: raise AssertionError(n)
     print(" ",n+": PASS")
 def sk(label):return h(label.encode())
+EXACT_SPEC=b"OpenIdentity OI-014 Test Profile: exact-capability v1\nSemantics: exact capability equality; no resources; no redelegation.\n"
+REDELEGATION_SPEC=b"OpenIdentity OI-014 Test Profile: redelegation v1\nSemantics: exact capabilities; explicit redelegate.document.read authorizes redelegation of document.read; no resources.\n"
+def profile_descriptor(kind,spec,max_lifetime,max_depth,params=b""):
+    return {1:1,2:kind,3:mh(spec),4:max_lifetime,5:max_depth,6:params}
+def exact_profile(caps,max_lifetime,max_depth):
+    return profile_descriptor(1,EXACT_SPEC,max_lifetime,max_depth,enc(sorted(caps)))
+def redelegation_profile(max_lifetime,max_depth):
+    return profile_descriptor(1,REDELEGATION_SPEC,max_lifetime,max_depth,enc([b"document.read",b"redelegate.document.read"]))
 
 def main():
     data=json.loads(FILE.read_text())
@@ -27,7 +35,7 @@ def main():
     priv=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG01 delegation Ed25519 seed"))
     pub=priv.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     method={1:1,3:-8,4:-1,6:pub}; dp={1:1,2:[{1:mid,2:method}]}
-    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:3600,6:4}
+    descriptor=exact_profile([b"document.read"],3600,4)
     pb=enc(descriptor); ph=mh(pb)
     req("DG01 ProfileDescriptor bytes",v["profileDescriptorBytesHex"]==pb.hex())
     req("DG01 ProfileHash",v["profileHashHex"]==ph.hex())
@@ -59,7 +67,7 @@ def main():
     puba=ea.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); pubb=eb.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     mtha={1:1,3:-8,4:-1,6:puba}; mthb={1:1,3:-8,4:-1,6:pubb}
     dp2={1:2,2:2,3:[{1:ma,2:mtha},{1:mb,2:mthb}]}
-    desc2={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.write"],5:1800,6:2}
+    desc2=exact_profile([b"document.write"],1800,2)
     pb2=enc(desc2); ph2=mh(pb2)
     grant2={1:1,2:root2,3:{1:1,2:root2},4:{1:1,2:delegate2},
             5:[{1:{1:{1:1,2:ph2},2:b"document.write"}}],
@@ -88,7 +96,7 @@ def main():
     kb=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG03 delegation B Ed25519 seed"))
     pka=ka.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); pkb=kb.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     pA={1:1,2:[{1:ida,2:{1:1,3:-8,4:-1,6:pka}}]}; pB={1:1,2:[{1:idb,2:{1:1,3:-8,4:-1,6:pkb}}]}
-    d3={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:7200,6:3}; ph3=mh(enc(d3))
+    d3=exact_profile([b"document.read"],7200,3); ph3=mh(enc(d3))
     g3={1:1,2:root3,3:{1:1,2:root3},4:{1:1,2:del3},5:[{1:{1:{1:1,2:ph3},2:b"document.read"}}],
         7:2000010000,9:sk("OpenIdentity OI-014 DG03 nonce")}
     gb3=enc(g3); gid3=mh(gb3); gen3=12
@@ -112,7 +120,7 @@ def main():
     kd=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG04 delegation Ed25519 seed"))
     pc=kc.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); pd=kd.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     cp4={1:1,2:[{1:cid4,2:{1:1,3:-8,4:-1,6:pc}}]}; dp4={1:1,2:[{1:did4,2:{1:1,3:-8,4:-1,6:pd}}]}
-    desc4={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.delete"],5:3600,6:2}; ph4=mh(enc(desc4))
+    desc4=exact_profile([b"document.delete"],3600,2); ph4=mh(enc(desc4))
     g4={1:1,2:root4,3:{1:1,2:root4},4:{1:1,2:del4},5:[{1:{1:{1:1,2:ph4},2:b"document.delete"}}],
         7:2000015000,9:sk("OpenIdentity OI-014 DG04 nonce")}
     gb4=enc(g4); gid4=mh(gb4); gen4=15
@@ -142,7 +150,7 @@ def main():
     kb5=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG05 delegation B Ed25519 seed"))
     pka5=ka5.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); pkb5=kb5.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     pa5={1:1,2:[{1:ida5,2:{1:1,3:-8,4:-1,6:pka5}}]}; pb5={1:1,2:[{1:idb5,2:{1:1,3:-8,4:-1,6:pkb5}}]}
-    d5={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.admin"],5:3600,6:2}; ph5=mh(enc(d5))
+    d5=exact_profile([b"document.admin"],3600,2); ph5=mh(enc(d5))
     g5={1:1,2:root5,3:{1:1,2:root5},4:{1:1,2:del5},5:[{1:{1:{1:1,2:ph5},2:b"document.admin"}}],
         7:2000020000,9:sk("OpenIdentity OI-014 DG05 nonce")}
     gb5=enc(g5); gid5=mh(gb5); gen5=21
@@ -167,7 +175,7 @@ def main():
     ka6=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed"))
     pubd6=kd6.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); puba6=ka6.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     dp6={1:1,2:[{1:did6,2:{1:1,3:-8,4:-1,6:pubd6}}]}; ap6={1:1,2:[{1:aid6,2:{1:1,3:-8,4:-1,6:puba6}}]}
-    desc6={1:1,2:"openidentity.test.redelegation",3:1,4:[b"document.read",b"redelegate.document.read"],5:7200,6:3}
+    desc6=redelegation_profile(7200,3)
     pb6=enc(desc6); ph6=mh(pb6); pref6={1:1,2:ph6}
     read6={1:{1:pref6,2:b"document.read"}}; redel6={1:{1:pref6,2:b"redelegate.document.read"}}
     parent6={1:1,2:root6,3:{1:1,2:root6},4:{1:1,2:pd6},5:[read6,redel6],7:2000030000,9:sk("OpenIdentity OI-014 DG06 parent nonce")}
@@ -200,7 +208,7 @@ def main():
     ka7=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG07 delegate authentication Ed25519 seed"))
     pubd7=kd7.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); puba7=ka7.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     dp7={1:1,2:[{1:did7,2:{1:1,3:-8,4:-1,6:pubd7}}]}; ap7={1:1,2:[{1:aid7,2:{1:1,3:-8,4:-1,6:puba7}}]}
-    desc7={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:3600,6:2}; ph7=mh(enc(desc7))
+    desc7=exact_profile([b"document.read"],3600,2); ph7=mh(enc(desc7))
     g7={1:1,2:root7,3:{1:1,2:root7},4:{1:1,2:del7},5:[{1:{1:{1:1,2:ph7},2:b"document.read"}}],
         7:2000600000,9:sk("OpenIdentity OI-014 DG07 nonce")}
     gb7=enc(g7); gid7=mh(gb7); dgen7=33
@@ -229,7 +237,7 @@ def main():
     newk8=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG08 new delegation Ed25519 seed"))
     oldpub8=oldk8.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); newpub8=newk8.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
     oldp8={1:1,2:[{1:oldid8,2:{1:1,3:-8,4:-1,6:oldpub8}}]}; newp8={1:1,2:[{1:newid8,2:{1:1,3:-8,4:-1,6:newpub8}}]}
-    desc8={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:7200,6:2}; ph8=mh(enc(desc8))
+    desc8=exact_profile([b"document.read"],7200,2); ph8=mh(enc(desc8))
     g8={1:1,2:root8,3:{1:1,2:root8},4:{1:1,2:del8},5:[{1:{1:{1:1,2:ph8},2:b"document.read"}}],
         7:2000700000,9:sk("OpenIdentity OI-014 DG08 nonce")}
     gb8=enc(g8); gid8=mh(gb8); gen8=44
