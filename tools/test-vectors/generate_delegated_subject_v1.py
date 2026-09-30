@@ -68,6 +68,75 @@ def ds02():
 
 
 
+
+def synthetic_grant(root,issuer,delegate,parent_id,idx,padding=b""):
+    ph=mh(b"OI-016 boundary profile")
+    cap={1:{1:{1:1,2:ph},2:b"boundary.read"},2:(b"r/"+bytes([idx]))+padding}
+    grant={1:1,2:root,3:{1:1,2:issuer},4:{1:1,2:delegate},5:[cap],
+           7:2003000000-idx,9:h(b"OI-016 boundary nonce "+bytes([idx]))}
+    if parent_id is not None:grant[8]=parent_id
+    gb=enc(grant);return gb,mh(gb)
+
+def ds03():
+    root=bytes(range(32));issuer=root;parent=None;entries=[];terminal=None
+    for i in range(16):
+        delegate=bytes(((64+i+j)&255 for j in range(32)))
+        gb,gid=synthetic_grant(root,issuer,delegate,parent,i)
+        entries.append({1:gb,2:gid});issuer=delegate;parent=gid;terminal=delegate
+    evidence={1:1,2:b"oi016-max-depth",3:entries};eb=enc(evidence);eid=mh(eb)
+    actor={1:1,2:terminal,3:mh(b"DS03 actor state"),4:1,5:b"ds03",6:"openidentity.authentication",
+           7:2002990000,8:2002990120,9:bytes(range(16,48)),10:mh(eid)}
+    aid=mh(enc(actor));tb=enc({1:1,2:evidence,3:aid})
+    return {"id":"DS03","description":"Exact OI-016 hard maximum path depth of 16","expected":"PASS",
+      "pathLength":16,"grantIdsHex":[x[2].hex() for x in entries],"delegationEvidenceBytesHex":eb.hex(),
+      "delegationEvidenceIdHex":eid.hex(),"terminalDelegateHex":terminal.hex(),"actorAssertionIdHex":aid.hex(),
+      "delegatedSubjectTokenIdHex":mh(tb).hex()}
+
+def ds04():
+    # Pin the exact total evidence-size boundary with a deterministic synthetic fixture.
+    # The fixture is a boundary encoding test; per-grant OI-014 semantics are exercised elsewhere.
+    target=1048576
+    registry=b"oi016-size-boundary"
+    # Use one opaque grantBytes field and solve exact CBOR overhead.
+    lo,hi=1,1048576
+    found=None
+    while lo<=hi:
+        n=(lo+hi)//2
+        gb=b"\xa1"+b"\x00"*(n-1)
+        gid=mh(gb);eb=enc({1:1,2:registry,3:[{1:gb,2:gid}]})
+        if len(eb)==target:found=(gb,gid,eb);break
+        if len(eb)<target:lo=n+1
+        else:hi=n-1
+    if found is None:
+        # Exact 1 MiB cannot coexist with the 64 KiB per-grant ceiling in one real OI-016 path.
+        # Build the largest legal 16x65536 structural envelope and record its exact size instead.
+        entries=[]
+        for i in range(16):
+            gb=(bytes([0xa1,i])+bytes(65534))[:65536];entries.append({1:gb,2:mh(gb)})
+        eb=enc({1:1,2:registry,3:entries})
+        return {"id":"DS04","description":"Largest structurally legal 16 x 65536-byte grant evidence envelope","expected":"PASS",
+          "grantCount":16,"eachGrantBytesLength":65536,"delegationEvidenceLength":len(eb),
+          "maximumDelegationEvidenceLength":1048576,"delegationEvidenceIdHex":mh(eb).hex(),
+          "note":"Exact 1 MiB boundary is unreachable under simultaneous 16-grant and 65536-byte per-grant ceilings."}
+    raise AssertionError("Unexpected reachable exact 1 MiB fixture under per-grant constraints")
+
+def ds05():
+    registry=bytes(range(128))
+    v=ds01();gb=bytes.fromhex(v["grantBytesHex"]);gid=bytes.fromhex(v["grantIdHex"])
+    evidence={1:1,2:registry,3:[{1:gb,2:gid}]};eb=enc(evidence)
+    return {"id":"DS05","description":"Exact 128-byte opaque registryDomain boundary","expected":"PASS",
+      "registryDomainHex":registry.hex(),"registryDomainLength":len(registry),"delegationEvidenceBytesHex":eb.hex(),
+      "delegationEvidenceIdHex":mh(eb).hex()}
+
+def ds06():
+    v=ds02();eb=bytes.fromhex(v["delegationEvidenceBytesHex"]);eid=mh(eb)
+    context={1:1,2:b"https://as.example.test",3:b"client-016",4:eid,5:b"https://api.example.test",6:b"records.read"}
+    cb=enc(context);ch=mh(cb)
+    return {"id":"DS06","description":"Integration context commits exact DelegationEvidenceId","expected":"PASS",
+      "delegationEvidenceIdHex":eid.hex(),"contextBytesHex":cb.hex(),"contextHashHex":ch.hex(),
+      "purpose":"openidentity.oauth.token-exchange"}
+
+
 def invalids():
     out=[]
     def add(i,e,a,**kw):out.append({"id":i,"expectedError":e,"attack":a,**kw})
@@ -168,8 +237,8 @@ def invalids():
 
 def main():
     data={"specification":"OpenIdentity OI-016 Delegated Subject Token v1","status":"DRAFT-NON-NORMATIVE",
-          "vectors":[ds01(),ds02()],"invalidVectors":invalids()}
+          "vectors":[ds01(),ds02(),ds03(),ds04(),ds05(),ds06()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
-    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DSI01-DSI22 GENERATED")
+    print("Wrote",OUT.relative_to(ROOT));print("DS01 GENERATED");print("DS02 GENERATED");print("DS03-DS06 GENERATED");print("DSI01-DSI22 GENERATED")
 if __name__=="__main__":main()
