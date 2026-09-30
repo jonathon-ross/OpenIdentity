@@ -45,14 +45,16 @@ def main():
     tb2=enc({1:1,2:evidence2,3:aid2});req("DS02 token bytes",v2["delegatedSubjectTokenBytesHex"]==tb2.hex());req("DS02 token id",v2["delegatedSubjectTokenIdHex"]==mh(tb2).hex())
 
     invalid={x["id"]:x for x in d["invalidVectors"]}
-    req("invalid vector IDs DSI01-DSI15",set(invalid)=={f"DSI{i:02d}" for i in range(1,16)})
+    req("invalid vector IDs DSI01-DSI19",set(invalid)=={f"DSI{i:02d}" for i in range(1,20)})
     expected={"DSI01":"INVALID_DELEGATED_SUBJECT_VERSION","DSI02":"EMPTY_DELEGATION_PATH","DSI03":"DELEGATION_PATH_TOO_DEEP",
               "DSI04":"GRANT_ID_MISMATCH","DSI05":"INVALID_GRANT_EVIDENCE","DSI06":"PARENT_GRANT_MISMATCH",
               "DSI07":"ROOT_GRANTOR_MISMATCH","DSI08":"ISSUER_DELEGATE_MISMATCH","DSI09":"INVALID_DELEGATION_EVIDENCE",
               "DSI10":"DELEGATION_NOT_CURRENTLY_USABLE","DSI11":"DELEGATION_NOT_CURRENTLY_USABLE",
               "DSI12":"DELEGATION_NOT_CURRENTLY_USABLE","DSI13":"DELEGATION_NOT_CURRENTLY_USABLE",
-              "DSI14":"DELEGATION_NOT_CURRENTLY_USABLE","DSI15":"DELEGATION_STATE_UNAVAILABLE"}
-    req("DSI01-DSI15 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+              "DSI14":"DELEGATION_NOT_CURRENTLY_USABLE","DSI15":"DELEGATION_STATE_UNAVAILABLE",
+              "DSI16":"ACTOR_ASSERTION_ID_MISMATCH","DSI17":"ACTOR_IDENTITY_MISMATCH",
+              "DSI18":"DELEGATION_CONTEXT_MISMATCH","DSI19":"ACTOR_ASSERTION_ID_MISMATCH"}
+    req("DSI01-DSI19 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
     req("DSI01 unsupported version",invalid["DSI01"]["submittedVersion"]!=invalid["DSI01"]["supportedVersion"])
     req("DSI02 empty path",invalid["DSI02"]["pathLength"]<invalid["DSI02"]["minimumPathLength"])
     req("DSI03 path too deep",invalid["DSI03"]["pathLength"]>invalid["DSI03"]["maximumPathLength"])
@@ -72,5 +74,13 @@ def main():
     req("DSI14 ancestor expired",invalid["DSI14"]["authoritativeStateAvailable"] and invalid["DSI14"]["verificationTime"]>=invalid["DSI14"]["ancestorExpiresAt"])
     req("DSI15 authoritative state unavailable",invalid["DSI15"]["authoritativeStateAvailable"] is False)
 
-    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS02 + DSI01-DSI15 VERIFIED");print("============================================")
+    i16=invalid["DSI16"];req("DSI16 different assertion id",i16["tokenActorAssertionIdHex"]!=i16["suppliedActorAssertionIdHex"])
+    req("DSI16 supplied assertion id reconstructs",i16["suppliedActorAssertionIdHex"]==mh(bytes.fromhex(i16["suppliedAssertionBytesHex"])).hex())
+    i17=invalid["DSI17"];req("DSI17 actor identity differs from terminal delegate",i17["terminalDelegateHex"]!=i17["authenticatedActorHex"])
+    i18=invalid["DSI18"];req("DSI18 context binds different evidence",i18["expectedDelegationEvidenceIdHex"]!=i18["boundDelegationEvidenceIdHex"])
+    req("DSI18 bound context hash reconstructs",i18["boundContextHashHex"]==mh(bytes.fromhex(i18["boundDelegationEvidenceIdHex"])).hex())
+    i19=invalid["DSI19"];req("DSI19 same actor but different assertion id",i19["tokenActorAssertionIdHex"]!=i19["substitutedActorAssertionIdHex"])
+    req("DSI19 substituted assertion id reconstructs",i19["substitutedActorAssertionIdHex"]==mh(bytes.fromhex(i19["substitutedAssertionBytesHex"])).hex())
+
+    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS02 + DSI01-DSI19 VERIFIED");print("============================================")
 if __name__=="__main__":main()
