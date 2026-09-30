@@ -36,6 +36,6 @@ public final class DefaultOi014GrantVerifier implements Oi014GrantVerifier {
    long lifetime=g.expiresAt()-record.registeredAt();if(lifetime>p.maximumGrantLifetimeSeconds())throw new ProfileException(ProfileError.DELEGATION_NOT_CURRENTLY_USABLE);
    maxDepth=Math.min(maxDepth,p.maximumDelegationDepth());effective.addAll(p.effectiveCapabilities(cs));
   }
-  return new VerifiedGrant(g.grantId(),g.rootGrantor(),issuer.identity(),delegate.identity(),g.parentGrantId(),g.expiresAt(),effective,maxDepth);
+  return new VerifiedGrant(g.grantId(),g.rootGrantor(),issuer.identity(),delegate.identity(),g.parentGrantId(),g.expiresAt(),g.capabilities(),effective,maxDepth);
  }
 }
