@@ -9,5 +9,6 @@ public record DelegatedAgentExchangeRequest(
   subjectTokenBytes=subjectTokenBytes.clone();actorTokenBytes=actorTokenBytes.clone();actorNonce=actorNonce.clone();
  }
  @Override public byte[] subjectTokenBytes(){return subjectTokenBytes.clone();}
- @Override public byte[] actorTokenBytes(){return actorTokenBytes.clone();}\n @Override public byte[] actorNonce(){return actorNonce.clone();}
+ @Override public byte[] actorTokenBytes(){return actorTokenBytes.clone();}
+ @Override public byte[] actorNonce(){return actorNonce.clone();}
 }
