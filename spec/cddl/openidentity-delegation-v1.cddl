@@ -1,0 +1,360 @@
+; OpenIdentity OI-014 DelegationGrant v1
+; STATUS: DRAFT-NON-NORMATIVE
+; Semantic source: spec/delegation-grants.md
+;
+; This schema assigns candidate wire labels for interoperability review.
+; Do not treat these bytes/labels as frozen until OI-014 conformance vectors,
+; independent verification, threat review, and checksum gates pass.
+
+; ---------------------------------------------------------------------------
+; Fixed primitives
+; ---------------------------------------------------------------------------
+
+delegation-version = 1
+signing-structure-version = 1
+
+identity-id = bytes .size 32
+verification-method-id = bytes .size 16
+uint64 = 0..18446744073709551615
+unix-time = uint64
+
+; OI-014 v1 uses SHA2-256 Multihash only:
+; 0x12 || 0x20 || 32-byte SHA-256 digest.
+sha256-multihash = bytes .size 34
+
+grant-id = sha256-multihash
+record-hash = sha256-multihash
+state-hash = sha256-multihash
+profile-hash = sha256-multihash
+
+; registry-domain is an immutable authority-domain identifier.
+; Its semantic derivation is registry-profile-owned. v1 uses bounded opaque bytes.
+registry-domain = bytes .size (1..128)
+
+; Nonce length is intentionally fixed for v1 candidate review.
+; 32 bytes provides 256 bits of grant-intent separation entropy.
+delegation-nonce = bytes .size 32
+
+; ---------------------------------------------------------------------------
+; ProfileRef
+; ---------------------------------------------------------------------------
+
+; profileKind registry
+; 1 = CAPABILITY
+; 2 = PRINCIPAL
+profile-kind = 1 / 2
+capability-profile-kind = 1
+principal-profile-kind = 2
+
+profile-ref = {
+    1 => profile-kind,
+    2 => profile-hash
+}
+
+capability-profile-ref = {
+    1 => capability-profile-kind,
+    2 => profile-hash
+}
+
+principal-profile-ref = {
+    1 => principal-profile-kind,
+    2 => profile-hash
+}
+
+; ---------------------------------------------------------------------------
+; DelegatePrincipal
+; ---------------------------------------------------------------------------
+
+; principalType registry
+; 1 = OPENIDENTITY
+; 2 = PROFILE_PRINCIPAL
+principal-type = 1 / 2
+openidentity-principal-type = 1
+profile-principal-type = 2
+
+delegate-principal =
+    openidentity-principal /
+    profile-principal
+
+openidentity-principal = {
+    1 => openidentity-principal-type,
+    2 => identity-id
+}
+
+profile-principal = {
+    1 => profile-principal-type,
+    2 => bytes .size (1..256),       ; principalId
+    3 => principal-profile-ref
+}
+
+; ---------------------------------------------------------------------------
+; Capabilities
+; ---------------------------------------------------------------------------
+
+; capabilityId is opaque to core OI-014 and interpreted only under profile.
+capability-id = bytes .size (1..128)
+
+capability-ref = {
+    1 => capability-profile-ref,
+    2 => capability-id
+}
+
+; resourceConstraint is profile-owned canonical bytes.
+; The referenced capability profile defines internal syntax and subset rules.
+resource-constraint = bytes .size (1..4096)
+
+delegated-capability = {
+    1 => capability-ref,
+    ? 2 => resource-constraint
+}
+
+; Array MUST be non-empty, deterministically sorted by canonical encoded
+; DelegatedCapability bytes using unsigned bytewise lexicographic order,
+; and contain no duplicates/ambiguous aliases under profile semantics.
+delegated-capabilities = [1* delegated-capability]
+
+; ---------------------------------------------------------------------------
+; DelegationGrant
+; ---------------------------------------------------------------------------
+
+; Direct grant:
+; - parentGrantId absent
+; - rootGrantor is issuer's OPENIDENTITY Identity ID
+; - issuer MUST be OPENIDENTITY(rootGrantor)
+;
+; Child grant:
+; - parentGrantId present
+; - rootGrantor MUST equal parent's rootGrantor
+; - issuer MUST equal parent's delegate
+; - parent must explicitly authorize redelegation with strict attenuation.
+
+delegation-grant = {
+    1 => delegation-version,
+    2 => identity-id,                ; rootGrantor
+    3 => delegate-principal,         ; issuer
+    4 => delegate-principal,         ; delegate
+    5 => delegated-capabilities,
+    ? 6 => unix-time,                ; notBefore
+    7 => unix-time,                  ; expiresAt
+    ? 8 => grant-id,                 ; parentGrantId
+    9 => delegation-nonce
+}
+
+; GrantBytes = deterministic CBOR(delegation-grant)
+; GrantId    = 0x12 || 0x20 || SHA-256(GrantBytes)
+
+; ---------------------------------------------------------------------------
+; RegisteredGrantState
+; ---------------------------------------------------------------------------
+
+; status registry
+; 1 = ACTIVE
+; 2 = REVOKED (terminal)
+registered-grant-status = 1 / 2
+grant-active = 1
+grant-revoked = 2
+
+registered-grant-state = {
+    1 => registry-domain,
+    2 => grant-id,
+    3 => uint64,                     ; revision
+    4 => record-hash / nil,          ; previousRecordHash
+    5 => registered-grant-status,
+    6 => state-hash,                 ; rootGrantorStateHash
+    7 => uint64,                     ; root delegationGeneration
+    8 => unix-time                   ; registeredAt
+}
+
+; Revision 1:
+; - previousRecordHash MUST be nil
+; - status MUST be ACTIVE
+;
+; Subsequent transition:
+; - revision = current.revision + 1
+; - previousRecordHash = RecordHash(current)
+;
+; OI-014 v1 permits ACTIVE -> REVOKED only.
+; REVOKED is terminal.
+;
+; RecordBytes = deterministic CBOR(registered-grant-state)
+; RecordHash  = 0x12 || 0x20 || SHA-256(RecordBytes)
+
+; ---------------------------------------------------------------------------
+; Signatures / proof envelopes
+; ---------------------------------------------------------------------------
+
+signature = bytes
+
+method-signature = {
+    1 => verification-method-id,
+    2 => signature
+}
+
+; Direct registration uses current rootGrantor DelegationPolicy threshold.
+direct-registration-request = {
+    1 => registry-domain,
+    2 => delegation-grant,
+    3 => state-hash,                 ; current rootGrantorStateHash
+    4 => uint64,                     ; current delegationGeneration
+    5 => [1* method-signature]
+}
+
+; Signing input for each direct-registration proof:
+; [
+;   "OpenIdentity Delegation Grant",
+;   1,
+;   registryDomain,
+;   GrantBytes,
+;   rootGrantorStateHash,
+;   delegationGeneration,
+;   verificationMethodId
+; ]
+
+direct-registration-signing-structure = [
+    "OpenIdentity Delegation Grant",
+    signing-structure-version,
+    registry-domain,
+    bytes,                           ; exact GrantBytes
+    state-hash,
+    uint64,
+    verification-method-id
+]
+
+; Child issuance is authenticated by the parent delegate and authorized by
+; the parent's explicit redelegation capability/resource semantics.
+;
+; delegate-proof is profile-owned opaque canonical proof bytes. The owning
+; principal profile defines verification and key/attestation binding.
+child-registration-request = {
+    1 => registry-domain,
+    2 => delegation-grant,
+    3 => grant-id,                   ; exact parentGrantId
+    4 => record-hash,                ; current parent RecordHash
+    5 => bytes .size (1..8192)       ; issuer/delegate proof
+}
+
+; The profile proof MUST bind at least this core signing input.
+child-registration-signing-structure = [
+    "OpenIdentity Delegation Child Grant",
+    signing-structure-version,
+    registry-domain,
+    bytes,                           ; exact child GrantBytes
+    grant-id,                        ; parentGrantId
+    record-hash                      ; current parent RecordHash
+]
+
+; ---------------------------------------------------------------------------
+; Revocation / relinquishment
+; ---------------------------------------------------------------------------
+
+; authorizationKind
+; 1 = CONTROLLER_POLICY
+; 2 = DELEGATION_POLICY
+grantor-revocation-authority = 1 / 2
+
+grantor-revocation-request = {
+    1 => registry-domain,
+    2 => grant-id,
+    3 => record-hash,                ; currentRecordHash
+    4 => uint64,                     ; nextRevision
+    5 => state-hash,                 ; current rootGrantorStateHash
+    6 => grantor-revocation-authority,
+    7 => [1* method-signature]
+}
+
+grantor-revocation-signing-structure = [
+    "OpenIdentity Delegation Grant Revocation",
+    signing-structure-version,
+    registry-domain,
+    grant-id,
+    record-hash,
+    uint64,
+    state-hash,
+    verification-method-id
+]
+
+delegate-relinquishment-request = {
+    1 => registry-domain,
+    2 => grant-id,
+    3 => record-hash,                ; currentRecordHash
+    4 => uint64,                     ; nextRevision
+    5 => delegate-principal,
+    6 => bytes .size (1..8192)       ; delegate proof
+}
+
+delegate-relinquishment-signing-structure = [
+    "OpenIdentity Delegation Grant Relinquishment",
+    signing-structure-version,
+    registry-domain,
+    grant-id,
+    record-hash,
+    uint64,
+    delegate-principal
+]
+
+; ---------------------------------------------------------------------------
+; Semantic requirements not expressible in CDDL
+; ---------------------------------------------------------------------------
+
+; Deterministic CBOR follows RFC 8949 deterministic encoding and OpenIdentity
+; canonical serialization rules.
+;
+; All SHA2-256 Multihash values MUST have bytes:
+;   0x12 0x20 <32-byte digest>
+; A 34-byte value with another prefix is invalid.
+;
+; Direct registration:
+; - rootGrantor current IdentityState MUST be v3 and ACTIVE
+; - DelegationPolicy MUST be present
+; - request StateHash/generation MUST equal current authoritative values
+; - issuer MUST be OPENIDENTITY(rootGrantor)
+; - complete current DelegationPolicy threshold MUST authorize exact signing input
+; - historical/rotated-out DelegationPolicy authorization is invalid
+;
+; Child registration:
+; - parentGrantId MUST be present and equal request parentGrantId
+; - parent record MUST be authoritative, ACTIVE, usable, and in same registryDomain
+; - child rootGrantor MUST equal parent rootGrantor
+; - child issuer MUST equal parent delegate
+; - issuer proof MUST authenticate that exact principal
+; - parent must explicitly authorize redelegation of every child capability/resource
+; - all capability/resource/time/profile constraints MUST strictly attenuate/equal parent
+; - parent chain MUST be acyclic and within profile maximum depth
+; - rootGrantor MUST remain ACTIVE and root delegation generation valid
+;
+; Time:
+; - expiresAt is required
+; - if notBefore present: notBefore < expiresAt
+; - registration rejects expiresAt <= authoritative registeredAt
+; - usable interval is effectiveNotBefore <= t < expiresAt
+; - profile maximum lifetime MUST be enforced
+;
+; Registration state:
+; - one creation event per (registryDomain, GrantId)
+; - duplicate REGISTER cannot refresh registeredAt or create a second ACTIVE history
+; - registeredAt is immutable after revision 1
+; - revision MUST NOT wrap
+; - registryDomain MUST NOT change within a revision chain
+;
+; Revocation:
+; - ACTIVE -> REVOKED only
+; - REVOKED is terminal
+; - grantor revocation authorization uses current rootGrantor ControllerPolicy
+;   or current rootGrantor DelegationPolicy according to authorityKind
+; - proof is bound to current rootGrantor StateHash and current grant RecordHash
+; - historical root authorization is stale
+;
+; Relinquishment:
+; - delegate proof MUST authenticate exact current grant delegate
+; - proof purpose is distinct from grantor revocation
+;
+; Profiles:
+; - ProfileRef hash MUST verify exact canonical ProfileDescriptor bytes
+; - unknown/unavailable/mismatched profiles fail closed
+; - semantic changes require a different profileHash
+; - capability/resource attenuation is evaluated under exact pinned profile
+;
+; Privacy:
+; - GrantBytes need not be published in RegisteredGrantState
+; - verifier must obtain enough material to reconstruct exact GrantBytes
+; - inability to reconstruct/verify GrantId fails closed
