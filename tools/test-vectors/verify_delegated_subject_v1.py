@@ -45,7 +45,7 @@ def main():
     tb2=enc({1:1,2:evidence2,3:aid2});req("DS02 token bytes",v2["delegatedSubjectTokenBytesHex"]==tb2.hex());req("DS02 token id",v2["delegatedSubjectTokenIdHex"]==mh(tb2).hex())
 
     invalid={x["id"]:x for x in d["invalidVectors"]}
-    req("invalid vector IDs DSI01-DSI19",set(invalid)=={f"DSI{i:02d}" for i in range(1,20)})
+    req("invalid vector IDs DSI01-DSI22",set(invalid)=={f"DSI{i:02d}" for i in range(1,23)})
     expected={"DSI01":"INVALID_DELEGATED_SUBJECT_VERSION","DSI02":"EMPTY_DELEGATION_PATH","DSI03":"DELEGATION_PATH_TOO_DEEP",
               "DSI04":"GRANT_ID_MISMATCH","DSI05":"INVALID_GRANT_EVIDENCE","DSI06":"PARENT_GRANT_MISMATCH",
               "DSI07":"ROOT_GRANTOR_MISMATCH","DSI08":"ISSUER_DELEGATE_MISMATCH","DSI09":"INVALID_DELEGATION_EVIDENCE",
@@ -53,8 +53,10 @@ def main():
               "DSI12":"DELEGATION_NOT_CURRENTLY_USABLE","DSI13":"DELEGATION_NOT_CURRENTLY_USABLE",
               "DSI14":"DELEGATION_NOT_CURRENTLY_USABLE","DSI15":"DELEGATION_STATE_UNAVAILABLE",
               "DSI16":"ACTOR_ASSERTION_ID_MISMATCH","DSI17":"ACTOR_IDENTITY_MISMATCH",
-              "DSI18":"DELEGATION_CONTEXT_MISMATCH","DSI19":"ACTOR_ASSERTION_ID_MISMATCH"}
-    req("DSI01-DSI19 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+              "DSI18":"DELEGATION_CONTEXT_MISMATCH","DSI19":"ACTOR_ASSERTION_ID_MISMATCH",
+              "DSI20":"DELEGATION_EVIDENCE_TOO_LARGE","DSI21":"INVALID_DELEGATION_EVIDENCE",
+              "DSI22":"INVALID_DELEGATION_EVIDENCE"}
+    req("DSI01-DSI22 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
     req("DSI01 unsupported version",invalid["DSI01"]["submittedVersion"]!=invalid["DSI01"]["supportedVersion"])
     req("DSI02 empty path",invalid["DSI02"]["pathLength"]<invalid["DSI02"]["minimumPathLength"])
     req("DSI03 path too deep",invalid["DSI03"]["pathLength"]>invalid["DSI03"]["maximumPathLength"])
@@ -82,5 +84,11 @@ def main():
     i19=invalid["DSI19"];req("DSI19 same actor but different assertion id",i19["tokenActorAssertionIdHex"]!=i19["substitutedActorAssertionIdHex"])
     req("DSI19 substituted assertion id reconstructs",i19["substitutedActorAssertionIdHex"]==mh(bytes.fromhex(i19["substitutedAssertionBytesHex"])).hex())
 
-    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS02 + DSI01-DSI19 VERIFIED");print("============================================")
+    i20=invalid["DSI20"];req("DSI20 evidence one over maximum",i20["delegationEvidenceLength"]==i20["maximumDelegationEvidenceLength"]+1)
+    i21=invalid["DSI21"];req("DSI21 independent path B grant itself valid",i21["individualPathBGrantIdValid"] is True)
+    req("DSI21 roots differ",i21["pathARootGrantorHex"]!=i21["pathBRootGrantorHex"])
+    req("DSI21 splice lacks parent linkage",i21["splicedNextParentGrantIdPresent"] is False)
+    i22=invalid["DSI22"];req("DSI22 duplicate/cycle GrantId",len(set(i22["submittedGrantIdsHex"]))!=len(i22["submittedGrantIdsHex"]) and i22["submittedGrantIdsHex"].count(i22["duplicateGrantIdHex"])==2)
+
+    print("\n============================================");print("OI-016 DELEGATED SUBJECT v1 DS01-DS02 + DSI01-DSI22 VERIFIED");print("============================================")
 if __name__=="__main__":main()
