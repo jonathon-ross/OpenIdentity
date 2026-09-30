@@ -174,16 +174,14 @@ def build_dg05():
 def build_dg06():
     registry=b"openidentity:test:oi014:dg06"
     root=bytes(range(80,112)); parent_delegate=bytes(range(112,144)); child_delegate=bytes(range(144,176))
-    delegation_id=bytes(range(128,144)); issuer_auth_id=bytes(range(144,160))
+    delegation_id=bytes(range(128,144)); auth_id=bytes(range(144,160))
     dpriv,_,dm=key("OpenIdentity OI-014 DG06 root delegation Ed25519 seed",delegation_id)
-    ipriv,_,im=key("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed",issuer_auth_id)
-    dp=policy(delegation_id,dm)
+    apriv,_,am=key("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed",auth_id)
+    dp=policy(delegation_id,dm); ap=policy(auth_id,am)
 
-    # Vector-local profile: exact document.read plus explicit redelegation authority.
     descriptor={1:1,2:"openidentity.test.redelegation",3:1,
                 4:[b"document.read",b"redelegate.document.read"],5:7200,6:3}
-    pbytes=enc(descriptor); ph=mh(pbytes)
-    pref={1:1,2:ph}
+    pbytes=enc(descriptor); ph=mh(pbytes); pref={1:1,2:ph}
     read_cap={1:{1:pref,2:b"document.read"}}
     redelegate_cap={1:{1:pref,2:b"redelegate.document.read"}}
 
@@ -198,31 +196,38 @@ def build_dg06():
     parent_record={1:registry,2:parent_id,3:1,4:None,5:1,6:root_h,7:generation,8:2000020000}
     parent_rb=enc(parent_record); parent_rh=mh(parent_rb)
 
+    # The parent delegate authenticates as an OPENIDENTITY principal through
+    # its current AuthenticationAuthority, independent of the rootGrantor.
+    auth_generation=7
+    delegate_state={1:3,2:parent_delegate,3:9,4:1,5:ap,8:{1:auth_generation,2:ap},9:{1:0}}
+    delegate_sb=enc(delegate_state); delegate_sh=mh(delegate_sb)
+
     child={1:1,2:root,3:{1:1,2:parent_delegate},4:{1:1,2:child_delegate},
            5:[read_cap],7:2000028000,8:parent_id,9:seed("OpenIdentity OI-014 DG06 child nonce")}
     child_b=enc(child); child_id=mh(child_b)
-    child_sign=enc(["OpenIdentity Delegation Child Grant",1,registry,child_b,parent_id,parent_rh])
-    child_sig=ipriv.sign(child_sign)
-    child_req={1:registry,2:child,3:parent_id,4:parent_rh,5:child_sig}
+    child_sign=enc(["OpenIdentity Delegation Child Grant",1,registry,child_b,parent_id,parent_rh,
+                    delegate_sh,auth_generation,auth_id])
+    child_sig=apriv.sign(child_sign)
+    child_req={1:registry,2:child,3:parent_id,4:parent_rh,5:delegate_sh,6:auth_generation,
+               7:[{1:auth_id,2:child_sig}]}
     child_record={1:registry,2:child_id,3:1,4:None,5:1,6:root_h,7:generation,8:2000021000}
     child_rb=enc(child_record); child_rh=mh(child_rb)
 
-    return {"id":"DG06","description":"Valid attenuated child grant issued by authenticated parent delegate with explicit redelegation authority","expected":"PASS",
+    return {"id":"DG06","description":"Valid attenuated child grant authenticated by parent delegate current AuthenticationAuthority","expected":"PASS",
       "profileDescriptorBytesHex":pbytes.hex(),"profileHashHex":ph.hex(),
       "rootStateBytesHex":root_b.hex(),"rootStateHashHex":root_h.hex(),
       "parentGrantBytesHex":parent_b.hex(),"parentGrantIdHex":parent_id.hex(),
       "parentRegistrationSigningBytesHex":parent_sign.hex(),"parentRegistrationSignatureHex":parent_sig.hex(),
       "parentRecordBytesHex":parent_rb.hex(),"parentRecordHashHex":parent_rh.hex(),
+      "delegateStateBytesHex":delegate_sb.hex(),"delegateStateHashHex":delegate_sh.hex(),
+      "authenticationGeneration":auth_generation,"authenticationMethodIdHex":auth_id.hex(),
       "childGrantBytesHex":child_b.hex(),"childGrantIdHex":child_id.hex(),
-      "childIssuerAuthenticationMethodIdHex":issuer_auth_id.hex(),
-      "childSigningBytesHex":child_sign.hex(),"childIssuerProofHex":child_sig.hex(),
+      "childSigningBytesHex":child_sign.hex(),"childAuthenticationSignatureHex":child_sig.hex(),
       "childRegistrationRequestBytesHex":enc(child_req).hex(),
       "childRecordBytesHex":child_rb.hex(),"childRecordHashHex":child_rh.hex(),
       "rootGrantorPreserved":True,"issuerEqualsParentDelegate":True,
       "capabilityAttenuated":True,"lifetimeAttenuated":True,
       "parentRedelegationAuthorized":True,"childDepth":2}
-
-
 
 def build_invalids():
     out=[]
