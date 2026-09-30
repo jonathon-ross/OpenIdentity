@@ -46,6 +46,16 @@ def px01():
       "refreshTokenExpected":False
     }
 
+
+def px02():
+    return {"id":"PX02","description":"Delegated-agent discovery metadata","expected":"PASS",
+      "dpopRequired":True,"refreshSupported":False,"maxLifetimeSeconds":300}
+
+def px03():
+    return {"id":"PX03","description":"Safe public error projection","expected":"PASS",
+      "internalError":"DELEGATION_NOT_CURRENTLY_USABLE","publicError":"invalid_request",
+      "publicDescription":"The token exchange request could not be accepted."}
+
 def invalids():
     out=[]
     def add(i,e,a,**kw):out.append({"id":i,"expectedError":e,"attack":a,**kw})
@@ -125,7 +135,7 @@ def invalids():
 
 def main():
     d={"specification":"OpenIdentity OAuth 2.0 Delegated Agent Profile v1","status":"DRAFT-NON-NORMATIVE",
-       "vectors":[px01()],"invalidVectors":invalids()}
+       "vectors":[px01(),px02(),px03()],"invalidVectors":invalids()}
     OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(d,indent=2)+"\n",encoding="utf-8",newline="\n")
     print("Wrote",OUT.relative_to(ROOT));print("PX01 GENERATED");print("PXI01-PXI27 GENERATED")
 if __name__=="__main__":main()
