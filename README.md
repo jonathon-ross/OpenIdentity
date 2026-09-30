@@ -8,7 +8,7 @@ This repository is the **OpenIdentity protocol repository**. It defines the prot
 
 > **Release status:** OpenIdentity Protocol v0.1.1 is the current frozen release. The complete release gate passes from a clean checkout.
 
-> **Protocol evolution candidate:** ProtocolVersion 2 / IdentityState v3 is under active protocol review as a byte-frozen, non-normative candidate. Start with `docs/protocol-v2-identity-state-v3-guide.md`, then read `spec/protocol-v2-identity-state-v3.md` and `spec/cddl/openidentity-operation-v3.cddl`. The candidate does not alter the frozen v0.1.1 semantics.
+> **Protocol v2 / IdentityState v3:** frozen normative. Start with `docs/protocol-v2-identity-state-v3-guide.md`, then read `spec/protocol-v2-identity-state-v3.md` and `spec/cddl/openidentity-operation-v3.cddl`. The v2/v3 protocol evolution does not alter the frozen v0.1.1 semantics.
 
 For document status, historical/superseded material, and archive policy, see `docs/documentation-status.md`.
 
