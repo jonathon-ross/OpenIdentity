@@ -43,12 +43,14 @@ public final class OAuthTokenExchangeContextV1Vectors {
         byte[] ctx=map(1,1,2,"https://as.example.test".getBytes(StandardCharsets.UTF_8),3,"agent-client-016".getBytes(StandardCharsets.UTF_8),
                 4,"urn:ietf:params:oauth:token-type:access_token".getBytes(StandardCharsets.UTF_8),5,E(arr(resources)),6,E(arr(audiences)),7,E(arr(scopes)),8,eid,9,jkt);
         require("TX01 context bytes",v.path("contextBytesHex").asText().equals(hx(ctx)));require("TX01 contextHash",v.path("contextHashHex").asText().equals(hx(mh(ctx))));
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==26);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==35);
         String[] errors={"INVALID_CONTEXT_VERSION","DUPLICATE_SCOPE","NONCANONICAL_SCOPE_ORDER","DUPLICATE_RESOURCE","NONCANONICAL_RESOURCE_ORDER",
                 "INVALID_RESOURCE","INVALID_RESOURCE","DUPLICATE_AUDIENCE","NONCANONICAL_AUDIENCE_ORDER","INVALID_SCOPE",
                 "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT","TOO_MANY_RESOURCES","TOO_MANY_AUDIENCES","TOO_MANY_SCOPES",
                 "INVALID_AUTHORIZATION_SERVER","INVALID_CLIENT_ID","INVALID_REQUESTED_TOKEN_TYPE","INVALID_RESOURCE","INVALID_AUDIENCE","INVALID_SCOPE",
-                "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT"};
+                "INVALID_DELEGATION_EVIDENCE_ID","INVALID_DELEGATION_EVIDENCE_ID","INVALID_DPOP_JKT","INVALID_DPOP_JKT",
+                "AUTHORIZATION_SERVER_MISMATCH","CLIENT_ID_MISMATCH","REQUESTED_TOKEN_TYPE_MISMATCH","REQUESTED_TOKEN_TYPE_MISMATCH",
+                "RESOURCE_SET_MISMATCH","AUDIENCE_SET_MISMATCH","SCOPE_SET_MISMATCH","DELEGATION_EVIDENCE_MISMATCH","DPOP_KEY_MISMATCH"};
         Map<String,JsonNode> m=new HashMap<>();for(int i=0;i<xs.size();i++){JsonNode x=xs.get(i);String id=String.format("TXI%02d",i+1);
             require(id+" stable error",id.equals(x.path("id").asText())&&errors[i].equals(x.path("expectedError").asText()));m.put(id,x);}
         require("TXI01 unsupported version",m.get("TXI01").path("submittedVersion").asInt()!=m.get("TXI01").path("supportedVersion").asInt());
@@ -73,6 +75,7 @@ public final class OAuthTokenExchangeContextV1Vectors {
         require("TXI24 wrong multihash total length",m.get("TXI24").path("submittedLength").asInt()!=m.get("TXI24").path("requiredLength").asInt());
         require("TXI25 invalid base64url character",m.get("TXI25").path("dpopJkt").asText().contains("+"));
         require("TXI26 base64url padding forbidden",m.get("TXI26").path("dpopJkt").asText().contains("="));
-        System.out.println("\n============================================");System.out.println("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 JAVA TX01-TX04 + TXI01-TXI26 VERIFIED");System.out.println("============================================");
+        for(int n=27;n<=35;n++){JsonNode x=m.get(String.format("TXI%02d",n));require(String.format("TXI%02d substitution changes contextHash",n),!x.path("originalContextHashHex").asText().equals(x.path("substitutedContextHashHex").asText()));}
+        System.out.println("\n============================================");System.out.println("OPENIDENTITY OAUTH TOKEN EXCHANGE CONTEXT v1 JAVA TX01-TX04 + TXI01-TXI35 VERIFIED");System.out.println("============================================");
     }
 }
