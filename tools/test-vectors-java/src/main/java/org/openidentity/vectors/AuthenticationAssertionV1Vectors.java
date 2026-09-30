@@ -44,7 +44,7 @@ public final class AuthenticationAssertionV1Vectors {
         Integer[] ix=new Integer[ids.length];for(int i=0;i<ix.length;i++)ix[i]=i;
         Arrays.sort(ix,(a,b)->Arrays.compareUnsigned(ids[a],ids[b]));
         Object[] entries=new Object[ix.length];
-        for(int j=0;j<ix.length;j++){int i=ix[j];entries[j]=E(map(1,ids[i],2,E(method(pubs[i])));}
+        for(int j=0;j<ix.length;j++){int i=ix[j];entries[j]=E(map(1,ids[i],2,E(method(pubs[i]))));}
         return map(1,2,2,threshold,3,E(arr(entries)));
     }
     static final class Key{
