@@ -23,7 +23,7 @@ public final class OpenIdentityTokenExchangeAuthenticationProvider implements Au
   var request=new DelegatedAgentExchangeRequest(authorizationServer,clientId,a.requestedTokenType(),a.resources(),a.audiences(),a.scopes(),
       a.subjectToken(),a.actorToken(),a.actorNonce(),new ValidatedDpopProof(a.dpopJkt()),clock.instant().getEpochSecond());
   try{
-   var grant=new OpenIdentityAuthenticatedGrant(a.clientPrincipal(),exchange.exchange(request));
+   var grant=new OpenIdentityAuthenticatedGrant(a.clientPrincipal(),exchange.exchange(request),a.dpop());
    if(!(a.clientPrincipal() instanceof OAuth2ClientAuthenticationToken client))throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.INVALID_REQUEST));
    return tokenIssuer.issue(client,grant);
   }
