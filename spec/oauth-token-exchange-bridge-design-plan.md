@@ -243,7 +243,7 @@ DPoP answers:
 
     is the presenter of the OAuth token the holder of the key to which the token was bound?
 
-If DPoP is required, the OI-015 contextHash SHOULD bind the DPoP JWK thumbprint used at the token endpoint so an attacker cannot reuse the OpenIdentity exchange evidence while substituting another DPoP key.
+For delegated-agent-v1, DPoP is mandatory. OI-015 contextHash MUST bind the RFC 9449 jkt derived from the validated token-endpoint DPoP proof so the exchange cannot substitute another sender key.
 
 The authorization server still performs normal RFC 9449 validation and emits the standard confirmation binding.
 
@@ -513,7 +513,7 @@ The deterministic context logically contains:
     audiences[]
     scopes[]
     delegationEvidenceId
-    dpopJkt?
+    dpopJkt
 
 The exact CBOR labels and size bounds are resolved before profile wire freeze.
 
@@ -531,7 +531,7 @@ The exact CBOR labels and size bounds are resolved before profile wire freeze.
 
 **delegationEvidenceId** is the exact normative OI-016 DelegationEvidenceId and is mandatory for delegated exchanges.
 
-**dpopJkt**, when applicable, binds the DPoP key thumbprint representation selected by the profile. DPoP proof bytes themselves are not embedded. Absence and presence are distinct.
+**dpopJkt** is mandatory in delegated-agent-v1 and binds the RFC 9449 JWK thumbprint representation derived from the validated DPoP proof. DPoP proof bytes themselves are not embedded.
 
 Then:
 
@@ -647,7 +647,7 @@ The final OAuth token lifetime and refresh-token policy remain separate authoriz
             v                             |
     OI-015 contextBytes                   |
     + OAuth request parameters            |
-    + optional DPoP thumbprint            |
+    + mandatory DPoP thumbprint            |
             |                             |
             v                             |
     OI-015 AuthenticationAssertion        |
@@ -690,21 +690,6 @@ This directly follows frozen OI-014's distinction:
     GrantId / GrantBytes = immutable authority intent
     RecordHash / RegisteredGrantState = current authoritative registration/status state
 
-## 23. Remaining questions before assigning a new OI number
-
-1. What exact deterministic CBOR schema/labels define DelegationEvidence, GrantEvidence, and DelegatedSubjectToken?
-2. What exact canonical representation/order is used for OAuth scope, resource, and audience collections inside OI-015 contextBytes?
-3. How should OpenIdentity token-type URIs be named before/after any IANA registration effort?
-4. How are OI-014 capabilities mapped to OAuth scopes without a global capability/scope registry?
-5. How are OI-014 resource constraints mapped to RFC 8707 absolute resource URIs?
-6. What minimal JWT act projection preserves useful provenance without leaking unnecessary delegation history?
-7. Is DPoP mandatory for agent/workload profiles or strongly recommended?
-8. What authorization-server metadata advertises OpenIdentity token-exchange support?
-9. What error mapping exposes OpenIdentity failures without leaking sensitive authorization details?
-10. What maximum lifetime may an issued OAuth token have relative to OI-014 grant/ancestor expiration and OI-015 freshness?
-11. Are refresh tokens ever permitted for delegated OpenIdentity exchanges?
-
-No bridge/delegated-subject wire format is frozen until these questions are resolved.
 
 
 ## 24. Capability, scope, and resource attenuation — DECISION
