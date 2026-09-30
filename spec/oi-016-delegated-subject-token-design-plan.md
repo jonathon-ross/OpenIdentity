@@ -171,6 +171,7 @@ OI-016 v1 does not provide selective disclosure or zero-knowledge delegation pro
     ROOT_GRANTOR_MISMATCH
     ISSUER_DELEGATE_MISMATCH
     DELEGATION_EVIDENCE_TOO_LARGE
+    DELEGATION_STATE_UNAVAILABLE
     DELEGATION_NOT_CURRENTLY_USABLE
     ACTOR_ASSERTION_ID_MISMATCH
     ACTOR_IDENTITY_MISMATCH
@@ -433,15 +434,81 @@ This avoids self-reference and redundant consistency fields.
 
 Profiles that transmit either derived ID separately MUST require recomputation before use.
 
-## 20. Remaining question before CDDL
+## 20. Authoritative-state resolution errors — RESOLVED
 
-One semantic question remains:
+OI-016 distinguishes inability to complete authoritative verification from a conclusive current-state denial.
 
-1. What stable error distinguishes inability to resolve required authoritative OI-014 current state from a successfully resolved delegation that is currently unusable?
+### 20.1 DELEGATION_STATE_UNAVAILABLE
 
-After that distinction is resolved, OI-016 is ready for candidate CDDL and DS01.
+Use:
 
-## 21. Freeze discipline
+    DELEGATION_STATE_UNAVAILABLE
+
+when verification cannot obtain or validate required authoritative material needed to reach a current-usability conclusion.
+
+Examples include:
+
+- authoritative RegisteredGrantState cannot be retrieved;
+- required predecessor/history material cannot be obtained when the trusted registry profile requires it;
+- required current root IdentityState cannot be resolved;
+- a required pinned profile descriptor is unavailable;
+- the trusted registry/finality source is temporarily unavailable.
+
+This result is **fail closed**.
+
+It MUST NOT authorize issuance, MUST NOT be treated as ACTIVE, and MUST NOT fall back to embedded historical evidence.
+
+It represents:
+
+    verification incomplete -> deny
+
+not:
+
+    delegation valid
+
+### 20.2 DELEGATION_NOT_CURRENTLY_USABLE
+
+Use:
+
+    DELEGATION_NOT_CURRENTLY_USABLE
+
+when required authoritative material was successfully resolved and verification conclusively determines that the path cannot currently authorize use.
+
+Examples include:
+
+- current record is REVOKED;
+- delegate relinquishment made the grant unusable;
+- root delegation generation no longer matches;
+- root identity is DEACTIVATED;
+- grant or ancestor is expired/not yet valid;
+- ancestor is currently unusable;
+- current profile semantics reject use.
+
+It represents:
+
+    verification complete + current authority denied -> deny
+
+### 20.3 Security rule
+
+Both errors deny OI-016 verification.
+
+Implementations MUST NOT retry with stale embedded status, skip an unavailable ancestor, ignore an unavailable profile, or downgrade current-state verification merely to convert UNAVAILABLE into success.
+
+### 20.4 External error projection
+
+Integration profiles MAY intentionally map both internal results to the same externally visible authorization error to avoid leaking sensitive registry/delegation state.
+
+For example, an OAuth profile may return a generic token-exchange failure while logging/telemetry retains the internal distinction.
+
+Core OI-016 defines the semantic distinction; it does not require external protocols to disclose it.
+
+## 21. Ready for candidate CDDL
+
+All pre-CDDL questions are resolved.
+
+Candidate CDDL and DS01 may now be created. Wire labels remain draft/non-normative until deterministic cross-language conformance and freeze review are complete.
+
+## 22. Freeze discipline
 
 OI-016 development MUST NOT modify frozen Protocol v2 / IdentityState v3, OI-014 v1, or OI-015 v1 bytes.
 
