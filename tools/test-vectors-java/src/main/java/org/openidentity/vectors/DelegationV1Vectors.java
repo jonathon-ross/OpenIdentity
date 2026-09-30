@@ -342,13 +342,30 @@ public final class DelegationV1Vectors {
         require("DG08 revoked RecordHash",hx(v,"revokedRecordHashHex").equals(Hex.encode(mh(r2))));
     }
 
+
+    private static void verifyDG09(JsonNode v)throws Exception{
+        byte[] principalSpec=("OpenIdentity OI-014 Test Principal Profile: ed25519-agent v1\n"+
+                "Semantics: principalId is 32-byte Ed25519 public key; proofBytes is Ed25519 over coreActionBytes concatenated with proofContext.\n").getBytes(StandardCharsets.UTF_8);
+        byte[] params=map(1,32,2,"ed25519".getBytes(StandardCharsets.UTF_8),3,"coreActionBytes||proofContext".getBytes(StandardCharsets.UTF_8));
+        byte[] descriptor=profileDescriptor(2,principalSpec,0,0,params),profileHash=mh(descriptor);
+        require("DG09 principal semantic spec bytes",hx(v,"principalSemanticSpecBytesHex").equals(Hex.encode(principalSpec)));
+        require("DG09 principal semantic spec hash",hx(v,"principalSemanticSpecHashHex").equals(Hex.encode(mh(principalSpec))));
+        require("DG09 principal ProfileDescriptor bytes",hx(v,"principalProfileDescriptorBytesHex").equals(Hex.encode(descriptor)));
+        require("DG09 principal ProfileHash",hx(v,"principalProfileHashHex").equals(Hex.encode(profileHash)));
+        Ed25519Support agent=new Ed25519Support(sha("OpenIdentity OI-014 DG09 profile principal seed".getBytes(StandardCharsets.UTF_8)));
+        require("DG09 principalId",hx(v,"principalIdHex").equals(Hex.encode(agent.publicKey())));
+        byte[] core=Hex.decode(hx(v,"profileCoreActionBytesHex")),ctx=Hex.decode(hx(v,"proofContextHex")),proof=Hex.decode(hx(v,"profileProofBytesHex"));
+        byte[] signed=new byte[core.length+ctx.length];System.arraycopy(core,0,signed,0,core.length);System.arraycopy(ctx,0,signed,core.length,ctx.length);
+        require("DG09 profile-owned proof verifies",agent.verify(signed,proof));
+    }
+
     private static JsonNode invalid(JsonNode doc,String id){
         for(JsonNode v:doc.path("invalidVectors"))if(id.equals(v.path("id").asText()))return v;
         throw new IllegalArgumentException("missing "+id);
     }
 
     private static void verifyInvalids(JsonNode doc)throws Exception{
-        require("invalid vector count",doc.path("invalidVectors").size()==31);
+        require("invalid vector count",doc.path("invalidVectors").size()==32);
         String[] errors={"UNAUTHORIZED_GRANT_REGISTRATION","INVALID_DELEGATION_GENERATION","CROSS_DOMAIN_PROOF",
                 "INVALID_PREVIOUS_RECORD_HASH","CAPABILITY_ESCALATION","PARENT_GRANT_UNUSABLE",
                 "ROOT_GRANTOR_MISMATCH","ISSUER_PARENT_DELEGATE_MISMATCH","CHILD_TIME_WIDENING",
@@ -358,8 +375,8 @@ public final class DelegationV1Vectors {
                 "INVALID_REGISTRATION_PROOF","INVALID_DELEGATE_STATE_HASH","INVALID_AUTHENTICATION_GENERATION",
                 "INVALID_REGISTRATION_PROOF","INVALID_REGISTRATION_PROOF","CROSS_DOMAIN_PROOF",
                 "PARENT_GRANT_NOT_FOUND","PARENT_GRANT_NOT_FOUND","REGISTRY_DOMAIN_MISMATCH",
-                "PARENT_GRANT_UNUSABLE","PARENT_GRANT_UNUSABLE","DELEGATION_DEPTH_EXCEEDED","DELEGATION_CYCLE"};
-        for(int i=1;i<=31;i++){
+                "PARENT_GRANT_UNUSABLE","PARENT_GRANT_UNUSABLE","DELEGATION_DEPTH_EXCEEDED","DELEGATION_CYCLE","PROFILE_SUBSTITUTION"};
+        for(int i=1;i<=32;i++){
             String id=String.format("DGI%02d",i);
             require(id+" stable error",errors[i-1].equals(invalid(doc,id).path("error").asText()));
         }
@@ -530,6 +547,10 @@ public final class DelegationV1Vectors {
         for(JsonNode id:i31.path("ancestorGrantIdsHex"))
             if(i31.path("proposedGrantIdHex").asText().equals(id.asText()))cycle=true;
         require("DGI31 proposed GrantId already appears in ancestor chain",cycle);
+
+        JsonNode i32=invalid(doc,"DGI32");
+        require("DGI32 proof profile differs from acting principal profile",
+                !i32.path("actingPrincipalProfileHashHex").asText().equals(i32.path("submittedProofProfileHashHex").asText()));
     }
 
     public static void main(String[] args)throws Exception{
@@ -538,7 +559,7 @@ public final class DelegationV1Vectors {
         require("suite specification","OpenIdentity OI-014 DelegationGrant v1".equals(rootJson.path("suite").asText()));
         require("draft status","DRAFT-NON-NORMATIVE".equals(rootJson.path("status").asText()));
         JsonNode v=rootJson.path("vectors").get(0);require("DG01 id","DG01".equals(v.path("id").asText()));
-        require("vector count",rootJson.path("vectors").size()==8);
+        require("vector count",rootJson.path("vectors").size()==9);
 
         byte[] registry="openidentity:test:oi014:dg01".getBytes(StandardCharsets.UTF_8), root=seq(0,32), delegate=seq(32,32), mid=seq(0,16);
         Ed25519Support ed=new Ed25519Support(sha("OpenIdentity OI-014 DG01 delegation Ed25519 seed".getBytes(StandardCharsets.UTF_8)));
@@ -576,9 +597,10 @@ public final class DelegationV1Vectors {
         verifyDG06(rootJson.path("vectors").get(5));
         verifyDG07(rootJson.path("vectors").get(6));
         verifyDG08(rootJson.path("vectors").get(7));
+        verifyDG09(rootJson.path("vectors").get(8));
         verifyInvalids(rootJson);
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG08 + DGI01-DGI31 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG09 + DGI01-DGI32 VERIFIED");
         System.out.println("============================================");
     }
 }
