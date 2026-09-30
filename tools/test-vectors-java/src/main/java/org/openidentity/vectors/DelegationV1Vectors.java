@@ -239,8 +239,8 @@ public final class DelegationV1Vectors {
         require("DG06 child signing bytes",hx(v,"childSigningBytesHex").equals(Hex.encode(childSigning)));
         require("DG06 AuthenticationAuthority child signature",hx(v,"childAuthenticationSignatureHex").equals(Hex.encode(childSig)));
         require("DG06 AuthenticationAuthority child proof verifies",auth.verify(childSigning,childSig));
-        byte[] request=map(1,registry,2,E(child),3,parentId,4,parentRecordHash,5,delegateStateHash,6,authGeneration,
-                7,E(arr(E(map(1,authId,2,childSig)))));
+        byte[] delegateProof=map(1,1,2,delegateStateHash,3,authGeneration,4,E(arr(E(map(1,authId,2,childSig)))));
+        byte[] request=map(1,registry,2,E(child),3,parentId,4,parentRecordHash,5,E(delegateProof));
         require("DG06 child registration request bytes",hx(v,"childRegistrationRequestBytesHex").equals(Hex.encode(request)));
         byte[] childRecord=map(1,registry,2,childId,3,1,4,null,5,1,6,rootHash,7,generation,8,2000021000L);
         require("DG06 child RecordBytes",hx(v,"childRecordBytesHex").equals(Hex.encode(childRecord)));
@@ -287,7 +287,8 @@ public final class DelegationV1Vectors {
         require("DG07 relinquishment signing bytes",hx(v,"relinquishmentSigningBytesHex").equals(Hex.encode(relSigning)));
         require("DG07 relinquishment signature",hx(v,"relinquishmentSignatureHex").equals(Hex.encode(relSig)));
         require("DG07 AuthenticationAuthority relinquishment verifies",auth.verify(relSigning,relSig));
-        byte[] relReq=map(1,registry,2,gid,3,r1h,4,2,5,delegateStateHash,6,agen,7,E(arr(E(map(1,authId,2,relSig)))));
+        byte[] delegateProof=map(1,1,2,delegateStateHash,3,agen,4,E(arr(E(map(1,authId,2,relSig)))));
+        byte[] relReq=map(1,registry,2,gid,3,r1h,4,2,5,E(delegateProof));
         require("DG07 relinquishment request bytes",hx(v,"relinquishmentRequestBytesHex").equals(Hex.encode(relReq)));
         byte[] r2=map(1,registry,2,gid,3,2,4,r1h,5,2,6,rootHash,7,dgen,8,registeredAt),r2h=mh(r2);
         require("DG07 exact next revision",2==1+1);
