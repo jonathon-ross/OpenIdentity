@@ -655,6 +655,21 @@ def build_invalids():
         proposedGrantIdHex=cycle_id.hex(),ancestorGrantIdsHex=[ancestor_id.hex(),cycle_id.hex()],
         proposedGrantBytesHex=enc(cycle_child).hex())
 
+    # DGI32: profile-principal proof carries a different pinned principal profile.
+    pp_spec_a=b"OpenIdentity OI-014 Test Principal Profile A\n"
+    pp_spec_b=b"OpenIdentity OI-014 Test Principal Profile B\n"
+    pp_a=profile_descriptor(2,pp_spec_a,0,0,enc({1:b"A"})); pp_b=profile_descriptor(2,pp_spec_b,0,0,enc({1:b"B"}))
+    ppra={1:2,2:mh(enc(pp_a))}; pprb={1:2,2:mh(enc(pp_b))}
+    ppkey=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-014 DGI32 principal seed"))
+    ppid=ppkey.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    acting={1:2,2:ppid,3:ppra}
+    context=b"dgi32-context"; action=b"dgi32-core-action"; proof=ppkey.sign(action+context)
+    mismatched_proof={1:2,2:pprb,3:context,4:proof}
+    add("DGI32","PROFILE_SUBSTITUTION","profile-principal-proof-profile-mismatch",
+        actingPrincipalProfileHashHex=ppra[2].hex(),submittedProofProfileHashHex=pprb[2].hex(),
+        actingPrincipalIdHex=ppid.hex(),profileCoreActionBytesHex=action.hex(),
+        proofContextHex=context.hex(),proofBytesHex=proof.hex(),delegateProofBytesHex=enc(mismatched_proof).hex())
+
     return out
 
 
