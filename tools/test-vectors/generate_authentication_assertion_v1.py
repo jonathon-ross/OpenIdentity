@@ -174,6 +174,7 @@ def invalids():
     outsider=Ed25519PrivateKey.from_private_bytes(seed("OpenIdentity OI-015 proof attack outsider seed"));outsider_id=bytes(range(192,208))
     outsider_sig=outsider.sign(enc(["OpenIdentity Authentication Assertion",1,attack_assertion,outsider_id]))
     add("AAI15","UNAUTHORIZED_AUTHENTICATION_PROOF","unauthorized-extra-despite-threshold",
+        authorizedMethodIdsHex=[pa.hex(),pb.hex(),pc.hex()],
         submittedMethodIdsHex=[pa.hex(),pb.hex(),outsider_id.hex()],authorizedThreshold=2,
         signatureAHex=siga.hex(),signatureBHex=sigb.hex(),outsiderSignatureHex=outsider_sig.hex())
     bad=bytearray(siga);bad[0]^=1
