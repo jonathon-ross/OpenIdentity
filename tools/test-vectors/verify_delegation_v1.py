@@ -21,7 +21,7 @@ def main():
     data=json.loads(FILE.read_text())
     req("suite specification",data["suite"]=="OpenIdentity OI-014 DelegationGrant v1")
     req("draft status",data["status"]=="DRAFT-NON-NORMATIVE")
-    req("vector IDs DG01-DG06",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04","DG05","DG06"])
+    req("vector IDs DG01-DG07",[x["id"] for x in data["vectors"]]==["DG01","DG02","DG03","DG04","DG05","DG06","DG07"])
     v=data["vectors"][0]
     registry=b"openidentity:test:oi014:dg01"; root=bytes(range(32)); delegate=bytes(range(32,64)); mid=bytes(range(16))
     priv=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG01 delegation Ed25519 seed"))
@@ -193,6 +193,35 @@ def main():
     req("DG06 child RecordBytes",v6["childRecordBytesHex"]==crb6.hex());req("DG06 child RecordHash",v6["childRecordHashHex"]==crh6.hex())
     req("DG06 depth 2",v6["childDepth"]==2)
 
+    v7=data["vectors"][6]
+    reg7=b"openidentity:test:oi014:dg07"; root7=bytes(range(30,62)); del7=bytes(range(62,94))
+    did7=bytes(range(60,76)); aid7=bytes(range(76,92))
+    kd7=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG07 root delegation Ed25519 seed"))
+    ka7=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG07 delegate authentication Ed25519 seed"))
+    pubd7=kd7.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); puba7=ka7.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    dp7={1:1,2:[{1:did7,2:{1:1,3:-8,4:-1,6:pubd7}}]}; ap7={1:1,2:[{1:aid7,2:{1:1,3:-8,4:-1,6:puba7}}]}
+    desc7={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.read"],5:3600,6:2}; ph7=mh(enc(desc7))
+    g7={1:1,2:root7,3:{1:1,2:root7},4:{1:1,2:del7},5:[{1:{1:{1:1,2:ph7},2:b"document.read"}}],
+        7:2000600000,9:sk("OpenIdentity OI-014 DG07 nonce")}
+    gb7=enc(g7); gid7=mh(gb7); dgen7=33
+    rst7={1:3,2:root7,3:60,4:1,5:dp7,8:{1:0},9:{1:dgen7,2:dp7}}; rsb7=enc(rst7); rsh7=mh(rsb7)
+    regsign7=enc(["OpenIdentity Delegation Grant",1,reg7,gb7,rsh7,dgen7,did7])
+    kd7.public_key().verify(bytes.fromhex(v7["registrationSignatureHex"]),regsign7);req("DG07 original registration signature verifies",True)
+    r1_7={1:reg7,2:gid7,3:1,4:None,5:1,6:rsh7,7:dgen7,8:2000590000}; r1b7=enc(r1_7); r1h7=mh(r1b7)
+    agen7=11; dst7={1:3,2:del7,3:17,4:1,5:ap7,8:{1:agen7,2:ap7},9:{1:0}}; dsb7=enc(dst7); dsh7=mh(dsb7)
+    req("DG07 delegate StateBytes",v7["delegateStateBytesHex"]==dsb7.hex());req("DG07 delegate StateHash",v7["delegateStateHashHex"]==dsh7.hex())
+    relsign7=enc(["OpenIdentity Delegation Grant Relinquishment",1,reg7,gid7,r1h7,2,dsh7,agen7,aid7])
+    relsig7=bytes.fromhex(v7["relinquishmentSignatureHex"]);ka7.public_key().verify(relsig7,relsign7)
+    req("DG07 AuthenticationAuthority relinquishment signature verifies",True)
+    relreq7={1:reg7,2:gid7,3:r1h7,4:2,5:dsh7,6:agen7,7:[{1:aid7,2:relsig7}]}
+    req("DG07 relinquishment request bytes",v7["relinquishmentRequestBytesHex"]==enc(relreq7).hex())
+    r2_7={1:reg7,2:gid7,3:2,4:r1h7,5:2,6:rsh7,7:dgen7,8:2000590000}; r2b7=enc(r2_7); r2h7=mh(r2b7)
+    req("DG07 exact next revision",r2_7[3]==r1_7[3]+1);req("DG07 previous RecordHash binding",r2_7[4]==r1h7)
+    req("DG07 status REVOKED",r2_7[5]==2);req("DG07 GrantId unchanged",v7["grantIdAfterRelinquishmentHex"]==gid7.hex())
+    req("DG07 root delegation generation unchanged",v7["delegationGenerationBefore"]==v7["delegationGenerationAfter"]==dgen7)
+    req("DG07 registeredAt unchanged",v7["registeredAtBefore"]==v7["registeredAtAfter"]==2000590000)
+    req("DG07 revoked RecordBytes",v7["revokedRecordBytesHex"]==r2b7.hex());req("DG07 revoked RecordHash",v7["revokedRecordHashHex"]==r2h7.hex())
+
     invalid={x["id"]:x for x in data["invalidVectors"]}
     req("invalid vector IDs DGI01-DGI31",set(invalid)=={f"DGI{i:02d}" for i in range(1,32)})
     expected={"DGI01":"UNAUTHORIZED_GRANT_REGISTRATION","DGI02":"INVALID_DELEGATION_GENERATION",
@@ -352,6 +381,6 @@ def main():
     req("DGI31 proposed GrantId already appears in ancestor chain",
         i31["proposedGrantIdHex"] in i31["ancestorGrantIdsHex"])
     print("\n============================================")
-    print("OI-014 DELEGATION v1 DG01-DG06 + DGI01-DGI31 VERIFIED")
+    print("OI-014 DELEGATION v1 DG01-DG07 + DGI01-DGI31 VERIFIED")
     print("============================================")
 if __name__=="__main__":main()
