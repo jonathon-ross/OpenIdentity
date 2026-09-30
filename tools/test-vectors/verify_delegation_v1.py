@@ -164,9 +164,9 @@ def main():
     reg6=b"openidentity:test:oi014:dg06"; root6=bytes(range(80,112)); pd6=bytes(range(112,144)); cd6=bytes(range(144,176))
     did6=bytes(range(128,144)); aid6=bytes(range(144,160))
     kd6=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG06 root delegation Ed25519 seed"))
-    ki6=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed"))
-    pubd6=kd6.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
-    dp6={1:1,2:[{1:did6,2:{1:1,3:-8,4:-1,6:pubd6}}]}
+    ka6=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-014 DG06 parent delegate authentication Ed25519 seed"))
+    pubd6=kd6.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw); puba6=ka6.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+    dp6={1:1,2:[{1:did6,2:{1:1,3:-8,4:-1,6:pubd6}}]}; ap6={1:1,2:[{1:aid6,2:{1:1,3:-8,4:-1,6:puba6}}]}
     desc6={1:1,2:"openidentity.test.redelegation",3:1,4:[b"document.read",b"redelegate.document.read"],5:7200,6:3}
     pb6=enc(desc6); ph6=mh(pb6); pref6={1:1,2:ph6}
     read6={1:{1:pref6,2:b"document.read"}}; redel6={1:{1:pref6,2:b"redelegate.document.read"}}
@@ -176,18 +176,18 @@ def main():
     psign6=enc(["OpenIdentity Delegation Grant",1,reg6,pgb6,rsh6,gen6,did6])
     kd6.public_key().verify(bytes.fromhex(v6["parentRegistrationSignatureHex"]),psign6);req("DG06 parent registration signature verifies",True)
     prec6={1:reg6,2:pgid6,3:1,4:None,5:1,6:rsh6,7:gen6,8:2000020000}; prb6=enc(prec6); prh6=mh(prb6)
+    agen6=7
+    dst6={1:3,2:pd6,3:9,4:1,5:ap6,8:{1:agen6,2:ap6},9:{1:0}}; dsb6=enc(dst6); dsh6=mh(dsb6)
+    req("DG06 delegate current StateBytes",v6["delegateStateBytesHex"]==dsb6.hex());req("DG06 delegate current StateHash",v6["delegateStateHashHex"]==dsh6.hex())
     child6={1:1,2:root6,3:{1:1,2:pd6},4:{1:1,2:cd6},5:[read6],7:2000028000,8:pgid6,9:sk("OpenIdentity OI-014 DG06 child nonce")}
     cgb6=enc(child6); cgid6=mh(cgb6)
-    csign6=enc(["OpenIdentity Delegation Child Grant",1,reg6,cgb6,pgid6,prh6])
-    csig6=bytes.fromhex(v6["childIssuerProofHex"]); ki6.public_key().verify(csig6,csign6)
-    req("DG06 child issuer proof verifies",True)
-    req("DG06 rootGrantor preserved",child6[2]==parent6[2])
-    req("DG06 issuer equals parent delegate",child6[3]==parent6[4])
-    req("DG06 exact parentGrantId",child6[8]==pgid6)
-    req("DG06 capability attenuated",child6[5]==[read6] and read6 in parent6[5] and redel6 in parent6[5])
+    csign6=enc(["OpenIdentity Delegation Child Grant",1,reg6,cgb6,pgid6,prh6,dsh6,agen6,aid6])
+    csig6=bytes.fromhex(v6["childAuthenticationSignatureHex"]); ka6.public_key().verify(csig6,csign6)
+    req("DG06 AuthenticationAuthority child proof verifies",True)
+    req("DG06 rootGrantor preserved",child6[2]==parent6[2]);req("DG06 issuer equals parent delegate",child6[3]==parent6[4])
+    req("DG06 exact parentGrantId",child6[8]==pgid6);req("DG06 capability attenuated",child6[5]==[read6] and redel6 in parent6[5])
     req("DG06 lifetime attenuated",child6[7] < parent6[7])
-    req("DG06 child signing bytes",v6["childSigningBytesHex"]==csign6.hex())
-    creq6={1:reg6,2:child6,3:pgid6,4:prh6,5:csig6}
+    creq6={1:reg6,2:child6,3:pgid6,4:prh6,5:dsh6,6:agen6,7:[{1:aid6,2:csig6}]}
     req("DG06 child registration request bytes",v6["childRegistrationRequestBytesHex"]==enc(creq6).hex())
     crec6={1:reg6,2:cgid6,3:1,4:None,5:1,6:rsh6,7:gen6,8:2000021000}; crb6=enc(crec6); crh6=mh(crb6)
     req("DG06 child RecordBytes",v6["childRecordBytesHex"]==crb6.hex());req("DG06 child RecordHash",v6["childRecordHashHex"]==crh6.hex())
