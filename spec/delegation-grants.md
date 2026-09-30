@@ -38,9 +38,11 @@ Generation changes invalidate prior-generation grants according to the v3 rules.
 
 ## 3. Principals
 
-A grant has exactly one grantor and one delegate.
+A grant has exactly one **rootGrantor**, one **issuer**, and one **delegate**.
 
-The grantor is an OpenIdentity Identity ID.
+`rootGrantor` is the permanent OpenIdentity Identity ID from whose DelegationAuthority the delegation chain originates.
+
+`issuer` is the principal immediately issuing this grant. For a direct grant, issuer is the rootGrantor OpenIdentity principal and registration is authorized by the rootGrantor's current DelegationPolicy. For a child grant, issuer is the authenticated DelegatePrincipal of the parent grant and registration is authorized by the parent's explicit redelegation authority.
 
 The delegate is identified by a typed principal reference. OI-014 MUST support an OpenIdentity Identity ID delegate. Additional principal types, such as workload/service or AI-agent identifiers, may be defined by profiles without changing the meaning of existing principal types.
 
@@ -164,7 +166,8 @@ The initial logical grant contains:
 
     DelegationGrant {
         version
-        grantor
+        rootGrantor
+        issuer
         delegate
         capabilities
         resources?
@@ -180,9 +183,21 @@ The exact integer labels and CDDL are deliberately deferred until the semantic m
 
 Identifies the DelegationGrant object version, independent of root operation protocolVersion.
 
-### grantor
+### rootGrantor
 
-The permanent OpenIdentity Identity ID whose DelegationPolicy authorizes registration.
+The permanent OpenIdentity Identity ID whose DelegationAuthority is the root security generation for the complete delegation chain.
+
+For a direct grant, rootGrantor is also the issuer.
+
+For every child grant, rootGrantor MUST equal the parent's rootGrantor exactly. A child cannot change delegation roots.
+
+### issuer
+
+The principal immediately authorizing issuance of this grant.
+
+For a direct grant, issuer is the OPENIDENTITY principal corresponding to rootGrantor and the current root DelegationPolicy authorizes registration.
+
+For a child grant, issuer MUST equal the parent grant's delegate and must authenticate under that principal's applicable proof profile. The parent grant's explicit redelegation authority, not the issuer's unrelated root identity authority, constrains child issuance.
 
 ### delegate
 
@@ -589,13 +604,13 @@ A registration processor SHALL:
 2. require IdentityState v3 and status ACTIVE;
 3. require a present DelegationPolicy;
 4. deterministically encode and validate GrantBytes;
-5. require grant.grantor to equal the current Identity ID;
+5. for a direct grant, require grant.rootGrantor to equal the current Identity ID and grant.issuer to identify that same OpenIdentity principal;
 6. validate time/expiry constraints;
 7. validate capability/resource syntax under the applicable profile;
 8. derive GrantId;
-9. construct the exact delegation-grant signing input using current StateHash and current delegation generation;
-10. verify the complete current DelegationPolicy threshold;
-11. if parentGrantId is present, validate the parent and attenuation rules;
+9. for a direct grant, construct the exact delegation-grant signing input using current rootGrantor StateHash and current delegation generation;
+10. for a direct grant, verify the complete current DelegationPolicy threshold;
+11. if parentGrantId is present, require rootGrantor equality with the parent, require issuer equality with the parent's delegate, authenticate that issuer, and validate parent redelegation/attenuation rules;
 12. atomically establish at most one authoritative registration record for that GrantId;
 13. bind the record to the current delegation generation and current grantor StateHash.
 
@@ -692,7 +707,8 @@ A registry does not need to publish GrantBytes in order to establish that a part
 
 GrantBytes contain the authority-bearing grant semantics, including:
 
-- grantor;
+- rootGrantor;
+- issuer;
 - delegate;
 - capabilities and resource constraints;
 - time bounds;
@@ -734,7 +750,8 @@ Privacy-preserving storage does not weaken registration validation.
 Before establishing revision 1, the registration processor MUST possess the exact GrantBytes and perform the complete OI-014 registration checks, including:
 
 - recompute GrantId;
-- validate grantor identity against the current authoritative IdentityState;
+- validate rootGrantor identity against the current authoritative IdentityState;
+- validate direct issuer equality or child issuer/parent-delegate equality;
 - validate current ACTIVE status;
 - validate current DelegationPolicy;
 - validate delegation-generation binding;
@@ -779,7 +796,8 @@ Storage location does not change grant semantics.
 
 Core OI-014 intentionally does not require the minimal public registration anchor to duplicate:
 
-- grantor Identity ID;
+- rootGrantor Identity ID;
+- issuer principal;
 - delegate principal;
 - capability identifiers;
 - resource constraints;
@@ -818,7 +836,7 @@ A registered grant is usable only if all of the following hold:
 
 - its registration is authoritative;
 - its status permits use;
-- the grantor identity is currently ACTIVE;
+- the rootGrantor identity is currently ACTIVE;
 - the grant's bound delegation generation equals the grantor's current DelegationAuthority.generation;
 - current time satisfies registration/notBefore/expiry constraints;
 - the requested capability is explicitly granted;
@@ -831,7 +849,7 @@ A current DelegationPolicy signature is **not** required each time an already-re
 
 ## 10. Generation semantics
 
-A registered grant binds to generation N.
+Every grant chain is rooted in the rootGrantor's delegation generation N. A direct registered grant records that generation; child grants inherit the same root generation transitively through their parent chain and MUST NOT substitute another generation.
 
 If DelegationPolicy rotates with PRESERVE_EXISTING and generation remains N, already-registered generation-N grants remain generation-compatible.
 
@@ -947,7 +965,8 @@ A child grant MUST reference exactly one parentGrantId and MUST satisfy all pare
 
 At minimum:
 
-- child grantor MUST be the authenticated delegate of the parent grant;
+- child rootGrantor MUST equal parent rootGrantor;
+- child issuer MUST equal the authenticated delegate of the parent grant;
 - parent MUST explicitly include a capability permitting delegation/subdelegation;
 - child capabilities MUST be a subset of parent capabilities;
 - child resource scope MUST be equal to or narrower than parent scope;
@@ -1063,7 +1082,7 @@ A child grant is still registered through authoritative OI-014 registration.
 
 The parent delegate must authenticate as the parent grant's DelegatePrincipal and provide the proof required by the applicable subdelegation profile.
 
-The original root grantor's current DelegationPolicy does not need to sign each child unless the applicable profile explicitly requires co-authorization.
+The rootGrantor's current DelegationPolicy does not sign each child by default. Child issuance is authorized by the authenticated parent delegate plus explicit parent redelegation authority. The entire chain nevertheless remains dependent on the rootGrantor's current ACTIVE status and root delegation generation.
 
 This preserves useful delegated autonomy while ensuring every child is traceable to a registered parent and cannot exceed the parent's authority.
 
@@ -1124,6 +1143,7 @@ A blockchain transaction is therefore one possible registration mechanism, not p
 The following are release-blocking invariants:
 
 1. Offline signature alone never makes a grant authoritative.
+1a. Every grant has one immutable rootGrantor; child issuer authority derives only through an authoritative parent chain and cannot switch delegation roots.
 2. Registration always validates the current ACTIVE grantor state.
 3. Historical DelegationPolicy keys cannot create new authoritative grants.
 4. Grant registration never changes root IdentityState or sequence.
