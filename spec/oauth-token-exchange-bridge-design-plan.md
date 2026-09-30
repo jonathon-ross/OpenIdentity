@@ -50,17 +50,45 @@ The first identifies exact canonical SecuredAuthenticationAssertion bytes.
 
 The second identifies a bridge-defined canonical delegation-evidence envelope containing OI-014 material. It does not create new delegation semantics.
 
-## 4. Delegation evidence parameter
+## 4. Subject token architecture — DECISION
 
-RFC 8693 defines subject_token and actor_token but no generic third parameter for cryptographic authorization evidence connecting them.
+Raw OI-014 delegation evidence MUST NOT be used directly as the RFC 8693 subject_token.
 
-Candidate extension parameter:
+RFC 8693 requires subject_token to be a security token representing the identity of the party on whose behalf the request is made. OI-014 is authorization/delegation evidence: it names rootGrantor and proves an attenuated authority path, but it is not itself an authentication assertion for rootGrantor.
 
-    openidentity_delegation
+The bridge therefore defines a new **OpenIdentity Delegated Subject Token** concept.
 
-Its value should be base64url-no-pad of a deterministic OpenIdentity delegation-evidence object.
+Conceptually:
 
-The bridge MUST NOT place an OI-014 chain into OAuth scope strings or overload actor_token with both authentication and authorization material.
+    OpenIdentityDelegatedSubjectToken {
+        version
+        subjectIdentity
+        delegationEvidence
+        terminalDelegate
+        issuedFor
+        contextCommitment
+    }
+
+The exact structure is not frozen.
+
+Its semantics are:
+
+- subjectIdentity MUST equal the verified OI-014 rootGrantor;
+- terminalDelegate MUST equal the terminal delegate of the verified OI-014 chain;
+- delegationEvidence MUST contain or cryptographically commit to the exact OI-014 material needed by the authorization server;
+- the token represents the subject identity specifically in the context of the attached delegated authority;
+- it MUST NOT imply that rootGrantor is online or freshly authenticated;
+- it MUST NOT grant authority beyond the verified OI-014 chain.
+
+This is a composite security token/profile for RFC 8693 purposes, not a replacement for OI-014.
+
+Candidate token type identifier:
+
+    urn:ietf:params:oauth:token-type:openidentity-delegated-subject
+
+This identifier remains provisional until namespace/registration strategy is resolved.
+
+No extra `openidentity_delegation` OAuth request parameter is needed in the preferred design.
 
 ## 5. Exchange binding
 
@@ -88,27 +116,32 @@ This prevents a valid OI-015 assertion prepared for one token exchange from bein
 
 The exact deterministic context encoding is not yet frozen.
 
-## 6. subject_token
+## 6. subject_token — RESOLVED DIRECTION
 
-A delegated exchange requires explicit subject identity/evidence.
+For delegated exchange:
 
-Two candidate modes need further evaluation:
+    subject_token_type =
+      <OpenIdentity Delegated Subject Token type>
 
-### Mode A — OpenIdentity subject assertion
+    subject_token =
+      base64url-no-pad(OpenIdentityDelegatedSubjectTokenBytes)
 
-The rootGrantor also supplies a suitable subject token proving/identifying the subject.
+The subject token is self-contained enough for the authorization server to identify the root subject and validate the OI-014 authorization path without requiring a fresh rootGrantor signature.
 
-This is strongest but can require the root subject to be online during every delegated exchange, which undermines useful delegation.
+This preserves offline delegation:
 
-### Mode B — delegation-derived subject
+    rootGrantor
+        |
+        | creates/registers OI-014 authority
+        v
+    delegate can later exchange
+    without rootGrantor being online
 
-The authorization server derives the subject from the verified OI-014 rootGrantor and treats the delegation evidence as sufficient authorization provenance, while actor_token authenticates the live delegate.
+The authorization server MUST validate the delegated subject token according to its OpenIdentity token-type profile and MUST perform complete OI-014 verification.
 
-This better matches offline-issued delegation and is the preferred direction.
+The token's subjectIdentity becomes the OAuth authorization subject only after that verification succeeds.
 
-Because RFC 8693 requires subject_token, Mode B may require a compact OpenIdentity subject-reference token type derived from the OI-014 chain rather than a fresh root signature.
-
-This question MUST be resolved before wire work.
+A non-delegated self exchange may instead use OI-015 as subject_token under a separate profile because the live actor and subject are the same party.
 
 ## 7. actor_token
 
@@ -272,17 +305,49 @@ The bridge must reject at least:
 - DPoP-key substitution when DPoP binding is requested;
 - reuse of exchange evidence contrary to nonce/replay policy.
 
-## 17. Questions before assigning a new OI number
+## 17. Resolved RFC 8693 interpretation
 
-1. How should RFC 8693's mandatory subject_token be represented for offline OI-014 delegation without requiring the rootGrantor to authenticate live?
-2. Should OpenIdentity seek/register OAuth token-type URNs, or initially use vendor/private token-type identifiers?
-3. Should delegation evidence be an OAuth extension parameter, a subject-token format, or a composite OpenIdentity token?
-4. What exact deterministic exchange-context structure is hashed by OI-015?
-5. How are OI-014 capabilities mapped to OAuth scopes without creating a global capability/scope registry?
+The bridge uses RFC 8693 delegation semantics rather than impersonation semantics.
+
+For delegated exchange:
+
+    subject_token = OpenIdentity Delegated Subject Token
+                    (root subject + OI-014 authority evidence)
+
+    actor_token   = OI-015 SecuredAuthenticationAssertion
+                    (live terminal delegate authentication)
+
+The authorization server MUST require:
+
+    delegatedSubject.subjectIdentity
+        == verified OI-014 rootGrantor
+
+    delegatedSubject.terminalDelegate
+        == verified OI-014 terminal delegate
+
+    OI-015 identity
+        == delegatedSubject.terminalDelegate
+
+The issued token may project:
+
+    sub = root subject
+    act = current delegate
+
+Nested act history is informational for prior actors; authorization decisions remain based on the top-level token claims/current actor as required by RFC 8693.
+
+## 18. Remaining questions before assigning a new OI number
+
+1. What exact fields belong in OpenIdentityDelegatedSubjectToken, and which are derived rather than serialized?
+2. Does the subject token embed exact OI-014 chain bytes, a deterministic chain envelope, or references plus committed hashes?
+3. What exact deterministic exchange-context structure is hashed by OI-015?
+4. How should OpenIdentity token-type URIs be named before/after any IANA registration effort?
+5. How are OI-014 capabilities mapped to OAuth scopes without a global capability/scope registry?
 6. How are OI-014 resource constraints mapped to RFC 8707 absolute resource URIs?
-7. What minimal `act` projection preserves useful provenance without leaking an entire delegation graph?
-8. Is DPoP mandatory for agent/workload profiles or merely strongly recommended?
-9. What discovery/authorization-server metadata advertises OpenIdentity bridge support?
-10. What error mapping exposes OpenIdentity verification failures without leaking sensitive authorization details?
+7. What minimal JWT act projection preserves useful provenance without leaking unnecessary delegation history?
+8. Is DPoP mandatory for agent/workload profiles or strongly recommended?
+9. What authorization-server metadata advertises OpenIdentity token-exchange support?
+10. What error mapping exposes OpenIdentity failures without leaking sensitive authorization details?
+11. What maximum lifetime may an issued OAuth token have relative to OI-014 grant/ancestor expiration and OI-015 freshness?
+12. Are refresh tokens ever permitted for delegated OpenIdentity exchanges?
 
 No bridge wire format is frozen until these questions are resolved.
