@@ -1,8 +1,8 @@
 # OpenIdentity OAuth Token Exchange Context v1 — Pre-Freeze Conformance Review
 
-**Status:** DRAFT — pre-freeze review  
+**Status:** RELEASE RECORD — OAuthTokenExchangeContextV1 FROZEN-NORMATIVE  
 **Scope:** deterministic OAuthTokenExchangeContextV1 committed by frozen OI-015 contextHash  
-**Candidate CDDL:** `spec/cddl/openidentity-oauth-token-exchange-context-v1.cddl`
+**Normative CDDL:** `spec/cddl/openidentity-oauth-token-exchange-context-v1.cddl`
 
 ## 1. Boundary
 
@@ -85,7 +85,7 @@ Each substitution changes reconstructed contextHash:
 - TXI34 DelegationEvidenceId.
 - TXI35 DPoP key/jkt.
 
-## 5. Candidate bounds
+## 5. Normative v1 bounds
 
     authorizationServer:   1..2048 bytes
     clientId:              1..512 bytes
@@ -117,15 +117,20 @@ Parser/unit suites remain responsible for malformed CBOR cases such as duplicate
 
 OAuth HTTP parsing, client authentication, complete RFC 9449 DPoP proof validation, OI-014 capability mapping, target resolution, and token issuance are broader profile/runtime responsibilities. The context vectors pin only the deterministic values after those inputs have been validly resolved.
 
-## 8. Requirements before byte freeze
+## 8. Release evidence
 
-1. run the unified context pre-freeze gate;
-2. require Python TX01-TX05 + TXI01-TXI40 PASS;
-3. require Java TX01-TX05 + TXI01-TXI40 PASS;
-4. confirm all previously frozen OpenIdentity commitments remain unchanged;
-5. review CDDL/vector terminology and exact labels;
-6. confirm clean worktree after deterministic regeneration;
-7. only then create a context byte-freeze candidate checksum.
+The OAuthTokenExchangeContextV1 release boundary is:
+
+- coverage: TX01-TX05 + TXI01-TXI40;
+- deterministic Python generation and independent Python verification: PASS;
+- independent Java reconstruction/verification: PASS;
+- all previously frozen OpenIdentity commitments/artifacts: unchanged;
+- exact generated bundle size: 15,073 bytes;
+- committed checksum: `checksums/oauth-token-exchange-context-v1.json.sha256`;
+- SHA-256: `28e2f575d2844235cb3e02ee5f96f17d6b652be40b50bd0a7464f72a04c997d3`;
+- post-commit candidate-inclusive release gate: PASS.
+
+The broader OAuth bridge issuance profile remains separately under design.
 
 ## 9. Freeze status
 
