@@ -260,10 +260,12 @@ public final class DelegationV1Vectors {
     }
 
     private static void verifyInvalids(JsonNode doc)throws Exception{
-        require("invalid vector count",doc.path("invalidVectors").size()==6);
+        require("invalid vector count",doc.path("invalidVectors").size()==12);
         String[] errors={"UNAUTHORIZED_GRANT_REGISTRATION","INVALID_DELEGATION_GENERATION","CROSS_DOMAIN_PROOF",
-                "INVALID_PREVIOUS_RECORD_HASH","CAPABILITY_ESCALATION","PARENT_GRANT_UNUSABLE"};
-        for(int i=1;i<=6;i++){
+                "INVALID_PREVIOUS_RECORD_HASH","CAPABILITY_ESCALATION","PARENT_GRANT_UNUSABLE",
+                "ROOT_GRANTOR_MISMATCH","ISSUER_PARENT_DELEGATE_MISMATCH","CHILD_TIME_WIDENING",
+                "REDELEGATION_NOT_AUTHORIZED","PROFILE_SUBSTITUTION","TERMINAL_GRANT_STATE"};
+        for(int i=1;i<=12;i++){
             String id=String.format("DGI%02d",i);
             require(id+" stable error",errors[i-1].equals(invalid(doc,id).path("error").asText()));
         }
@@ -299,6 +301,37 @@ public final class DelegationV1Vectors {
 
         JsonNode i6=invalid(doc,"DGI06");
         require("DGI06 current parent is REVOKED","REVOKED".equals(i6.path("currentParentStatus").asText()));
+
+        JsonNode i7=invalid(doc,"DGI07");
+        require("DGI07 child rootGrantor differs from parent",
+                !i7.path("childRootGrantorHex").asText().equals(i7.path("parentRootGrantorHex").asText()));
+
+        JsonNode i8=invalid(doc,"DGI08");
+        require("DGI08 child issuer differs from parent delegate",
+                !i8.path("childIssuerHex").asText().equals(i8.path("parentDelegateHex").asText()));
+
+        JsonNode i9=invalid(doc,"DGI09");
+        require("DGI09 child expiry exceeds parent",
+                i9.path("childExpiresAt").asLong()>i9.path("parentExpiresAt").asLong());
+
+        JsonNode i10=invalid(doc,"DGI10");
+        require("DGI10 parent lacks explicit redelegation authority",
+                i10.path("parentCapabilities").size()==1
+                        && "document.read".equals(i10.path("parentCapabilities").get(0).asText())
+                        && "document.read".equals(i10.path("requestedChildCapabilities").get(0).asText()));
+
+        JsonNode i11=invalid(doc,"DGI11");
+        require("DGI11 same capability name under different profile hash",
+                !i11.path("parentProfileHashHex").asText().equals(i11.path("childProfileHashHex").asText())
+                        && Arrays.equals(Hex.decode(i11.path("capabilityIdHex").asText()),
+                        "document.read".getBytes(StandardCharsets.UTF_8)));
+
+        JsonNode i12=invalid(doc,"DGI12");
+        require("DGI12 current grant state is terminal REVOKED",
+                i12.path("currentRevision").asInt()==2
+                        && "REVOKED".equals(i12.path("currentStatus").asText()));
+        require("DGI12 attempted duplicate REGISTER tries revision 1",
+                i12.path("attemptedNewRevision").asInt()==1);
     }
 
     public static void main(String[] args)throws Exception{
@@ -345,7 +378,7 @@ public final class DelegationV1Vectors {
         verifyDG06(rootJson.path("vectors").get(5));
         verifyInvalids(rootJson);
         System.out.println("\n============================================");
-        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI06 VERIFIED");
+        System.out.println("OI-014 DELEGATION v1 JAVA DG01-DG06 + DGI01-DGI12 VERIFIED");
         System.out.println("============================================");
     }
 }
