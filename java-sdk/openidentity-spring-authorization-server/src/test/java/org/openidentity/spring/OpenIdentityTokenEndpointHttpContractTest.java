@@ -29,7 +29,7 @@ final class OpenIdentityTokenEndpointHttpContractTest {
   r.setParameter("actor_token",b64(new byte[]{4,5,6}));
   r.addParameter("resource","https://api.example.test/");
   r.setParameter("audience","records-service");
-  r.setParameter("scope","records.read records.write");
+  r.setParameter("scope","records.read records.write");\n  r.setParameter("dpop_jkt","attacker-controlled");
 
   var client=new TestingAuthenticationToken("agent-client","",List.of());client.setAuthenticated(true);
   SecurityContextHolder.getContext().setAuthentication(client);
@@ -38,7 +38,7 @@ final class OpenIdentityTokenEndpointHttpContractTest {
    var a=(OpenIdentityTokenExchangeAuthenticationToken)converter.convert(r);
    assertNotNull(a);assertArrayEquals(new byte[]{1,2,3},a.subjectToken());assertArrayEquals(new byte[]{4,5,6},a.actorToken());
    assertEquals(List.of("https://api.example.test/"),a.resources());assertEquals(List.of("records-service"),a.audiences());
-   assertEquals(List.of("records.read","records.write"),a.scopes());assertEquals(jkt(),a.dpopJkt());assertSame(client,a.clientPrincipal());
+   assertEquals(List.of("records.read","records.write"),a.scopes());assertEquals(jkt(),a.dpopJkt());assertNotEquals("attacker-controlled",a.dpopJkt());assertSame(client,a.clientPrincipal());
   }finally{SecurityContextHolder.clearContext();}
  }
 
