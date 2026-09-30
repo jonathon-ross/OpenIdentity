@@ -435,7 +435,7 @@ def build_invalids():
     wronggen=agen-1
     wronggen_sign=enc(["OpenIdentity Delegation Child Grant",1,areg,acb,fake_parent_id,fake_parent_rh,ish,wronggen,authid])
     wronggen_sig=authpriv.sign(wronggen_sign)
-    add("DGI21","INVALID_DELEGATION_GENERATION","wrong-authentication-generation",
+    add("DGI21","INVALID_AUTHENTICATION_GENERATION","wrong-authentication-generation",
         currentAuthenticationGeneration=agen,submittedAuthenticationGeneration=wronggen,
         submittedSigningBytesHex=wronggen_sign.hex(),submittedSignatureHex=wronggen_sig.hex())
 
