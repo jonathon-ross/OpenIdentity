@@ -20,6 +20,42 @@ def key(label,method_id):
     method={1:1,3:-8,4:-1,6:pub}
     return priv,method_id,method
 def policy(method_id,method): return {1:1,2:[{1:method_id,2:method}]}
+def threshold_policy(entries,threshold):
+    entries=sorted(entries,key=lambda x:x[0])
+    return {1:2,2:threshold,3:[{1:mid,2:m} for mid,m in entries]}
+
+def build_dg02():
+    registry=b"openidentity:test:oi014:dg02"
+    root=bytes(range(64,96)); delegate=bytes(range(96,128))
+    mid_a=bytes(range(16)); mid_b=bytes(range(16,32))
+    a,_,ma=key("OpenIdentity OI-014 DG02 delegation A Ed25519 seed",mid_a)
+    b,_,mb=key("OpenIdentity OI-014 DG02 delegation B Ed25519 seed",mid_b)
+    # Deliberately supply B,A; canonical policy must serialize A,B.
+    dp=threshold_policy([(mid_b,mb),(mid_a,ma)],2)
+    descriptor={1:1,2:"openidentity.test.exact-capability",3:1,4:[b"document.write"],5:1800,6:2}
+    profile_bytes=enc(descriptor); profile_hash=mh(profile_bytes)
+    cap={1:{1:{1:1,2:profile_hash},2:b"document.write"}}
+    grant={1:1,2:root,3:{1:1,2:root},4:{1:1,2:delegate},5:[cap],
+           7:2000002800,9:seed("OpenIdentity OI-014 DG02 nonce")}
+    gb=enc(grant); gid=mh(gb)
+    state={1:3,2:root,3:11,4:1,5:dp,8:{1:0},9:{1:9,2:dp}}
+    sb=enc(state); sh=mh(sb)
+    signing_a=enc(["OpenIdentity Delegation Grant",1,registry,gb,sh,9,mid_a])
+    signing_b=enc(["OpenIdentity Delegation Grant",1,registry,gb,sh,9,mid_b])
+    sig_a=a.sign(signing_a); sig_b=b.sign(signing_b)
+    # Deliberately conceptual B,A production; canonical proof array is A,B by methodId.
+    proofs=[{1:mid_a,2:sig_a},{1:mid_b,2:sig_b}]
+    request={1:registry,2:grant,3:sh,4:9,5:proofs}
+    record={1:registry,2:gid,3:1,4:None,5:1,6:sh,7:9,8:2000001000}
+    rb=enc(record)
+    return {"id":"DG02","description":"Direct grant registration with canonical 2-of-2 Ed25519 DelegationPolicy proof ordering","expected":"PASS",
+      "profileDescriptorBytesHex":profile_bytes.hex(),"profileHashHex":profile_hash.hex(),
+      "currentStateBytesHex":sb.hex(),"currentStateHashHex":sh.hex(),
+      "grantBytesHex":gb.hex(),"grantIdHex":gid.hex(),
+      "registrationSigningBytesAHex":signing_a.hex(),"registrationSignatureAHex":sig_a.hex(),
+      "registrationSigningBytesBHex":signing_b.hex(),"registrationSignatureBHex":sig_b.hex(),
+      "registrationRequestBytesHex":enc(request).hex(),"registeredAt":2000001000,
+      "recordBytesHex":rb.hex(),"recordHashHex":mh(rb).hex()}
 
 def main():
     registry=b"openidentity:test:oi014:dg01"
@@ -63,9 +99,10 @@ def main():
       "grantBytesHex":grant_bytes.hex(),"grantIdHex":grant_id.hex(),
       "registrationSigningBytesHex":signing.hex(),"registrationSignatureHex":sig.hex(),
       "registrationRequestBytesHex":enc(request).hex(),"registeredAt":registered_at,
-      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()}]}
+      "recordBytesHex":record_bytes.hex(),"recordHashHex":record_hash.hex()},build_dg02()]}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(vector,indent=2)+"\n",encoding="utf-8")
     print("Wrote",OUT.relative_to(ROOT))
     print("DG01 VERIFIED")
+    print("DG02 VERIFIED")
 if __name__=="__main__": main()
