@@ -89,11 +89,15 @@ def main():
     req("AA03 secured assertion bytes",v3["securedAssertionBytesHex"]==enc({1:assertion3,2:[{1:mid3,2:sig3}]}).hex())
 
     invalid={x["id"]:x for x in d["invalidVectors"]}
-    req("invalid vector IDs AAI01-AAI08",set(invalid)=={f"AAI{i:02d}" for i in range(1,9)})
+    req("invalid vector IDs AAI01-AAI17",set(invalid)=={f"AAI{i:02d}" for i in range(1,18)})
     expected={"AAI01":"INVALID_STATE_HASH","AAI02":"INVALID_AUTHENTICATION_GENERATION","AAI03":"IDENTITY_NOT_ACTIVE",
               "AAI04":"AUTHENTICATION_POLICY_ABSENT","AAI05":"AUDIENCE_MISMATCH","AAI06":"PURPOSE_MISMATCH",
-              "AAI07":"NONCE_MISMATCH","AAI08":"CONTEXT_HASH_MISMATCH"}
-    req("AAI01-AAI08 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+              "AAI07":"NONCE_MISMATCH","AAI08":"CONTEXT_HASH_MISMATCH","AAI09":"INVALID_TIME_RANGE",
+              "AAI10":"ASSERTION_LIFETIME_EXCEEDED","AAI11":"ASSERTION_EXPIRED","AAI12":"ASSERTION_NOT_YET_VALID",
+              "AAI13":"UNAUTHORIZED_AUTHENTICATION_PROOF","AAI14":"DUPLICATE_AUTHENTICATION_PROOF",
+              "AAI15":"UNAUTHORIZED_AUTHENTICATION_PROOF","AAI16":"INVALID_AUTHENTICATION_SIGNATURE",
+              "AAI17":"AUTHENTICATION_POLICY_NOT_SATISFIED"}
+    req("AAI01-AAI17 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
     i1=invalid["AAI01"];ik=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 invalid authentication seed"))
     ik.public_key().verify(bytes.fromhex(i1["signatureHex"]),bytes.fromhex(i1["signingBytesHex"]))
     req("AAI01 historical signature cryptographically verifies",True)
@@ -106,8 +110,23 @@ def main():
     req("AAI07 nonce mismatch",invalid["AAI07"]["expectedNonceHex"]!=invalid["AAI07"]["assertedNonceHex"])
     req("AAI08 contextHash mismatch",invalid["AAI08"]["expectedContextHashHex"]!=invalid["AAI08"]["assertedContextHashHex"])
 
+    i9=invalid["AAI09"];req("AAI09 invalid zero time range",i9["expiresAt"]<=i9["issuedAt"])
+    i10=invalid["AAI10"];req("AAI10 lifetime exceeds 300",i10["expiresAt"]-i10["issuedAt"]>i10["maximumLifetime"])
+    i11=invalid["AAI11"];req("AAI11 expiresAt boundary is expired",i11["verificationTime"]>=i11["expiresAt"])
+    i12=invalid["AAI12"];req("AAI12 before issuedAt",i12["verificationTime"]<i12["issuedAt"])
+    i13=invalid["AAI13"];req("AAI13 controller method not in AuthenticationPolicy",i13["submittedMethodIdHex"] not in i13["authenticationMethodIdsHex"])
+    i14=invalid["AAI14"];req("AAI14 duplicate proof method",len(set(i14["submittedMethodIdsHex"]))!=len(i14["submittedMethodIdsHex"]))
+    i15=invalid["AAI15"];req("AAI15 unauthorized extra exists despite threshold",len(i15["submittedMethodIdsHex"])>i15["authorizedThreshold"])
+    i16=invalid["AAI16"];pk=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 proof attack A seed")).public_key()
+    pk.verify(bytes.fromhex(i16["validSignatureHex"]),bytes.fromhex(i16["signingBytesHex"]));req("AAI16 valid baseline signature verifies",True)
+    try:
+        pk.verify(bytes.fromhex(i16["invalidSignatureHex"]),bytes.fromhex(i16["signingBytesHex"]));bad16=False
+    except Exception: bad16=True
+    req("AAI16 corrupted signature rejected",bad16)
+    i17=invalid["AAI17"];req("AAI17 threshold not satisfied",len(i17["submittedMethodIdsHex"])<i17["threshold"])
+
     print("\n============================================")
-    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 + AAI01-AAI08 VERIFIED")
+    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 + AAI01-AAI17 VERIFIED")
     print("============================================")
 
 if __name__=="__main__":main()
