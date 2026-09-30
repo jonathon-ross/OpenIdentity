@@ -682,6 +682,136 @@ Grant revision:
 
 A grantor may therefore have many independently evolving grant records without serializing all grant activity through the root identity state machine.
 
+## 8B. Privacy-preserving registration and disclosure
+
+OI-014 separates **grant authority content** from **authoritative registration evidence**.
+
+A registry does not need to publish GrantBytes in order to establish that a particular GrantId was authoritatively registered.
+
+### Full/private grant
+
+GrantBytes contain the authority-bearing grant semantics, including:
+
+- grantor;
+- delegate;
+- capabilities and resource constraints;
+- time bounds;
+- parentGrantId when applicable;
+- nonce.
+
+GrantId commits to those exact bytes.
+
+GrantBytes MAY be held privately by the grantor, delegate, relying party, enterprise registry, encrypted object store, wallet, agent runtime, or another authorized distribution mechanism.
+
+A public registry MUST NOT require publication of GrantBytes merely to satisfy core OI-014 registration semantics.
+
+### Minimal authoritative registration state
+
+The core registration state SHOULD minimize public disclosure.
+
+The privacy-preserving logical anchor is:
+
+    RegisteredGrantState {
+        grantId
+        revision
+        previousRecordHash
+        status
+        grantorStateHash
+        delegationGeneration
+        registeredAt
+    }
+
+GrantBytes are not required to be embedded in the public RegisteredGrantState.
+
+The grantor Identity ID, delegate identity, capabilities, resources, expiry, and parent relationship are already committed by GrantId through GrantBytes and therefore need not be duplicated in a public anchor merely for integrity.
+
+A deployment MAY store additional indexed metadata privately or publicly, but such metadata is outside the canonical minimal registration state unless a future profile explicitly makes it canonical.
+
+### Registration validation still sees the full grant
+
+Privacy-preserving storage does not weaken registration validation.
+
+Before establishing revision 1, the registration processor MUST possess the exact GrantBytes and perform the complete OI-014 registration checks, including:
+
+- recompute GrantId;
+- validate grantor identity against the current authoritative IdentityState;
+- validate current ACTIVE status;
+- validate current DelegationPolicy;
+- validate delegation-generation binding;
+- validate time/profile/capability/resource constraints;
+- validate parent grant and attenuation when applicable;
+- verify the grant authorization proof.
+
+Only after successful validation may the registry publish/store the minimal authoritative anchor.
+
+### Grant use / selective disclosure
+
+A relying party evaluating a grant MUST obtain sufficient grant material to reconstruct the exact canonical GrantBytes.
+
+The verifier SHALL:
+
+1. deterministically encode/reconstruct GrantBytes;
+2. recompute GrantId;
+3. require exact GrantId equality with the authoritative registration record;
+4. validate RecordHash/revision/status as applicable;
+5. validate the current grantor/delegation-generation usability conditions;
+6. evaluate the disclosed grant semantics and delegate authentication.
+
+A party that possesses only a GrantId and registration anchor cannot infer or exercise undisclosed capabilities from core OI-014.
+
+Core v1 does not define partial-field zero-knowledge disclosure. If a verifier cannot reconstruct the complete GrantBytes committed by GrantId, it cannot independently prove that the disclosed subset is the registered grant.
+
+A future privacy profile MAY define commitment trees, selective-disclosure proofs, or zero-knowledge representations, but it MUST preserve an unambiguous binding to the authoritative registered grant and MUST NOT silently reinterpret the OI-014 v1 GrantId.
+
+### Public versus private registries
+
+OI-014 supports both.
+
+A **public anchor registry** may expose only canonical registration/status records and RecordHashes.
+
+A **private full registry** may additionally retain GrantBytes and searchable grant metadata.
+
+A hybrid deployment may anchor RecordHash or RegisteredGrantState in a public blockchain/transparency log while retaining GrantBytes privately.
+
+Storage location does not change grant semantics.
+
+### Correlation minimization
+
+Core OI-014 intentionally does not require the minimal public registration anchor to duplicate:
+
+- grantor Identity ID;
+- delegate principal;
+- capability identifiers;
+- resource constraints;
+- expiresAt/notBefore;
+- parentGrantId.
+
+Those values remain cryptographically committed by GrantId.
+
+`grantorStateHash` is retained because registration authorization is bound to one exact authoritative grantor state. Deployments should recognize that StateHash itself may still permit correlation when an observer has access to identity-state history.
+
+A stronger privacy profile MAY replace direct public exposure of some registration context with a verifiable commitment/proof mechanism, but that is outside core OI-014 v1 and must not weaken current-state/generation validation.
+
+### Resolution and availability
+
+GrantId commitment proves integrity, not availability.
+
+A registry that stores only minimal anchors is not required by core OI-014 to make GrantBytes publicly retrievable.
+
+Grant distribution and authorized retrieval are separate concerns.
+
+Profiles SHOULD define how relying parties obtain GrantBytes or an approved privacy-preserving proof when the registry does not store full grants.
+
+Failure to retrieve required grant material means the verifier cannot authorize use; it MUST fail closed rather than infer grant contents from metadata.
+
+### Revocation privacy
+
+Revocation changes the RegisteredGrantState for GrantId and therefore can be publicly visible without revealing GrantBytes.
+
+A public observer may learn that an opaque GrantId changed from ACTIVE to REVOKED. Core OI-014 accepts this limited leakage.
+
+A privacy profile requiring hidden status relationships needs an additional cryptographic construction and is outside the initial core.
+
 ## 9. Grant usability
 
 A registered grant is usable only if all of the following hold:
@@ -1051,7 +1181,7 @@ The following require deliberate decisions before assigning final CDDL labels:
 8. **RESOLVED:** current grantor ControllerPolicy or current DelegationPolicy may revoke; the delegate may relinquish its own grant under a profile-defined proof; historical grant-signing authority has no continuing revocation privilege;
 9. **RESOLVED:** registration records use a per-GrantId uint64 revision and exact previous RecordHash chain; REVOKED is terminal;
 10. **RESOLVED:** OI-014 v1 GrantId and RecordHash are exactly SHA2-256 Multihash (0x12 0x20 + 32-byte digest); alternate algorithms are invalid until a future protocol revision;
-11. privacy implications of public registration and whether commitments/private registries are allowed;
-12. resolution/discovery API semantics for registered grants.
+11. **RESOLVED:** core separates private/full GrantBytes from a minimal authoritative registration anchor; public registries need not expose grantor/delegate/capability/resource/time/parent fields; GrantId commits to full semantics;
+12. resolution/discovery API semantics for registered grants — grant availability remains profile/deployment-owned; core requires fail-closed verification when full committed grant material cannot be obtained.
 
 No CDDL should be frozen until these questions are resolved.
