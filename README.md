@@ -387,3 +387,8 @@ OI-016 Delegated Subject Token v1 is FROZEN-NORMATIVE. It binds one exact frozen
 ### OAuth Token Exchange Context v1
 
 `OAuthTokenExchangeContextV1` is FROZEN-NORMATIVE. It deterministically binds the OAuth token-exchange request, OI-016 DelegationEvidenceId, and mandatory delegated-agent DPoP key into frozen OI-015 `contextHash`. The broader OAuth bridge issuance profile remains under design. See `spec/cddl/openidentity-oauth-token-exchange-context-v1.cddl`.
+
+
+### OAuth 2.0 Delegated Agent Profile v1
+
+The OpenIdentity OAuth 2.0 Delegated Agent Profile v1 is FROZEN-NORMATIVE. It composes frozen OI-014/OI-015/OI-016 and OAuthTokenExchangeContextV1 with RFC 8693 token exchange, mandatory DPoP sender constraint, capability-to-scope/target attenuation, short-lived access-token projection, and no delegated refresh tokens. See `spec/oauth-delegated-agent-profile-v1.md`.
