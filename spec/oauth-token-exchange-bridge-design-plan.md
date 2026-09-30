@@ -35,20 +35,23 @@ OI-015 MUST NOT be interpreted as delegated authorization.
 
 OI-014 MUST NOT be interpreted as proof that the current presenter controls the delegate identity; OI-015 provides that proof.
 
-## 3. RFC 8693 token types
+## 3. RFC 8693 token types — DECISION
 
-The bridge needs explicit token-type identifiers so an authorization server can dispatch validation correctly.
+RFC 8693 token type identifiers are URIs and permits token types beyond those registered by RFC 8693.
 
-Candidate identifiers:
+OpenIdentity v1 uses OpenIdentity-controlled HTTPS identifiers rather than unregistered values in the IETF URN namespace:
 
-    urn:ietf:params:oauth:token-type:openidentity-authentication-assertion
-    urn:ietf:params:oauth:token-type:openidentity-delegation-evidence
+    subject_token_type =
+      https://openidentity.org/oauth/token-type/delegated-subject-v1
 
-These are design identifiers only until registration/namespace strategy is resolved.
+    actor_token_type =
+      https://openidentity.org/oauth/token-type/authentication-assertion-v1
 
-The first identifies exact canonical SecuredAuthenticationAssertion bytes.
+The identifiers describe the exact frozen OpenIdentity token semantics, not merely a serialization format.
 
-The second identifies a bridge-defined canonical delegation-evidence envelope containing OI-014 material. It does not create new delegation semantics.
+Binary OpenIdentity token bytes are transported in RFC 8693 form parameters using base64url without padding.
+
+A future IETF/IANA-assigned identifier is an explicit profile revision/migration; implementations MUST NOT silently treat it as an alias unless that profile defines the equivalence.
 
 ## 4. Subject token architecture — DECISION
 
