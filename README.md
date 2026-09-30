@@ -372,3 +372,8 @@ OpenIdentity Protocol v0.1.1 is the current released protocol version. Protocol 
 4. the release/tag points to the inspected commit.
 
 Product development proceeds independently from the frozen protocol release. Implementations SHOULD declare the exact released protocol version they target; new implementations should target v0.1.1 unless intentionally testing historical compatibility.
+
+
+### OI-015 Authentication Assertion
+
+OI-015 Authentication Assertion v1 is FROZEN-NORMATIVE. See `spec/oi-015-authentication-assertion-design-plan.md` and `spec/cddl/openidentity-authentication-assertion-v1.cddl`.
