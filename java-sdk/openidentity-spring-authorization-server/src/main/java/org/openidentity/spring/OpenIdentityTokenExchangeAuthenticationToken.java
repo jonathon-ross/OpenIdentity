@@ -7,7 +7,8 @@ import java.util.*;
 public final class OpenIdentityTokenExchangeAuthenticationToken extends AbstractAuthenticationToken {
  private final Authentication clientPrincipal;
  private final byte[] subjectToken,actorToken,actorNonce;
- private final String requestedTokenType;\n private final ValidatedDpopProofResult dpop;
+ private final String requestedTokenType;
+ private final ValidatedDpopProofResult dpop;
  private final List<String> resources,audiences,scopes;
 
  public OpenIdentityTokenExchangeAuthenticationToken(Authentication clientPrincipal,byte[] subjectToken,byte[] actorToken,byte[] actorNonce,
