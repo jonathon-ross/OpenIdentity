@@ -145,7 +145,7 @@ Authentication evidence MUST NOT expand grant authority. It proves who is acting
 
 The relinquishment proof defined by OI-014 MUST authenticate the exact current DelegatePrincipal under its applicable proof profile.
 
-For OPENIDENTITY delegates, a later wire/profile decision will specify which OpenIdentity authority purpose authenticates relinquishment. OI-014 MUST NOT silently assume ControllerPolicy merely because it is root authority.
+For OPENIDENTITY delegates, the current AuthenticationAuthority authenticates relinquishment under the dedicated OI-014 relinquishment domain and current-state/generation binding defined in Section 3B.
 
 For PROFILE_PRINCIPAL delegates, the principal profile defines the relinquishment proof binding.
 
@@ -160,6 +160,97 @@ A principalProfile MUST identify immutable semantics sufficiently to prevent a l
 - relinquishment authorization.
 
 An incompatible change requires a new profile identity/version.
+
+## 3B. OPENIDENTITY delegate authentication purpose
+
+For a DelegatePrincipal of type OPENIDENTITY, OI-014 uses the delegate identity's **current AuthenticationAuthority** to authenticate actions performed in the delegate role.
+
+This applies to:
+
+- issuing a child grant as the authenticated parent delegate;
+- relinquishing a grant held by that delegate;
+- grant-use profiles that require core OpenIdentity identity authentication unless the capability profile deliberately defines an additional proof.
+
+ControllerPolicy is not the ordinary delegate-authentication authority. DelegationPolicy is not the delegate-authentication authority merely because the action concerns delegation.
+
+The separation is:
+
+    WHO is acting?
+        current AuthenticationAuthority
+
+    WHAT may that principal redelegate/use?
+        authoritative DelegationGrant + capability/profile constraints
+
+### Current-state binding
+
+An OPENIDENTITY delegate proof MUST bind to the exact current authoritative delegate IdentityState context.
+
+For child issuance, the core signing input is refined to include:
+
+    delegateStateHash
+    authenticationGeneration
+    verificationMethodId
+
+Proposed signing structure:
+
+    [
+      "OpenIdentity Delegation Child Grant",
+      1,
+      registryDomain,
+      childGrantBytes,
+      parentGrantId,
+      currentParentRecordHash,
+      delegateStateHash,
+      authenticationGeneration,
+      verificationMethodId
+    ]
+
+The verification method MUST satisfy the delegate's current AuthenticationPolicy.
+
+`delegateStateHash` MUST equal the exact current authoritative StateHash of the OPENIDENTITY delegate.
+
+`authenticationGeneration` MUST equal that state's AuthenticationAuthority.generation.
+
+A proof over a historical delegate state is stale even if the same authentication key remains present later.
+
+### AuthenticationPolicy absence and status
+
+An OPENIDENTITY delegate cannot authenticate a new child-issuance or relinquishment action when:
+
+- its current IdentityState is DEACTIVATED;
+- its current AuthenticationPolicy is absent;
+- the proof does not satisfy the current AuthenticationPolicy;
+- the submitted authentication generation is not current.
+
+Being named as a grant delegate does not itself create an AuthenticationPolicy or bypass these conditions.
+
+### Authentication generation
+
+A generation-preserving AuthenticationPolicy rotation may allow existing downstream authentication trust according to the applicable profile, but every **new OI-014 delegate proof** MUST satisfy the current AuthenticationPolicy and bind the current delegate StateHash/generation.
+
+If AuthenticationAuthority generation changes, previously prepared OI-014 delegate proofs are stale.
+
+This authentication generation is distinct from the rootGrantor's delegation generation. The former proves freshness of the acting delegate's identity authentication; the latter controls continued usability of the delegation chain.
+
+### OPENIDENTITY relinquishment
+
+Relinquishment by an OPENIDENTITY delegate uses the same current AuthenticationAuthority but a distinct signing domain:
+
+    [
+      "OpenIdentity Delegation Grant Relinquishment",
+      1,
+      registryDomain,
+      grantId,
+      currentRecordHash,
+      nextRevision,
+      delegateStateHash,
+      authenticationGeneration,
+      verificationMethodId
+    ]
+
+A child-issuance AuthenticationPolicy signature MUST NOT be accepted as a relinquishment signature, or vice versa.
+
+For PROFILE_PRINCIPAL delegates, the cryptographically pinned principal profile continues to define equivalent current-control/freshness semantics and MUST bind the applicable OI-014 core signing input.
 
 ## 4. Canonical DelegationGrant
 
