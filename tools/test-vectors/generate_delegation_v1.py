@@ -343,6 +343,58 @@ def build_invalids():
         currentRevision=2,currentStatus="REVOKED",attemptedRegistrationGrantBytesHex=pgb.hex(),
         attemptedNewRevision=1)
 
+    # DGI13: grant already expired at authoritative registration time.
+    expired={1:1,2:proot,3:{1:1,2:proot},4:{1:1,2:pdel},5:[read],
+             7:2000300000,9:seed("DGI13 nonce")}
+    add("DGI13","GRANT_EXPIRED_AT_REGISTRATION","expired-at-registration",
+        grantBytesHex=enc(expired).hex(),expiresAt=2000300000,registeredAt=2000300000)
+
+    # DGI14: invalid canonical interval, notBefore == expiresAt.
+    bad_time={1:1,2:proot,3:{1:1,2:proot},4:{1:1,2:pdel},5:[read],
+              6:2000310000,7:2000310000,9:seed("DGI14 nonce")}
+    add("DGI14","INVALID_TIME_RANGE","not-before-not-less-than-expiry",
+        grantBytesHex=enc(bad_time).hex(),notBefore=2000310000,expiresAt=2000310000)
+
+    # DGI15: revocation signature is valid for historical root StateHash, but current
+    # root state has advanced while the grant record itself is unchanged.
+    revroot=bytes(range(2,34)); rcid=bytes(range(2,18))
+    rcpriv,_,rcm=key("OpenIdentity OI-014 DGI15 controller seed",rcid); rcp=policy(rcid,rcm)
+    hist_state={1:3,2:revroot,3:10,4:1,5:rcp,8:{1:0},9:{1:6}}
+    hist_b=enc(hist_state); hist_h=mh(hist_b)
+    cur_state={1:3,2:revroot,3:11,4:1,5:rcp,8:{1:0},9:{1:6}}
+    cur_b=enc(cur_state); cur_h=mh(cur_b)
+    rgid=mh(b"DGI15 grant intent")
+    rr1={1:preg,2:rgid,3:1,4:None,5:1,6:hist_h,7:6,8:2000320000}
+    rr1b=enc(rr1); rr1h=mh(rr1b)
+    stale_rev=enc(["OpenIdentity Delegation Grant Revocation",1,preg,rgid,rr1h,2,hist_h,rcid])
+    stale_sig=rcpriv.sign(stale_rev)
+    add("DGI15","INVALID_ROOT_STATE_HASH","stale-root-state-revocation",
+        currentRecordBytesHex=rr1b.hex(),currentRecordHashHex=rr1h.hex(),
+        historicalRootStateHashHex=hist_h.hex(),currentRootStateBytesHex=cur_b.hex(),currentRootStateHashHex=cur_h.hex(),
+        submittedSigningBytesHex=stale_rev.hex(),submittedSignatureHex=stale_sig.hex(),controllerMethodIdHex=rcid.hex())
+
+    # DGI16: valid grantor-revocation signature cannot serve as delegate relinquishment.
+    delegate_principal={1:1,2:pdel}
+    rev_domain=enc(["OpenIdentity Delegation Grant Revocation",1,preg,rgid,rr1h,2,cur_h,rcid])
+    rev_domain_sig=rcpriv.sign(rev_domain)
+    relinquish_domain=enc(["OpenIdentity Delegation Grant Relinquishment",1,preg,rgid,rr1h,2,delegate_principal])
+    add("DGI16","CROSS_DOMAIN_PROOF","revocation-proof-as-relinquishment",
+        revocationSigningBytesHex=rev_domain.hex(),relinquishmentSigningBytesHex=relinquish_domain.hex(),
+        submittedSignatureHex=rev_domain_sig.hex())
+
+    # DGI17: exact-next revision violated (1 -> 3).
+    skipped={1:preg,2:rgid,3:3,4:rr1h,5:2,6:cur_h,7:6,8:2000320000}
+    add("DGI17","INVALID_GRANT_REVISION","skipped-grant-revision",
+        currentRecordBytesHex=rr1b.hex(),currentRevision=1,attemptedRevision=3,
+        attemptedRecordBytesHex=enc(skipped).hex())
+
+    # DGI18: registryDomain is immutable within a record history.
+    other_registry=b"openidentity:test:oi014:other-registry"
+    moved={1:other_registry,2:rgid,3:2,4:rr1h,5:2,6:cur_h,7:6,8:2000320000}
+    add("DGI18","REGISTRY_DOMAIN_MISMATCH","record-chain-registry-domain-mutation",
+        currentRegistryDomainHex=preg.hex(),attemptedRegistryDomainHex=other_registry.hex(),
+        currentRecordBytesHex=rr1b.hex(),attemptedRecordBytesHex=enc(moved).hex())
+
     return out
 
 
