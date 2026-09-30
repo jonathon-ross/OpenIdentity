@@ -89,15 +89,17 @@ def main():
     req("AA03 secured assertion bytes",v3["securedAssertionBytesHex"]==enc({1:assertion3,2:[{1:mid3,2:sig3}]}).hex())
 
     invalid={x["id"]:x for x in d["invalidVectors"]}
-    req("invalid vector IDs AAI01-AAI17",set(invalid)=={f"AAI{i:02d}" for i in range(1,18)})
+    req("invalid vector IDs AAI01-AAI23",set(invalid)=={f"AAI{i:02d}" for i in range(1,24)})
     expected={"AAI01":"INVALID_STATE_HASH","AAI02":"INVALID_AUTHENTICATION_GENERATION","AAI03":"IDENTITY_NOT_ACTIVE",
               "AAI04":"AUTHENTICATION_POLICY_ABSENT","AAI05":"AUDIENCE_MISMATCH","AAI06":"PURPOSE_MISMATCH",
               "AAI07":"NONCE_MISMATCH","AAI08":"CONTEXT_HASH_MISMATCH","AAI09":"INVALID_TIME_RANGE",
               "AAI10":"ASSERTION_LIFETIME_EXCEEDED","AAI11":"ASSERTION_EXPIRED","AAI12":"ASSERTION_NOT_YET_VALID",
               "AAI13":"UNAUTHORIZED_AUTHENTICATION_PROOF","AAI14":"DUPLICATE_AUTHENTICATION_PROOF",
               "AAI15":"UNAUTHORIZED_AUTHENTICATION_PROOF","AAI16":"INVALID_AUTHENTICATION_SIGNATURE",
-              "AAI17":"AUTHENTICATION_POLICY_NOT_SATISFIED"}
-    req("AAI01-AAI17 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
+              "AAI17":"AUTHENTICATION_POLICY_NOT_SATISFIED","AAI18":"PURPOSE_MISMATCH","AAI19":"AUDIENCE_MISMATCH",
+              "AAI20":"INVALID_AUTHENTICATION_GENERATION","AAI21":"INVALID_AUTHENTICATION_ASSERTION",
+              "AAI22":"INVALID_AUTHENTICATION_ASSERTION","AAI23":"INVALID_AUTHENTICATION_ASSERTION"}
+    req("AAI01-AAI23 stable errors",all(invalid[k]["expectedError"]==e for k,e in expected.items()))
     i1=invalid["AAI01"];ik=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 invalid authentication seed"))
     ik.public_key().verify(bytes.fromhex(i1["signatureHex"]),bytes.fromhex(i1["signingBytesHex"]))
     req("AAI01 historical signature cryptographically verifies",True)
@@ -125,8 +127,20 @@ def main():
     req("AAI16 corrupted signature rejected",bad16)
     i17=invalid["AAI17"];req("AAI17 threshold not satisfied",len(i17["submittedMethodIdsHex"])<i17["threshold"])
 
+    rk=Ed25519PrivateKey.from_private_bytes(sk("OpenIdentity OI-015 replay authentication seed")).public_key()
+    for n in ("AAI18","AAI19","AAI20"):
+        x=invalid[n];rk.verify(bytes.fromhex(x["signatureHex"]),bytes.fromhex(x["signingBytesHex"]))
+    req("AAI18 replay signature cryptographically valid",True)
+    req("AAI18 purpose replay rejected",invalid["AAI18"]["signedPurpose"]!=invalid["AAI18"]["requestedPurpose"])
+    req("AAI19 audience replay rejected",invalid["AAI19"]["signedAudienceHex"]!=invalid["AAI19"]["requestedAudienceHex"])
+    req("AAI20 reset generation invalidates assertion",invalid["AAI20"]["assertedGeneration"]!=invalid["AAI20"]["currentGeneration"])
+    req("AAI20 post-reset StateHash differs",invalid["AAI20"]["preResetStateHashHex"]!=invalid["AAI20"]["postResetStateHashHex"])
+    req("AAI21 purpose violates lowercase ASCII grammar",invalid["AAI21"]["purpose"]!="openidentity.authentication")
+    req("AAI22 nonce below minimum",invalid["AAI22"]["nonceLength"]<invalid["AAI22"]["minimumNonceLength"])
+    req("AAI23 unsupported contextHash multihash",invalid["AAI23"]["submittedMultihashCode"]!=invalid["AAI23"]["expectedMultihashCode"])
+
     print("\n============================================")
-    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 + AAI01-AAI17 VERIFIED")
+    print("OI-015 AUTHENTICATION ASSERTION v1 AA01-AA03 + AAI01-AAI23 VERIFIED")
     print("============================================")
 
 if __name__=="__main__":main()
