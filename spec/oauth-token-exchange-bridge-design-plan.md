@@ -341,23 +341,24 @@ The OpenIdentity Delegated Subject Token uses a **hybrid exact-evidence envelope
 
 It MUST carry enough exact canonical OI-014 material for the authorization server to independently reconstruct the delegation chain's immutable cryptographic commitments, while authoritative current-status data remains externally resolved.
 
-### 18.1 Embedded immutable evidence
+### 18.1 Embedded immutable evidence — REFINED
 
-The subject token should carry, for every grant in the selected root-to-terminal chain:
+The frozen OI-014 use-time algorithm determines the minimum authoritative evidence.
+
+For every grant in the selected root-to-terminal chain, the delegated subject evidence MUST embed:
 
 - exact canonical GrantBytes;
-- GrantId;
-- exact authoritative registration RecordBytes or the exact frozen OI-014 record material required by the profile;
-- RecordHash;
-- parentGrantId / parentRecordHash linkage when present;
-- registryDomain binding;
-- profile references/hashes required to interpret capability/resource attenuation.
+- GrantId.
 
-The exact final envelope shape is not yet frozen.
+The verifier MUST recompute GrantId from GrantBytes and require exact equality.
 
-The verifier MUST recompute every derived GrantId/RecordHash from the embedded bytes and reject any mismatch.
+GrantBytes already commit to the immutable grant semantics required for ancestry and attenuation, including rootGrantor, issuer, delegate, capabilities/resources, time bounds, nonce, and parentGrantId where present.
 
-The terminal delegate and rootGrantor are derived from the verified chain. If serialized redundantly in the delegated subject token for dispatch/indexing, they MUST exactly equal the values derived from the chain.
+The subject token MUST NOT require embedding direct-registration requests, child-registration requests, registration signatures, DelegationPolicy proofs, delegate proofs used during registration, revocation proofs, or relinquishment proofs merely to establish use-time authority. Those proofs authorize registry transitions; they are not part of the frozen OI-014 relying-party use-time evidence once authoritative registration state has been established.
+
+Likewise, a historical RegisteredGrantState RecordBytes/RecordHash snapshot is NOT required as authoritative embedded evidence.
+
+A profile MAY carry a record snapshot or RecordHash as a non-authoritative retrieval/cache hint, but the verifier MUST NOT treat that snapshot as current status.
 
 ### 18.2 Externally resolved current facts
 
@@ -376,13 +377,28 @@ Before issuing OAuth authority, the authorization server MUST resolve and verify
 
 A token containing a historically valid chain that is now revoked, relinquished, invalidated by generation change, or otherwise unusable MUST be rejected.
 
-### 18.3 Why not references only
+### 18.3 Why not GrantId references only
 
-A reference-only token would require the authorization server to retrieve all immutable grant/record bytes before it could even reconstruct the chain. That increases registry availability coupling and makes the security token itself a weak description of the subject/delegation relationship.
+A GrantId-only token would require retrieval of the private/full GrantBytes before the authorization server could reconstruct grant semantics, parent links, capability/resource attenuation, or subject/actor identities.
 
-Exact embedded evidence allows deterministic cryptographic reconstruction even when caches or replicas are used, while current-state lookups remain narrowly focused on mutable authorization facts.
+Frozen OI-014 explicitly states that GrantId provides integrity, not availability, and that a verifier evaluating a grant must obtain enough material to reconstruct exact GrantBytes.
 
-### 18.4 Why not snapshot-only
+Embedding exact GrantBytes therefore removes that availability dependency for immutable authority content while preserving authoritative registry lookups for mutable status.
+
+### 18.4 Why not embed registration proofs
+
+Registration authorization proves that a registry transition was valid when established. The authoritative RegisteredGrantState is the resulting state commitment.
+
+Re-verifying historical registration request signatures at every OAuth exchange would:
+
+- substantially increase token size;
+- duplicate work already represented by authoritative registration state;
+- require retaining proof material that frozen OI-014 does not require relying parties to possess at use time;
+- risk confusing historical registration authorization with current grant usability.
+
+The OAuth bridge follows OI-014's frozen relying-party algorithm instead.
+
+### 18.5 Why not snapshot-only
 
 A self-contained historical snapshot cannot safely establish current delegated authority.
 
@@ -395,7 +411,7 @@ Therefore:
 
 Both are required.
 
-### 18.5 Chain selection
+### 18.6 Chain selection
 
 The token carries one explicit root-to-terminal authorization path for the requested exchange.
 
@@ -405,33 +421,48 @@ This minimizes disclosure and makes attenuation verification deterministic.
 
 If multiple valid paths could authorize the same actor/capability, the client/bridge selects one path and the authorization server verifies that exact path. Path selection MUST NOT combine capabilities/resources from independent paths unless a future profile explicitly defines such composition.
 
-## 19. Candidate logical object
+## 19. Candidate logical object — REFINED
 
 Conceptually:
 
-    OpenIdentityDelegatedSubjectToken {
+    DelegationEvidence {
         version
         registryDomain
-        chainEvidence[]
-        exchangeBinding
+        grants[]
     }
 
-    ChainEvidence {
+    GrantEvidence {
         grantBytes
         grantId
-        recordBytes
-        recordHash
     }
 
-rootGrantor and terminalDelegate are derivable from chainEvidence and SHOULD initially remain derived rather than duplicated.
+    OpenIdentityDelegatedSubjectToken {
+        version
+        delegationEvidence
+        actorAssertionId
+    }
 
-The subject token's identity semantics are:
+For every GrantEvidence:
 
-    OAuth subject = verified rootGrantor
+    recompute GrantId(grantBytes)
+        == grantId
 
-The actor relationship is established only when:
+For each child:
 
-    OI-015 actor identity == verified terminalDelegate
+    child.parentGrantId
+        == parent.grantId
+
+rootGrantor and terminalDelegate are derived from the verified GrantBytes chain and are not duplicated.
+
+registryDomain appears once at DelegationEvidence level because the selected OI-014 path MUST remain within one authoritative registryDomain. The verifier MUST use that domain for every current RegisteredGrantState lookup.
+
+At exchange time, for every embedded grant the authorization server retrieves the authoritative current record at:
+
+    (registryDomain, grantId)
+
+and performs the complete frozen OI-014 use-time algorithm.
+
+Optional cached RecordBytes/RecordHash material is outside the normative DelegationEvidence v1 candidate shape unless later review finds a concrete interoperability need.
 
 ## 20. Exchange binding — DECISION
 
@@ -612,20 +643,40 @@ The final OAuth token lifetime and refresh-token policy remain separate authoriz
                        v
              RFC 8693 actor_token
 
-## 22. Remaining questions before assigning a new OI number
+## 22. OI-014 evidence requirements — RESOLVED
 
-1. What exact OI-014 record bytes must be embedded for each chain element versus retrieved by RecordHash?
-2. Should registryDomain appear once in DelegationEvidence when OI-014 already requires chain-wide equality, or be purely derived?
-3. What exact deterministic CBOR schema defines DelegationEvidence and DelegatedSubjectToken?
-4. What exact canonical representation/order is used for OAuth scope, resource, and audience collections inside contextBytes?
-5. How should OpenIdentity token-type URIs be named before/after any IANA registration effort?
-6. How are OI-014 capabilities mapped to OAuth scopes without a global capability/scope registry?
-7. How are OI-014 resource constraints mapped to RFC 8707 absolute resource URIs?
-8. What minimal JWT act projection preserves useful provenance without leaking unnecessary delegation history?
-9. Is DPoP mandatory for agent/workload profiles or strongly recommended?
-10. What authorization-server metadata advertises OpenIdentity token-exchange support?
-11. What error mapping exposes OpenIdentity failures without leaking sensitive authorization details?
-12. What maximum lifetime may an issued OAuth token have relative to OI-014 grant/ancestor expiration and OI-015 freshness?
-13. Are refresh tokens ever permitted for delegated OpenIdentity exchanges?
+The delegated subject token needs:
+
+    exact GrantBytes + GrantId for every selected path element
+    one registryDomain for the whole path
+
+It does NOT need, as normative embedded authority evidence:
+
+    registration request bytes
+    registration signatures/proofs
+    child-registration delegate proofs
+    revocation/relinquishment proofs
+    historical RecordBytes/RecordHash snapshots
+
+Current RegisteredGrantState is retrieved authoritatively at exchange time for every GrantId.
+
+This directly follows frozen OI-014's distinction:
+
+    GrantId / GrantBytes = immutable authority intent
+    RecordHash / RegisteredGrantState = current authoritative registration/status state
+
+## 23. Remaining questions before assigning a new OI number
+
+1. What exact deterministic CBOR schema/labels define DelegationEvidence, GrantEvidence, and DelegatedSubjectToken?
+2. What exact canonical representation/order is used for OAuth scope, resource, and audience collections inside OI-015 contextBytes?
+3. How should OpenIdentity token-type URIs be named before/after any IANA registration effort?
+4. How are OI-014 capabilities mapped to OAuth scopes without a global capability/scope registry?
+5. How are OI-014 resource constraints mapped to RFC 8707 absolute resource URIs?
+6. What minimal JWT act projection preserves useful provenance without leaking unnecessary delegation history?
+7. Is DPoP mandatory for agent/workload profiles or strongly recommended?
+8. What authorization-server metadata advertises OpenIdentity token-exchange support?
+9. What error mapping exposes OpenIdentity failures without leaking sensitive authorization details?
+10. What maximum lifetime may an issued OAuth token have relative to OI-014 grant/ancestor expiration and OI-015 freshness?
+11. Are refresh tokens ever permitted for delegated OpenIdentity exchanges?
 
 No bridge/delegated-subject wire format is frozen until these questions are resolved.
