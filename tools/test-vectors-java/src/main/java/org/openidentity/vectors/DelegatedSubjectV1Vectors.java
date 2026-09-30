@@ -107,12 +107,13 @@ public final class DelegatedSubjectV1Vectors {
 
 
     static void verifyInvalids(JsonNode d)throws Exception{
-        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==19);
+        JsonNode xs=d.path("invalidVectors");require("invalid vector count",xs.size()==22);
         String[] errors={"INVALID_DELEGATED_SUBJECT_VERSION","EMPTY_DELEGATION_PATH","DELEGATION_PATH_TOO_DEEP","GRANT_ID_MISMATCH",
                 "INVALID_GRANT_EVIDENCE","PARENT_GRANT_MISMATCH","ROOT_GRANTOR_MISMATCH","ISSUER_DELEGATE_MISMATCH","INVALID_DELEGATION_EVIDENCE",
                 "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE",
                 "DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_NOT_CURRENTLY_USABLE","DELEGATION_STATE_UNAVAILABLE",
-                "ACTOR_ASSERTION_ID_MISMATCH","ACTOR_IDENTITY_MISMATCH","DELEGATION_CONTEXT_MISMATCH","ACTOR_ASSERTION_ID_MISMATCH"};
+                "ACTOR_ASSERTION_ID_MISMATCH","ACTOR_IDENTITY_MISMATCH","DELEGATION_CONTEXT_MISMATCH","ACTOR_ASSERTION_ID_MISMATCH",
+                "DELEGATION_EVIDENCE_TOO_LARGE","INVALID_DELEGATION_EVIDENCE","INVALID_DELEGATION_EVIDENCE"};
         require("stable error table size",errors.length==xs.size());
         Map<String,JsonNode> m=new HashMap<>();
         for(int i=0;i<xs.size();i++){JsonNode v=xs.get(i);String id=String.format("DSI%02d",i+1);
@@ -143,6 +144,12 @@ public final class DelegatedSubjectV1Vectors {
         require("DSI18 bound context hash reconstructs",i18.path("boundContextHashHex").asText().equals(hx(mh(HexFormat.of().parseHex(i18.path("boundDelegationEvidenceIdHex").asText())))));
         JsonNode i19=m.get("DSI19");require("DSI19 same actor but different assertion id",!i19.path("tokenActorAssertionIdHex").asText().equals(i19.path("substitutedActorAssertionIdHex").asText()));
         require("DSI19 substituted assertion id reconstructs",i19.path("substitutedActorAssertionIdHex").asText().equals(hx(mh(HexFormat.of().parseHex(i19.path("substitutedAssertionBytesHex").asText())))));
+        JsonNode i20=m.get("DSI20");require("DSI20 evidence one over maximum",i20.path("delegationEvidenceLength").asLong()==i20.path("maximumDelegationEvidenceLength").asLong()+1);
+        JsonNode i21=m.get("DSI21");require("DSI21 independent path B grant itself valid",i21.path("individualPathBGrantIdValid").asBoolean());
+        require("DSI21 roots differ",!i21.path("pathARootGrantorHex").asText().equals(i21.path("pathBRootGrantorHex").asText()));
+        require("DSI21 splice lacks parent linkage",!i21.path("splicedNextParentGrantIdPresent").asBoolean());
+        JsonNode i22=m.get("DSI22");Set<String> ids22=new HashSet<>();boolean dup22=false;for(JsonNode x:i22.path("submittedGrantIdsHex"))if(!ids22.add(x.asText()))dup22=true;
+        require("DSI22 duplicate/cycle GrantId",dup22);
     }
 
     public static void main(String[] args)throws Exception{
@@ -153,7 +160,7 @@ public final class DelegatedSubjectV1Vectors {
         require("vector IDs DS01-DS02",d.path("vectors").size()==2&&"DS01".equals(d.path("vectors").get(0).path("id").asText())&&"DS02".equals(d.path("vectors").get(1).path("id").asText()));
         verifyDS01(d.path("vectors").get(0));verifyDS02(d.path("vectors").get(1));verifyInvalids(d);
         System.out.println("\n============================================");
-        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI19 VERIFIED");
+        System.out.println("OI-016 DELEGATED SUBJECT v1 JAVA DS01-DS02 + DSI01-DSI22 VERIFIED");
         System.out.println("============================================");
     }
 }
