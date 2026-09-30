@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified pre-freeze gate for draft OI-015 Authentication Assertion v1.
+"""Frozen-normative release gate for OI-015 Authentication Assertion v1.
 
 Regenerates and verifies OI-015, invokes the independent Java verifier, and
 protects previously frozen OpenIdentity commitments. This gate does NOT create
@@ -29,7 +29,7 @@ def run(label,cmd,cwd=ROOT):
     print(f"\n[{label}]")
     p=subprocess.run(cmd,cwd=cwd)
     if p.returncode:
-        print(f"\nOI-015 PRE-FREEZE GATE: FAIL ({label})")
+        print(f"\nOI-015 FROZEN-NORMATIVE GATE: FAIL ({label})")
         raise SystemExit(p.returncode)
     print(f"[PASS] {label}")
 
@@ -78,10 +78,10 @@ def main():
     print("[PASS] Previously frozen commitments/artifacts unchanged")
 
     print("\n============================================================")
-    print("OI-015 PRE-FREEZE RELEASE GATE: PASS")
+    print("OI-015 FROZEN-NORMATIVE RELEASE GATE: PASS")
     print("============================================================")
-    print("\nStatus: AA01-AA06 + AAI01-AAI31 verified in Python and Java; BYTE-FROZEN CANDIDATE; NOT YET NORMATIVE.")
-    print("Next: final normative spec/CDDL/documentation review before promotion.")
+    print("\nStatus: OI-015 v1 frozen-normative AA01-AA06 + AAI01-AAI31 and committed byte checksum verified.")
+    print("Frozen OI-015 v1 bytes MUST NOT change without an explicit protocol revision.")
 
 if __name__=="__main__":
     main()
