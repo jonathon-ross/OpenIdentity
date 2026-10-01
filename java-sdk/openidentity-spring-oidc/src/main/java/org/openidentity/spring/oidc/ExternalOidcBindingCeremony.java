@@ -26,7 +26,7 @@ public final class ExternalOidcBindingCeremony {
  public InMemoryExternalOidcBindingRegistry.State complete(Pending pending,SecuredAuthenticationAssertion assertion,byte[] audience,byte[] oi015Nonce,long now){
   Objects.requireNonNull(pending);Objects.requireNonNull(assertion);
   Oi015VerificationResult verified=verifier.tryVerify(assertion,audience,BIND_PURPOSE,oi015Nonce,pending.contextHash(),now);
-  if(!verified.valid())throw new ExternalOidcBindingException(verified.contextMismatch()?ExternalOidcBindingError.BINDING_CONTEXT_MISMATCH:ExternalOidcBindingError.BINDING_AUTHORIZATION_INVALID);
+  if(!verified.valid()){if(verified.contextMismatch())throw new ExternalOidcBindingException(ExternalOidcBindingError.BINDING_CONTEXT_MISMATCH);throw new IllegalArgumentException("OI-015 verification failed: "+verified.error());}
   if(!java.security.MessageDigest.isEqual(verified.identity(),pending.identity()))throw new ExternalOidcBindingException(ExternalOidcBindingError.BINDING_AUTHORIZATION_INVALID);
   if(policy.currentAuthenticationGeneration(pending.identity())!=pending.generation())throw new ExternalOidcBindingException(ExternalOidcBindingError.BINDING_GENERATION_STALE);
   return registry.bind(pending.principal(),pending.identity(),pending.createdAt(),pending.expiresAt(),pending.challenge(),new InMemoryExternalOidcBindingRegistry.Authorization(true,BIND_PURPOSE,true,false),policy);
