@@ -92,7 +92,9 @@ OIDC_PROVIDER_UNTRUSTED; OIDC_PRINCIPAL_INVALID; OIDC_CLIENT_NOT_ALLOWED; BINDIN
 
 ## 10. Candidate conformance vectors
 
-Positive: B01 valid bind and exact BindingId; B02 exact resolution; B03 revoke; B04 generation reset invalidates; B05 multiple distinct external subjects may bind one identity; B06 permitted alternate client context resolves without another identity binding.
+Successful-operation vectors: B01 valid bind and exact BindingId; B02 exact resolution; B03 revoke; B05 multiple distinct external subjects may bind one identity; B06 permitted alternate client context resolves without another identity binding.
+
+Expected-rejection lifecycle vector: B04 generation reset invalidates the old binding with BINDING_GENERATION_STALE.
 
 Invalid: BI01 different issuer; BI02 different subject; BI03 disallowed client context; BI04 email-only match; BI05 invalid OI-015; BI06 issuer context mismatch; BI07 subject mismatch; BI08 client context mismatch; BI09 duplicate active external subject owned by another identity; BI10 revoked; BI11 stale generation; BI12 inactive identity; BI13 untrusted issuer; BI14 administrator-only attempted binding; BI15 BindingId mismatch; BI16 expired; BI17 stale/replayed registry challenge; BI18 bind authorization replay; BI19 bind-purpose assertion used for revoke; BI20 revoke-purpose assertion used for bind; BI21 revoke names another BindingId; BI22 insufficient use-time assurance; BI23 malformed/non-deterministic BindingBytes.
 
