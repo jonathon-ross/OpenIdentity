@@ -16,8 +16,9 @@ external-oidc-binding-context-v1 = {
     6 => tstr .size (1..2048),
     7 => bstr .size (16..128),
     8 => uint64,
-    9 => uint64 / nil,
-    ? 10 => bstr .size 34
+    9 => uint64,               ; proposed/stored createdAt
+    10 => uint64 / nil,        ; proposed/stored expiresAt
+    ? 11 => bstr .size 34      ; BindingId, required for REVOKE
 }
 
 action = 1 / 2
@@ -31,4 +32,4 @@ action = 1 / 2
 ; Field 7 is a registry ceremony challenge and is distinct from the OI-015 verifier nonce.
 ; Fields 4..6 are exact values from an already validated OIDC principal.
 ; Email, UPN, username, phone, or display-name claims never substitute for fields 4..6.
-; BIND omits field 10. REVOKE requires field 10 naming the exact BindingId.
+; BIND omits field 11. REVOKE requires field 11 naming the exact BindingId.\n; BIND createdAt MUST be fixed before OI-015 authorization and becomes BindingBytes field 6.\n; REVOKE fields 9 and 10 MUST equal the stored binding createdAt/expiresAt.
