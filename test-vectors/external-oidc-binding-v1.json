@@ -15,7 +15,180 @@
       "bindingBytesHex": "a80101025820000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f03781868747470733a2f2f6964702e6578616d706c652e74657374046b7375626a6563742d3132330578186f70656e6964656e746974792d6c696e6b2d636c69656e74061a6abe130007f60803",
       "bindingIdHex": "1220c3d3e68761cadb4aed0c06ed7fd7c9d1273473d9cdbb714fbf0125d0925dd82e",
       "bindContextBytesHex": "aa01010201035820000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f04781868747470733a2f2f6964702e6578616d706c652e74657374056b7375626a6563742d3132330678186f70656e6964656e746974792d6c696e6b2d636c69656e74075820404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f0803091a6abe13000af6",
-      "bindContextHashHex": "1220b61b5fef74d75ef0d8ac41995e90c1ca8cb94a3db0544558e672743ebdfcc4ed"
+      "bindContextHashHex": "1220b61b5fef74d75ef0d8ac41995e90c1ca8cb94a3db0544558e672743ebdfcc4ed",
+      "revokeRegistryChallengeHex": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+      "revokeContextBytesHex": "ab01010202035820000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f04781868747470733a2f2f6964702e6578616d706c652e74657374056b7375626a6563742d3132330678186f70656e6964656e746974792d6c696e6b2d636c69656e74075820606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f0803091a6abe13000af60b58221220c3d3e68761cadb4aed0c06ed7fd7c9d1273473d9cdbb714fbf0125d0925dd82e",
+      "revokeContextHashHex": "1220fdef316eff6a631ab891e9de44d7d07d416be2f520aba8afdfa399c616af2423"
+    }
+  ],
+  "semanticVectors": [
+    {
+      "id": "B02",
+      "valid": true,
+      "operation": "RESOLVE",
+      "expected": "OK"
+    },
+    {
+      "id": "B03",
+      "valid": true,
+      "operation": "REVOKE",
+      "expected": "OK"
+    },
+    {
+      "id": "B04",
+      "valid": true,
+      "operation": "RESOLVE_AFTER_GENERATION_RESET",
+      "expected": "BINDING_GENERATION_STALE"
+    },
+    {
+      "id": "B05",
+      "valid": true,
+      "operation": "BIND_SECOND_EXTERNAL_SUBJECT_SAME_IDENTITY",
+      "expected": "OK"
+    },
+    {
+      "id": "B06",
+      "valid": true,
+      "operation": "RESOLVE_ALLOWED_ALTERNATE_CLIENT",
+      "expected": "OK"
+    },
+    {
+      "id": "BI01",
+      "valid": false,
+      "operation": "RESOLVE_DIFFERENT_ISSUER",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "BI02",
+      "valid": false,
+      "operation": "RESOLVE_DIFFERENT_SUBJECT",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "BI03",
+      "valid": false,
+      "operation": "RESOLVE_DISALLOWED_CLIENT",
+      "expected": "OIDC_CLIENT_NOT_ALLOWED"
+    },
+    {
+      "id": "BI04",
+      "valid": false,
+      "operation": "RESOLVE_EMAIL_ONLY",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "BI05",
+      "valid": false,
+      "operation": "BIND_INVALID_OI015",
+      "expected": "BINDING_AUTHORIZATION_INVALID"
+    },
+    {
+      "id": "BI06",
+      "valid": false,
+      "operation": "BIND_ISSUER_CONTEXT_MISMATCH",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "BI07",
+      "valid": false,
+      "operation": "BIND_SUBJECT_CONTEXT_MISMATCH",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "BI08",
+      "valid": false,
+      "operation": "BIND_CLIENT_CONTEXT_MISMATCH",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "BI09",
+      "valid": false,
+      "operation": "BIND_DUPLICATE_EXTERNAL_SUBJECT_OTHER_IDENTITY",
+      "expected": "BINDING_CONFLICT"
+    },
+    {
+      "id": "BI10",
+      "valid": false,
+      "operation": "RESOLVE_REVOKED",
+      "expected": "BINDING_REVOKED"
+    },
+    {
+      "id": "BI11",
+      "valid": false,
+      "operation": "RESOLVE_STALE_GENERATION",
+      "expected": "BINDING_GENERATION_STALE"
+    },
+    {
+      "id": "BI12",
+      "valid": false,
+      "operation": "RESOLVE_INACTIVE_IDENTITY",
+      "expected": "IDENTITY_INACTIVE"
+    },
+    {
+      "id": "BI13",
+      "valid": false,
+      "operation": "RESOLVE_UNTRUSTED_ISSUER",
+      "expected": "OIDC_PROVIDER_UNTRUSTED"
+    },
+    {
+      "id": "BI14",
+      "valid": false,
+      "operation": "BIND_ADMIN_ONLY",
+      "expected": "BINDING_AUTHORIZATION_INVALID"
+    },
+    {
+      "id": "BI15",
+      "valid": false,
+      "operation": "RESOLVE_BINDING_ID_MISMATCH",
+      "expected": "BINDING_ID_MISMATCH"
+    },
+    {
+      "id": "BI16",
+      "valid": false,
+      "operation": "RESOLVE_EXPIRED",
+      "expected": "BINDING_EXPIRED"
+    },
+    {
+      "id": "BI17",
+      "valid": false,
+      "operation": "BIND_REPLAYED_CHALLENGE",
+      "expected": "BINDING_CHALLENGE_INVALID"
+    },
+    {
+      "id": "BI18",
+      "valid": false,
+      "operation": "BIND_REPLAYED_AUTHORIZATION",
+      "expected": "BINDING_REPLAY"
+    },
+    {
+      "id": "BI19",
+      "valid": false,
+      "operation": "REVOKE_WITH_BIND_PURPOSE",
+      "expected": "BINDING_AUTHORIZATION_INVALID"
+    },
+    {
+      "id": "BI20",
+      "valid": false,
+      "operation": "BIND_WITH_REVOKE_PURPOSE",
+      "expected": "BINDING_AUTHORIZATION_INVALID"
+    },
+    {
+      "id": "BI21",
+      "valid": false,
+      "operation": "REVOKE_DIFFERENT_BINDING_ID",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "BI22",
+      "valid": false,
+      "operation": "RESOLVE_INSUFFICIENT_ASSURANCE",
+      "expected": "ASSURANCE_INSUFFICIENT"
+    },
+    {
+      "id": "BI23",
+      "valid": false,
+      "operation": "PARSE_NONDETERMINISTIC_BINDING_BYTES",
+      "expected": "OIDC_PRINCIPAL_INVALID"
     }
   ]
 }
