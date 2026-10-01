@@ -146,7 +146,31 @@ This separation is deliberate:
 
 Deployments SHOULD prefer immediate invalidation signals and risk-based reauthentication over forcing periodic relinking solely because time elapsed.
 
-## 14. Open questions before freeze
+## 14. Registry uniqueness and account-link cardinality — DECISION
 
-1. Registry uniqueness global per deployment or scoped to an issuer trust domain?
-2. Which OIDC assurance claims, if any, belong in the resolved authentication result?
+Within one authoritative ExternalOidcBindingRegistry deployment, an exact active federated identifier `(issuer, subject)` MUST resolve to at most one OpenIdentity identity.
+
+Uniqueness is deployment-wide, not scoped to a looser issuer trust domain, tenant alias, email domain, organization, clientId, or application.
+
+The permitted cardinality is therefore:
+
+    many ExternalSubject values -> one OpenIdentity identity    ALLOWED
+    one ExternalSubject        -> many OpenIdentity identities FORBIDDEN
+
+This permits an OpenIdentity identity to link multiple independently verified accounts (for example, an enterprise IdP plus another approved IdP) while preventing one exact external account from silently authenticating as multiple OpenIdentity identities.
+
+Registration MUST be atomic with respect to this uniqueness constraint. If an ACTIVE binding already exists for the exact `(issuer, subject)`:
+
+- a request naming the same OpenIdentity identity MAY be treated as idempotent only if the registry challenge/replay rules and all binding semantics permit it;
+- a request naming a different OpenIdentity identity MUST fail closed with a non-enumerating conflict result;
+- administrators MUST NOT override the conflict by rewriting ownership.
+
+REVOKED records remain immutable audit/history records but do not count as ACTIVE mappings. Re-linking after revocation creates a new BindingId and requires a complete new two-sided binding ceremony.
+
+Issuer aliases MUST NOT be used to bypass uniqueness. Only the exact issuer identifier established by validated OIDC provider metadata participates in the key. If a provider intentionally changes issuer identifiers, migration requires an explicit deployment/profile procedure rather than silent equivalence.
+
+Registry implementations MUST enforce the invariant transactionally (for example, a unique index/conditional write over the canonical issuer+subject key for ACTIVE ownership) so concurrent binding requests cannot create a split mapping.
+
+## 15. Open questions before freeze
+
+1. Which OIDC assurance claims, if any, belong in the resolved authentication result?
