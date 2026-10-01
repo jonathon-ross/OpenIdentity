@@ -74,7 +74,7 @@ public final class InMemoryExternalOidcBindingRegistry {
  }
  // Test-only corruption hook used to exercise persisted-state integrity failures.
  synchronized void replaceStateForTest(State state){
-  var b=ExternalOidcBindingV1.decode(state.bindingBytes());active.put(new Key(b.issuer(),b.subject()),state);byId.put(HexFormat.of().formatHex(state.bindingId()),state);
+  var b=verified(state);active.put(new Key(b.issuer(),b.subject()),state);byId.put(HexFormat.of().formatHex(state.bindingId()),state);
  }
  private static void require(boolean ok,ExternalOidcBindingError e){if(!ok)fail(e);}private static void fail(ExternalOidcBindingError e){throw new ExternalOidcBindingException(e);}
 }
