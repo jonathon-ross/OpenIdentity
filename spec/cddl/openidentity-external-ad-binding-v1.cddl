@@ -1,5 +1,5 @@
 ; OpenIdentity External Active Directory Binding v1
-; STATUS: DRAFT-PRE-FREEZE
+; STATUS: FROZEN-NORMATIVE v1
 ; Deterministic encoding: RFC 8949 Core Deterministic Encoding Requirements
 ; plus OpenIdentity cryptographic-agility restrictions.
 
