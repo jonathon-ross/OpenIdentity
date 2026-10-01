@@ -1,0 +1,215 @@
+{
+  "suite": "openidentity-external-ad-binding-v1-pre-freeze",
+  "semanticVectors": [
+    {
+      "id": "AD01",
+      "valid": true,
+      "operation": "BIND_KERBEROS_SPNEGO",
+      "expected": "OK"
+    },
+    {
+      "id": "AD02",
+      "valid": true,
+      "operation": "RESOLVE",
+      "expected": "OK"
+    },
+    {
+      "id": "AD03",
+      "valid": true,
+      "operation": "REVOKE",
+      "expected": "OK"
+    },
+    {
+      "id": "AD04",
+      "valid": true,
+      "operation": "BIND_PROTECTED_LDAP",
+      "expected": "OK"
+    },
+    {
+      "id": "AD05",
+      "valid": true,
+      "operation": "RESOLVE_ALLOWED_ALTERNATE_SERVICE",
+      "expected": "OK"
+    },
+    {
+      "id": "ADI01",
+      "valid": false,
+      "operation": "RESOLVE_DIFFERENT_DIRECTORY_ID",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "ADI02",
+      "valid": false,
+      "operation": "RESOLVE_DIFFERENT_OBJECT_GUID",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "ADI03",
+      "valid": false,
+      "operation": "RESOLVE_DN_ONLY",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "ADI04",
+      "valid": false,
+      "operation": "RESOLVE_UPN_ONLY",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "ADI05",
+      "valid": false,
+      "operation": "RESOLVE_SAMACCOUNTNAME_ONLY",
+      "expected": "BINDING_NOT_FOUND"
+    },
+    {
+      "id": "ADI06",
+      "valid": false,
+      "operation": "BIND_UNTRUSTED_DIRECTORY",
+      "expected": "AD_DIRECTORY_UNTRUSTED"
+    },
+    {
+      "id": "ADI07",
+      "valid": false,
+      "operation": "BIND_DISALLOWED_SERVICE",
+      "expected": "AD_SERVICE_NOT_ALLOWED"
+    },
+    {
+      "id": "ADI08",
+      "valid": false,
+      "operation": "BIND_DISALLOWED_AUTH_MECHANISM",
+      "expected": "AD_AUTH_MECHANISM_NOT_ALLOWED"
+    },
+    {
+      "id": "ADI09",
+      "valid": false,
+      "operation": "BIND_UNTRUSTED_CHANNEL",
+      "expected": "AD_CHANNEL_UNTRUSTED"
+    },
+    {
+      "id": "ADI10",
+      "valid": false,
+      "operation": "RESOLVE_UNUSABLE_ACCOUNT",
+      "expected": "AD_ACCOUNT_UNUSABLE"
+    },
+    {
+      "id": "ADI11",
+      "valid": false,
+      "operation": "BIND_INVALID_OI015",
+      "expected": "BINDING_AUTHORIZATION_INVALID"
+    },
+    {
+      "id": "ADI12",
+      "valid": false,
+      "operation": "BIND_DIRECTORY_CONTEXT_MISMATCH",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "ADI13",
+      "valid": false,
+      "operation": "BIND_OBJECT_GUID_CONTEXT_MISMATCH",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "ADI14",
+      "valid": false,
+      "operation": "BIND_SERVICE_CONTEXT_MISMATCH",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "ADI15",
+      "valid": false,
+      "operation": "BIND_AUTH_MECHANISM_CONTEXT_MISMATCH",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "ADI16",
+      "valid": false,
+      "operation": "BIND_DUPLICATE_EXTERNAL_SUBJECT_OTHER_IDENTITY",
+      "expected": "BINDING_CONFLICT"
+    },
+    {
+      "id": "ADI17",
+      "valid": false,
+      "operation": "RESOLVE_REVOKED",
+      "expected": "BINDING_REVOKED"
+    },
+    {
+      "id": "ADI18",
+      "valid": false,
+      "operation": "RESOLVE_STALE_GENERATION",
+      "expected": "BINDING_GENERATION_STALE"
+    },
+    {
+      "id": "ADI19",
+      "valid": false,
+      "operation": "RESOLVE_INACTIVE_IDENTITY",
+      "expected": "IDENTITY_INACTIVE"
+    },
+    {
+      "id": "ADI20",
+      "valid": false,
+      "operation": "RESOLVE_EXPIRED",
+      "expected": "BINDING_EXPIRED"
+    },
+    {
+      "id": "ADI21",
+      "valid": false,
+      "operation": "BIND_REPLAYED_CHALLENGE",
+      "expected": "BINDING_CHALLENGE_INVALID"
+    },
+    {
+      "id": "ADI22",
+      "valid": false,
+      "operation": "BIND_REPLAYED_AUTHORIZATION",
+      "expected": "BINDING_REPLAY"
+    },
+    {
+      "id": "ADI23",
+      "valid": false,
+      "operation": "REVOKE_WITH_BIND_PURPOSE",
+      "expected": "BINDING_AUTHORIZATION_INVALID"
+    },
+    {
+      "id": "ADI24",
+      "valid": false,
+      "operation": "BIND_WITH_REVOKE_PURPOSE",
+      "expected": "BINDING_AUTHORIZATION_INVALID"
+    },
+    {
+      "id": "ADI25",
+      "valid": false,
+      "operation": "REVOKE_DIFFERENT_BINDING_ID",
+      "expected": "BINDING_CONTEXT_MISMATCH"
+    },
+    {
+      "id": "ADI26",
+      "valid": false,
+      "operation": "RESOLVE_INSUFFICIENT_ASSURANCE",
+      "expected": "ASSURANCE_INSUFFICIENT"
+    },
+    {
+      "id": "ADI27",
+      "valid": false,
+      "operation": "RESOLVE_BINDING_ID_MISMATCH",
+      "expected": "BINDING_ID_MISMATCH"
+    },
+    {
+      "id": "ADI28",
+      "valid": false,
+      "operation": "PARSE_NONDETERMINISTIC_BINDING_BYTES",
+      "expected": "AD_PRINCIPAL_INVALID"
+    },
+    {
+      "id": "ADI29",
+      "valid": false,
+      "operation": "PARSE_WRONG_OBJECT_GUID_LENGTH",
+      "expected": "AD_PRINCIPAL_INVALID"
+    },
+    {
+      "id": "ADI30",
+      "valid": false,
+      "operation": "PARSE_WRONG_DIRECTORY_ID_LENGTH",
+      "expected": "AD_PRINCIPAL_INVALID"
+    }
+  ]
+}
