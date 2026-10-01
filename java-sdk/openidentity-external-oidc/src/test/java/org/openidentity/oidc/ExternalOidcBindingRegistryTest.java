@@ -13,7 +13,7 @@ final class ExternalOidcBindingRegistryTest {
  private long generation=3;private boolean trusted=true,active=true,assurance=true;
  private final Set<String> clients=new HashSet<>(Set.of("openidentity-link-client","alternate-client"));
  private final InMemoryExternalOidcBindingRegistry.Policy policy=new InMemoryExternalOidcBindingRegistry.Policy(){
-  public boolean providerTrusted(String issuer){return trusted&&issuer.equals("https://idp.example.test");}
+  public boolean providerTrusted(String issuer){return trusted&&(issuer.equals("https://idp.example.test")||issuer.equals("https://other.example.test"));}
   public boolean clientAllowed(String issuer,String clientId){return clients.contains(clientId);}
   public boolean identityActive(byte[] identity){return active;}
   public long currentAuthenticationGeneration(byte[] identity){return generation;}
