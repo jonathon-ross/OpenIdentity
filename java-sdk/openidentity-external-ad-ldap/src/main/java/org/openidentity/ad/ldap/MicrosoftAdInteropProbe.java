@@ -10,6 +10,12 @@ public final class MicrosoftAdInteropProbe {
   System.out.println("directoryIdHex="+HexFormat.of().formatHex(p.directoryId()));
   System.out.println("objectGuidLdapOctetsHex="+HexFormat.of().formatHex(p.objectGuid()));
   System.out.println("accountUsable="+p.accountUsable());
+  String expected=System.getenv("OPENIDENTITY_EXPECTED_OBJECTGUID_HEX");
+  if(expected!=null&&!expected.isBlank()){
+   String actual=HexFormat.of().formatHex(p.objectGuid());
+   if(!actual.equalsIgnoreCase(expected))throw new IllegalStateException("Microsoft AD objectGUID mismatch");
+   System.out.println("expectedObjectGuidMatch=true");
+  }
  }
  private static Map<String,String> parse(String[] args){Map<String,String> m=new HashMap<>();for(int i=0;i<args.length;i+=2){if(i+1>=args.length||!args[i].startsWith("--"))throw new IllegalArgumentException("expected --key value");if(m.put(args[i].substring(2),args[i+1])!=null)throw new IllegalArgumentException("duplicate "+args[i]);}return m;}
  private static String req(Map<String,String> m,String k){String v=m.get(k);if(v==null||v.isBlank())throw new IllegalArgumentException("missing --"+k);return v;}
