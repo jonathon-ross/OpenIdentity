@@ -1,6 +1,6 @@
-# OpenIdentity External OIDC Identity Binding v1 — Pre-Freeze Conformance
+# OpenIdentity External OIDC Identity Binding v1
 
-**Status:** PRE-FREEZE — NOT YET FROZEN-NORMATIVE
+**Status:** FROZEN-NORMATIVE v1
 **Profile identifier:** https://openidentity.org/interop/external-oidc-binding-v1
 
 ## 1. Scope
@@ -86,7 +86,7 @@ Conceptually contains identity, BindingId, issuer, subject, clientId, optional a
 
 ## 9. Failure behavior and stable labels
 
-Public surfaces should not reveal binding ownership or detailed OpenIdentity state. Internal pre-freeze labels are:
+Public surfaces should not reveal binding ownership or detailed OpenIdentity state. Normative internal conformance labels are:
 
 OIDC_PROVIDER_UNTRUSTED; OIDC_PRINCIPAL_INVALID; OIDC_CLIENT_NOT_ALLOWED; BINDING_CHALLENGE_INVALID; BINDING_AUTHORIZATION_INVALID; BINDING_CONTEXT_MISMATCH; BINDING_GENERATION_STALE; BINDING_EXPIRED; BINDING_CONFLICT; BINDING_NOT_FOUND; BINDING_REVOKED; BINDING_ID_MISMATCH; IDENTITY_INACTIVE; ASSURANCE_INSUFFICIENT; BINDING_REPLAY.
 
@@ -98,6 +98,6 @@ Expected-rejection lifecycle vector: B04 generation reset invalidates the old bi
 
 Invalid: BI01 different issuer; BI02 different subject; BI03 disallowed client context; BI04 email-only match; BI05 invalid OI-015; BI06 issuer context mismatch; BI07 subject mismatch; BI08 client context mismatch; BI09 duplicate active external subject owned by another identity; BI10 revoked; BI11 stale generation; BI12 inactive identity; BI13 untrusted issuer; BI14 administrator-only attempted binding; BI15 BindingId mismatch; BI16 expired; BI17 stale/replayed registry challenge; BI18 bind authorization replay; BI19 bind-purpose assertion used for revoke; BI20 revoke-purpose assertion used for bind; BI21 revoke names another BindingId; BI22 insufficient use-time assurance; BI23 malformed/non-deterministic BindingBytes.
 
-## 11. Pre-freeze gate
+## 11. Frozen v1 conformance gate
 
-Before v1 freezes: CDDL and prose agree exactly; independent implementations generate identical BindingBytes, BindingId, ContextBytes and ContextHash; invalid vectors produce expected internal labels; checksum manifests independently verify; Java consumes frozen vectors without mutating them; then a black-box Spring OIDC linking/resolution test should pass.
+Frozen v1 was gated on CDDL/prose agreement; independent Python and Java reproduction of BindingBytes, BindingId, ContextBytes and ContextHash; executable semantic rejection vectors with stable labels; independently verified checksum manifests; and a green Java SDK reactor. Frozen artifacts MUST NOT be regenerated or modified in place. Any normative wire or semantic change requires a new explicitly versioned profile.
