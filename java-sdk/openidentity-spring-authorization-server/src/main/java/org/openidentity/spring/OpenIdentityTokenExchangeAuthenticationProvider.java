@@ -9,12 +9,15 @@ import java.time.Clock;
 import java.util.*;
 
 public final class OpenIdentityTokenExchangeAuthenticationProvider implements AuthenticationProvider {
- private final DelegatedAgentExchangeService exchange;
+ private final OpenIdentityExchange exchange;
  private final String authorizationServer;
  private final Clock clock;
  private final OpenIdentitySpringTokenIssuer tokenIssuer;
 
  public OpenIdentityTokenExchangeAuthenticationProvider(DelegatedAgentExchangeService exchange,String authorizationServer,Clock clock,OpenIdentitySpringTokenIssuer tokenIssuer){
+  this(exchange::exchange,authorizationServer,clock,tokenIssuer);
+ }
+ public OpenIdentityTokenExchangeAuthenticationProvider(OpenIdentityExchange exchange,String authorizationServer,Clock clock,OpenIdentitySpringTokenIssuer tokenIssuer){
   this.exchange=Objects.requireNonNull(exchange);this.authorizationServer=Objects.requireNonNull(authorizationServer);this.clock=Objects.requireNonNull(clock);this.tokenIssuer=Objects.requireNonNull(tokenIssuer);
  }
  @Override public Authentication authenticate(Authentication authentication){
