@@ -14,7 +14,7 @@ public final class StrictCborReader {
  public byte[] readByteString(){Head h=head(2);int n=size(h.value);need(n);byte[] b=Arrays.copyOfRange(in,p,p+n);p+=n;return b;}
  public String readTextString(){return new String(readRawText(),StandardCharsets.UTF_8);}
  public byte[] readRawText(){Head h=head(3);int n=size(h.value);need(n);byte[] b=Arrays.copyOfRange(in,p,p+n);p+=n;return b;}
- public byte[] slice(int start,int end){return Arrays.copyOfRange(in,start,end);}
+ public void readNull(){need(1);if((in[p++]&255)!=0xf6)throw new IllegalArgumentException("CBOR null");}\n public int peekByte(){need(1);return in[p]&255;}\n public byte[] slice(int start,int end){return Arrays.copyOfRange(in,start,end);}
  private record Head(int ai,long value){}
  private Head head(int major){
   need(1);int b=in[p++]&255,m=b>>>5,ai=b&31;if(m!=major)throw new IllegalArgumentException("CBOR major type");
