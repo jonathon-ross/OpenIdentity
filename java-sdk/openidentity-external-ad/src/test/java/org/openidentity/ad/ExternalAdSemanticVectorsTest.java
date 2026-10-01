@@ -34,7 +34,7 @@ final class ExternalAdSemanticVectorsTest {
   var corrupt=new InMemoryExternalAdBindingRegistry();byte[] bad=s.bindingId();bad[2]^=1;assertErr(BINDING_ID_MISMATCH,()->corrupt.replaceStateForTest(new InMemoryExternalAdBindingRegistry.State(s.bindingBytes(),bad,InMemoryExternalAdBindingRegistry.Status.ACTIVE,null)));
  }
  @Test void guidRuntimeByteOrderIsDifferentContext(){
-  byte[] ldap=HexFormat.of().parseHex("00112233445566778899aabbccddeeff"),runtime=HexFormat.of().parseHex("33221100554477668899aabbccddeeff");var b1=new ExternalAdBindingV1.Binding(ID,DIR,ldap,"svc",100,null,3),b2=new ExternalAdBindingV1.Binding(ID,DIR,runtime,"svc",100,null,3);assertFalse(Arrays.equals(ExternalAdBindingV1.contextHash(ExternalAdBindingV1.encodeContext(1,b1,1,C1,null)),ExternalAdBindingV1.contextHash(ExternalAdBindingV1.encodeContext(1,b2,1,C1,null))));
+  byte[] ldap=HexFormat.of().parseHex("00112233445566778899aabbccddeeff"),runtime=HexFormat.of().parseHex("33221100554477668899aabbccddeeff");var b1=new ExternalAdBindingV1.Binding(ID,DIR,ldap,"svc",100,null,3);var b2=new ExternalAdBindingV1.Binding(ID,DIR,runtime,"svc",100,null,3);assertFalse(Arrays.equals(ExternalAdBindingV1.contextHash(ExternalAdBindingV1.encodeContext(1,b1,1,C1,null)),ExternalAdBindingV1.contextHash(ExternalAdBindingV1.encodeContext(1,b2,1,C1,null))));
  }
  static byte[] otherDir(){byte[] x=DIR.clone();x[0]^=1;return x;}static void assertErr(ExternalAdBindingError e,Runnable x){assertEquals(e,assertThrows(ExternalAdBindingException.class,x::run).error());}
 }
