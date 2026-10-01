@@ -222,6 +222,12 @@
       "valid": false,
       "operation": "BIND_LDAP_SIMPLE_TLS_WITHOUT_REQUIRED_CHANNEL_BINDING",
       "expected": "AD_CHANNEL_UNTRUSTED"
+    },
+    {
+      "id": "ADI32",
+      "valid": false,
+      "operation": "BIND_RUNTIME_GUID_BYTE_ORDER_INSTEAD_OF_LDAP_OBJECTGUID_OCTETS",
+      "expected": "BINDING_CONTEXT_MISMATCH"
     }
   ]
 }
