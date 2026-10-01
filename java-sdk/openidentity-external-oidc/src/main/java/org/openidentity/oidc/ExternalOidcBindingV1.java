@@ -1,6 +1,7 @@
 package org.openidentity.oidc;
 
 import org.openidentity.cbor.DeterministicCborWriter;
+import org.openidentity.cbor.StrictCborReader;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
@@ -30,8 +31,25 @@ public final class ExternalOidcBindingV1 {
   u(w,8);u(w,b.authenticationGeneration());return w.toByteArray();
  }
 
- public static byte[] bindingId(Binding b){
-  byte[] bb=encode(b);var w=new DeterministicCborWriter();w.writeArrayHeader(3);
+ public static Binding decode(byte[] bytes){
+  try{
+   var r=new StrictCborReader(bytes);if(r.readMapHeader()!=8)throw new IllegalArgumentException("map");
+   key(r,1);if(r.readUnsigned()!=VERSION)throw new IllegalArgumentException("version");
+   key(r,2);byte[] identity=r.readByteString();key(r,3);String issuer=r.readTextString();key(r,4);String subject=r.readTextString();
+   key(r,5);String clientId=r.readTextString();key(r,6);long createdAt=r.readUnsigned();
+   key(r,7);Long expiresAt;
+   int p=r.position();try{expiresAt=r.readUnsigned();}catch(IllegalArgumentException e){byte[] one=r.slice(p,p+1);if(one.length!=1||(one[0]&255)!=0xf6)throw e;expiresAt=null;r=new StrictCborReader(bytes);skipToAfterNull(r);}
+   key(r,8);long generation=r.readUnsigned();if(!r.done())throw new IllegalArgumentException("trailing");
+   Binding b=new Binding(identity,issuer,subject,clientId,createdAt,expiresAt,generation);
+   if(!java.util.Arrays.equals(bytes,encode(b)))throw new IllegalArgumentException("non-deterministic");
+   return b;
+  }catch(RuntimeException e){throw new IllegalArgumentException("invalid binding bytes",e);}
+ }
+ private static void key(StrictCborReader r,long expected){if(r.readUnsigned()!=expected)throw new IllegalArgumentException("map key");}
+ private static void skipToAfterNull(StrictCborReader r){r.readMapHeader();key(r,1);r.readUnsigned();key(r,2);r.readByteString();key(r,3);r.readTextString();key(r,4);r.readTextString();key(r,5);r.readTextString();key(r,6);r.readUnsigned();key(r,7);int p=r.position();if((r.slice(p,p+1)[0]&255)!=0xf6)throw new IllegalArgumentException("null");try{var fld=StrictCborReader.class.getDeclaredField("p");fld.setAccessible(true);fld.setInt(r,p+1);}catch(ReflectiveOperationException e){throw new IllegalStateException(e);}}
+ public static byte[] bindingId(Binding b){return bindingId(encode(b));}
+ public static byte[] bindingId(byte[] bb){
+  var w=new DeterministicCborWriter();w.writeArrayHeader(3);
   w.writeTextString(DOMAIN);u(w,VERSION);w.writeByteString(bb);return multihash(w.toByteArray());
  }
 
