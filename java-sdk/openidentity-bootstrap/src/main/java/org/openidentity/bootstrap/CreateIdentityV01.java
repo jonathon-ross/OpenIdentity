@@ -28,6 +28,6 @@ public final class CreateIdentityV01 {
  public static byte[] operationSigningBytes(byte[] op){var w=new DeterministicCborWriter();w.writeArrayHeader(3);w.writeTextString("OpenIdentity Operation");u(w,1);w.writeByteString(op);return w.toByteArray();}
  public static byte[] stateHash(byte[] state){try{byte[] d=MessageDigest.getInstance("SHA-256").digest(state),out=new byte[34];out[0]=0x12;out[1]=0x20;System.arraycopy(d,0,out,2,32);return out;}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
  private static void singlePolicy(DeterministicCborWriter w,byte[] id,byte[] pk){w.writeMapHeader(2);u(w,1);u(w,1);u(w,2);w.writeArrayHeader(1);w.writeMapHeader(2);u(w,1);w.writeByteString(id);u(w,2);ed25519(w,pk);}
- private static void ed25519(DeterministicCborWriter w,byte[] pk){w.writeMapHeader(4);w.writeNegative(-2);w.writeByteString(pk);w.writeNegative(-1);u(w,6);u(w,1);u(w,1);u(w,3);w.writeNegative(-8);}
+ private static void ed25519(DeterministicCborWriter w,byte[] pk){w.writeMapHeader(4);u(w,1);u(w,1);u(w,3);w.writeNegative(-8);w.writeNegative(-1);u(w,6);w.writeNegative(-2);w.writeByteString(pk);}
  private static void u(DeterministicCborWriter w,long n){w.writeUnsigned(n);}private static void check(byte[] b,int n,String x){if(b==null||b.length!=n)throw new IllegalArgumentException(x);}
 }
