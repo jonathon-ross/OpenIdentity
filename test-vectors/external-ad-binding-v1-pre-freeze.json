@@ -22,13 +22,19 @@
     {
       "id": "AD04",
       "valid": true,
-      "operation": "BIND_PROTECTED_LDAP",
+      "operation": "BIND_LDAP_SASL_SIGNED",
       "expected": "OK"
     },
     {
       "id": "AD05",
       "valid": true,
       "operation": "RESOLVE_ALLOWED_ALTERNATE_SERVICE",
+      "expected": "OK"
+    },
+    {
+      "id": "AD06",
+      "valid": true,
+      "operation": "BIND_LDAP_TLS_SIMPLE_WITH_CHANNEL_BINDING",
       "expected": "OK"
     },
     {
@@ -76,7 +82,7 @@
     {
       "id": "ADI08",
       "valid": false,
-      "operation": "BIND_DISALLOWED_AUTH_MECHANISM",
+      "operation": "BIND_UNKNOWN_OR_UNCLASSIFIED_AUTH_MECHANISM",
       "expected": "AD_AUTH_MECHANISM_NOT_ALLOWED"
     },
     {
@@ -210,6 +216,12 @@
       "valid": false,
       "operation": "PARSE_WRONG_DIRECTORY_ID_LENGTH",
       "expected": "AD_PRINCIPAL_INVALID"
+    },
+    {
+      "id": "ADI31",
+      "valid": false,
+      "operation": "BIND_LDAP_SIMPLE_TLS_WITHOUT_REQUIRED_CHANNEL_BINDING",
+      "expected": "AD_CHANNEL_UNTRUSTED"
     }
   ]
 }
