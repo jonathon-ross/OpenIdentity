@@ -1,2 +1,6 @@
-# Generate once after frozen artifact promotion with:
-# python scripts/verify-external-ad-binding-checksums.py --generate
+442d014d4c64f6fc0b55490362261b8c2e9295dd4b40b7751f646c5e578516a7  spec/cddl/openidentity-external-ad-binding-v1.cddl
+e3fcfe9abc03c6b83862d159369fb9c5e49ee9c73b3965477a974542f955e10c  spec/cddl/openidentity-external-ad-binding-context-v1.cddl
+f2f2f5d4c48f38db9ade545521b711fff1d682c42999ba281b391264101042a8  spec/external-ad-binding-v1-errors.md
+82bb9dede6fc2ef0092e83838e34bb6a8afd2e44ba6848f9b27031839c8d0c3e  spec/external-ad-binding-v1-conformance.md
+88a530e3057e8748095b9cfd82e3df9570d8afd27b432d6356aa6f5f7f12839e  test-vectors/external-ad-binding-v1.json
+3dcc97c9aead5b34fa20291f564dbcb63eb3da62a53239a6d312104d0ca0d30f  test-vectors/external-ad-binding-v1-crypto.json
