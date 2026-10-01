@@ -1,0 +1,34 @@
+; OpenIdentity External OIDC Binding Context v1
+; STATUS: DESIGN-DRAFT — NOT FROZEN
+;
+; ContextBytes = deterministic RFC 8949 CBOR(external-oidc-binding-context-v1)
+; ContextHash  = 0x12 || 0x20 || SHA-256(ContextBytes)
+
+start = external-oidc-binding-context-v1
+identity-id = bstr .size 32
+
+external-oidc-binding-context-v1 = {
+    1 => 1,
+    2 => action,
+    3 => identity-id,
+    4 => tstr .size (1..2048),
+    5 => tstr .size (1..2048),
+    6 => tstr .size (1..2048),
+    7 => bstr .size (16..128),
+    8 => uint64,
+    9 => uint64 / nil,
+    ? 10 => bstr .size 34
+}
+
+action = 1 / 2
+
+; Semantics:
+; action 1 = BIND, action 2 = REVOKE.
+; OI-015 purpose is openidentity.external-oidc.bind for BIND and
+; openidentity.external-oidc.revoke for REVOKE.
+; OI-015 identity equals field 3 and its authenticationGeneration equals field 8.
+; OI-015 contextHash equals SHA2-256 Multihash(ContextBytes).
+; Field 7 is a registry ceremony challenge and is distinct from the OI-015 verifier nonce.
+; Fields 4..6 are exact values from an already validated OIDC principal.
+; Email, UPN, username, phone, or display-name claims never substitute for fields 4..6.
+; BIND omits field 10. REVOKE requires field 10 naming the exact BindingId.
