@@ -34,3 +34,9 @@ external-ad-binding-v1 = {
 ; serviceId is provenance/relying-service context and is not part of ExternalSubjectKey.
 ; DN, CN, sAMAccountName, UPN, mail, displayName, objectSid, and other naming/account
 ; attributes MUST NOT substitute for directoryId or objectGuid.
+
+; objectGuid is the exact 16 octets of the AD objectGUID LDAP attribute.
+; It is not a runtime GUID/UUID memory representation and not UTF-8 UUID text.
+; directoryId is an opaque random OpenIdentity-assigned identifier created when a
+; trusted AD directory profile is enrolled. It MUST NOT be derived solely from
+; forest DNS name, naming-context DN, domain name, or domain-controller hostname.
