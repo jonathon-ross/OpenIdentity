@@ -34,7 +34,7 @@ final class ExternalOidcBindingCeremonyTest {
  }
  @Test void accountAWithAuthorizationForAccountBIsRejected(){
   var r=new InMemoryExternalOidcBindingRegistry();var c=ceremony(r);
-  var a=c.begin(p("subject-a"),ID,1790841600L,null),b=c.begin(p("subject-b"),ID,1790841600L,null);
+  var a=c.begin(p("subject-a"),ID,1790841600L,null);var b=c.begin(p("subject-b"),ID,1790841600L,null);
   error(BINDING_CONTEXT_MISMATCH,()->c.complete(a,assertion(b.contextHash(),ExternalOidcBindingCeremony.BIND_PURPOSE,NONCE,3),AUD,NONCE,1790841610L));
   error(BINDING_NOT_FOUND,()->r.resolve(p("subject-a"),1790841620L,policy));
  }
