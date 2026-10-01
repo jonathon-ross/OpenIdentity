@@ -36,7 +36,7 @@
     },
     {
       "id": "B04",
-      "valid": true,
+      "valid": false,
       "operation": "RESOLVE_AFTER_GENERATION_RESET",
       "expected": "BINDING_GENERATION_STALE"
     },
