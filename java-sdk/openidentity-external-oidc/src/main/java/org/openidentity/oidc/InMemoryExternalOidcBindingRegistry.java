@@ -1,6 +1,7 @@
 package org.openidentity.oidc;
 
 import java.util.*;
+import java.nio.file.*;import java.nio.charset.StandardCharsets;import java.io.*;
 import static org.openidentity.oidc.ExternalOidcBindingError.*;
 
 public final class InMemoryExternalOidcBindingRegistry {
@@ -22,7 +23,7 @@ public final class InMemoryExternalOidcBindingRegistry {
  private record Key(String issuer,String subject){}
  private final Map<Key,State> active=new HashMap<>();
  private final Map<String,State> byId=new HashMap<>();
- private final Set<String> consumedChallenges=new HashSet<>();
+ private final Set<String> consumedChallenges=new HashSet<>();\n private final Path persistenceFile;\n public InMemoryExternalOidcBindingRegistry(){this.persistenceFile=null;}\n public InMemoryExternalOidcBindingRegistry(Path persistenceFile){this.persistenceFile=Objects.requireNonNull(persistenceFile).toAbsolutePath().normalize();load();}
 
  public synchronized State bind(VerifiedExternalOidcPrincipal principal,byte[] identity,long createdAt,Long expiresAt,byte[] challenge,Authorization auth,Policy policy){
   require(policy.providerTrusted(principal.issuer()),OIDC_PROVIDER_UNTRUSTED);
@@ -37,7 +38,7 @@ public final class InMemoryExternalOidcBindingRegistry {
   Key key=new Key(principal.issuer(),principal.subject());State existing=active.get(key);
   if(existing!=null&&!Arrays.equals(verified(existing).identity(),identity))fail(BINDING_CONFLICT);
   byte[] bytes=ExternalOidcBindingV1.encode(binding),id=ExternalOidcBindingV1.bindingId(bytes);State state=new State(bytes,id,Status.ACTIVE,null);
-  active.put(key,state);byId.put(HexFormat.of().formatHex(id),state);consumedChallenges.add(challengeKey);return state;
+  active.put(key,state);byId.put(HexFormat.of().formatHex(id),state);consumedChallenges.add(challengeKey);persist();return state;
  }
 
  public synchronized State revoke(byte[] bindingId,byte[] challenge,long revokedAt,Authorization auth,Policy policy){
@@ -49,7 +50,7 @@ public final class InMemoryExternalOidcBindingRegistry {
   require(auth.contextMatches(),BINDING_CONTEXT_MISMATCH);require(!auth.replayed(),BINDING_REPLAY);
   require(policy.currentAuthenticationGeneration(stored.identity())==stored.authenticationGeneration(),BINDING_GENERATION_STALE);
   State revoked=new State(state.bindingBytes(),state.bindingId(),Status.REVOKED,revokedAt);byId.put(HexFormat.of().formatHex(bindingId),revoked);
-  active.remove(new Key(stored.issuer(),stored.subject()));consumedChallenges.add(ck);return revoked;
+  active.remove(new Key(stored.issuer(),stored.subject()));consumedChallenges.add(ck);persist();return revoked;
  }
 
  public synchronized ResolvedExternalOidcAuthentication resolve(VerifiedExternalOidcPrincipal principal,long now,Policy policy){
@@ -67,6 +68,8 @@ public final class InMemoryExternalOidcBindingRegistry {
   require(policy.assuranceSufficient(principal),ASSURANCE_INSUFFICIENT);
   return new ResolvedExternalOidcAuthentication(stored.identity(),state.bindingId(),principal.issuer(),principal.subject(),principal.clientId(),principal.authenticatedAt(),principal.acr(),principal.amr(),principal.providerAssurance());
  }
+ private void load(){if(!Files.isRegularFile(persistenceFile))return;try{for(String line:Files.readAllLines(persistenceFile,StandardCharsets.US_ASCII)){if(line.isBlank())continue;String[] p=line.split("\\|",-1);if(p.length!=4)throw new IllegalArgumentException("binding store");State s=new State(HexFormat.of().parseHex(p[0]),HexFormat.of().parseHex(p[1]),Status.valueOf(p[2]),p[3].isEmpty()?null:Long.valueOf(p[3]));var b=verified(s);byId.put(HexFormat.of().formatHex(s.bindingId()),s);if(s.status()==Status.ACTIVE)active.put(new Key(b.issuer(),b.subject()),s);}}catch(IOException e){throw new UncheckedIOException(e);}}
+ private void persist(){if(persistenceFile==null)return;try{if(persistenceFile.getParent()!=null)Files.createDirectories(persistenceFile.getParent());List<State> states=new ArrayList<>(byId.values());states.sort(Comparator.comparing(s->HexFormat.of().formatHex(s.bindingId())));StringBuilder b=new StringBuilder();for(State s:states)b.append(HexFormat.of().formatHex(s.bindingBytes())).append('|').append(HexFormat.of().formatHex(s.bindingId())).append('|').append(s.status()).append('|').append(s.revokedAt()==null?"":s.revokedAt()).append(System.lineSeparator());Path dir=persistenceFile.getParent()!=null?persistenceFile.getParent():Path.of(".");Path tmp=Files.createTempFile(dir,"oidc-bindings-", ".tmp");try{Files.writeString(tmp,b.toString(),StandardCharsets.US_ASCII,StandardOpenOption.TRUNCATE_EXISTING);try{Files.move(tmp,persistenceFile,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}catch(AtomicMoveNotSupportedException e){Files.move(tmp,persistenceFile,StandardCopyOption.REPLACE_EXISTING);}}finally{Files.deleteIfExists(tmp);}}catch(IOException e){throw new UncheckedIOException(e);}}
  private static ExternalOidcBindingV1.Binding verified(State state){
   final ExternalOidcBindingV1.Binding b;
   try{b=ExternalOidcBindingV1.decode(state.bindingBytes());}catch(IllegalArgumentException e){fail(OIDC_PRINCIPAL_INVALID);return null;}
