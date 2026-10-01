@@ -15,9 +15,9 @@ public final class LdapAdPrincipalResolver implements AdPrincipalResolver {
    Filter f=Filter.createEqualityFilter("userPrincipalName",evidence.authenticatedPrincipal());
    SearchResult r=c.search(profile.baseDn(),SearchScope.SUB,f,"objectGUID","userAccountControl","distinguishedName","userPrincipalName");
    if(r.getEntryCount()!=1)throw new ExternalAdBindingException(ExternalAdBindingError.AD_PRINCIPAL_INVALID);
-   SearchResultEntry e=r.getSearchEntries().get(0);Attribute g=e.getAttribute("objectGUID");if(g==null||g.getValueByteArrays().length!=1||g.getValueByteArrays()[0].length!=16)throw new ExternalAdBindingException(ExternalAdBindingError.AD_PRINCIPAL_INVALID);
-   byte[] guid=g.getValueByteArrays()[0];boolean usable=true;String uac=e.getAttributeValue("userAccountControl");if(uac!=null){try{usable=(Integer.parseInt(uac)&2)==0;}catch(NumberFormatException x){usable=false;}}
-   return new VerifiedAdPrincipal(profile.directoryId(),guid,evidence.serviceId(),evidence.authenticationMechanism(),evidence.channelTrusted(),usable,true,Map.of("dn",e.getDN(),"upn",Objects.toString(e.getAttributeValue("userPrincipalName"),"")));
+   SearchResultEntry e=r.getSearchEntries().get(0);Attribute g=attributeIgnoreCase(e,"objectGUID");if(g==null||g.getValueByteArrays().length!=1||g.getValueByteArrays()[0].length!=16)throw new ExternalAdBindingException(ExternalAdBindingError.AD_PRINCIPAL_INVALID);
+   byte[] guid=g.getValueByteArrays()[0];boolean usable=true;String uac=valueIgnoreCase(e,"userAccountControl");if(uac!=null){try{usable=(Integer.parseInt(uac)&2)==0;}catch(NumberFormatException x){usable=false;}}
+   return new VerifiedAdPrincipal(profile.directoryId(),guid,evidence.serviceId(),evidence.authenticationMechanism(),evidence.channelTrusted(),usable,true,Map.of("dn",e.getDN(),"upn",Objects.toString(valueIgnoreCase(e,"userPrincipalName"),"")));
   }catch(ExternalAdBindingException e){throw e;}catch(LDAPException e){throw new ExternalAdBindingException(ExternalAdBindingError.AD_PRINCIPAL_INVALID);}
  }
 }
