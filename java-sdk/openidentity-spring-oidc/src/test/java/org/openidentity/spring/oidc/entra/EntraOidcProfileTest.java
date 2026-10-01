@@ -25,5 +25,4 @@ final class EntraOidcProfileTest {
   assertThrows(IllegalArgumentException.class,()->p.validate(principal));
  }
 
- }
 }
