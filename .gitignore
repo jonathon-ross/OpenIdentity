@@ -51,3 +51,5 @@ __pycache__/
 /dev/openidentity-bindings.store
 *.controller.key
 *.authentication.key
+/dev/openidentity-ad-bindings.store
+/dev/openidentity-ad-ldap-bindings.store
