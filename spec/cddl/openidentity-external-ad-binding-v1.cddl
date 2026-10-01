@@ -1,0 +1,36 @@
+; OpenIdentity External Active Directory Binding v1
+; STATUS: DRAFT-PRE-FREEZE
+; Deterministic encoding: RFC 8949 Core Deterministic Encoding Requirements
+; plus OpenIdentity cryptographic-agility restrictions.
+
+start = external-ad-binding-v1
+identity-id = bstr .size 32
+directory-id = bstr .size 16
+object-guid = bstr .size 16
+
+external-ad-binding-v1 = {
+    1 => 1,                    ; version
+    2 => identity-id,
+    3 => directory-id,         ; OpenIdentity-configured trusted AD directory identifier
+    4 => object-guid,          ; exact 16-byte AD objectGUID
+    5 => tstr .size (1..2048), ; binding ceremony serviceId provenance
+    6 => uint64,               ; createdAt Unix seconds
+    7 => uint64 / nil,         ; expiresAt or nil
+    8 => uint64                ; AuthenticationAuthority generation
+}
+
+; BindingBytes = deterministic CBOR(external-ad-binding-v1)
+;
+; BindingId = SHA2-256 Multihash of deterministic CBOR:
+; [
+;   "OpenIdentity External Active Directory Binding",
+;   1,
+;   BindingBytes
+; ]
+;
+; BindingId bytes = 0x12 || 0x20 || 32-byte SHA-256 digest.
+;
+; (directoryId, objectGuid) is the ExternalSubjectKey.
+; serviceId is provenance/relying-service context and is not part of ExternalSubjectKey.
+; DN, CN, sAMAccountName, UPN, mail, displayName, objectSid, and other naming/account
+; attributes MUST NOT substitute for directoryId or objectGuid.
