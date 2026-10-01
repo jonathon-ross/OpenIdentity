@@ -44,3 +44,10 @@ node_modules/
 ### Python cache / bytecode ###
 __pycache__/
 *.py[cod]
+
+# OpenIdentity local development state and private authenticators
+/dev/openidentity-state/
+/dev/openidentity-secrets/
+/dev/openidentity-bindings.store
+*.controller.key
+*.authentication.key
