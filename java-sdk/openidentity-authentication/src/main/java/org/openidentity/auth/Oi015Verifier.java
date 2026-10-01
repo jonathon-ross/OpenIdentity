@@ -13,6 +13,14 @@ public final class Oi015Verifier {
  public Oi015Verifier(AuthenticationStateResolver stateResolver,long maximumLifetimeSeconds){
   this.stateResolver=Objects.requireNonNull(stateResolver);this.maximumLifetimeSeconds=maximumLifetimeSeconds;
  }
+ public Oi015VerificationResult tryVerify(SecuredAuthenticationAssertion secured,byte[] expectedAudience,String expectedPurpose,byte[] expectedNonce,byte[] expectedContextHash,long now){
+  try{
+   VerifiedAuthentication v=verify(secured,expectedAudience,expectedPurpose,expectedNonce,expectedContextHash,now);
+   return new Oi015VerificationResult(true,false,v.identity());
+  }catch(VerificationException e){
+   return new Oi015VerificationResult(false,e.error()==VerificationError.ASSERTION_CONTEXT_BINDING_MISMATCH,null);
+  }
+ }
  public VerifiedAuthentication verify(SecuredAuthenticationAssertion secured,byte[] expectedAudience,String expectedPurpose,byte[] expectedNonce,byte[] expectedContextHash,long now){
   AuthenticationAssertion a=secured.assertion();CurrentAuthenticationState state=stateResolver.resolve(a.identity());
   if(state==null)throw new VerificationException(VerificationError.STATE_UNAVAILABLE);
