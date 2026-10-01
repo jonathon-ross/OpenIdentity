@@ -2,10 +2,11 @@ package org.openidentity.ad.ldap;
 import org.openidentity.ad.*;import java.util.*;
 public final class MicrosoftAdInteropProbe {
  public static void main(String[] args){
-  Map<String,String> a=parse(args);String host=req(a,"host"),base=req(a,"base-dn"),bind=req(a,"bind-dn"),password=req(a,"bind-password"),principal=req(a,"principal"),profile=a.getOrDefault("profile","microsoft-ad-lab"),service=a.getOrDefault("service","openidentity-ad-link-service");int port=Integer.parseInt(a.getOrDefault("port","389"));byte[] directory=HexFormat.of().parseHex(req(a,"directory-id"));if(directory.length!=16)throw new IllegalArgumentException("directory-id must be 16 bytes");
-  var resolver=new LdapAdPrincipalResolver(new LdapAdPrincipalResolver.Profile(profile,host,port,base,bind,password,directory,false));
+  Map<String,String> a=parse(args);String host=req(a,"host"),base=req(a,"base-dn"),bind=req(a,"bind-dn"),password=req(a,"bind-password"),principal=req(a,"principal"),profile=a.getOrDefault("profile","microsoft-ad-lab"),service=a.getOrDefault("service","openidentity-ad-link-service");boolean tls=Boolean.parseBoolean(a.getOrDefault("tls","false"));int port=Integer.parseInt(a.getOrDefault("port",tls?"636":"389"));byte[] directory=HexFormat.of().parseHex(req(a,"directory-id"));if(directory.length!=16)throw new IllegalArgumentException("directory-id must be 16 bytes");
+  var resolver=new LdapAdPrincipalResolver(new LdapAdPrincipalResolver.Profile(profile,host,port,base,bind,password,directory,tls));
   var p=resolver.resolve(new AdAuthenticationEvidence(profile,principal,service,ExternalAdBindingV1.KERBEROS_SPNEGO,true,Map.of("interopProbe",true)));
   System.out.println("MICROSOFT AD LDAP INTEROP RESOLVED");
+  System.out.println("transport="+(tls?"LDAPS_JVM_TRUSTED_HOSTNAME_VERIFIED":"LDAP"));
   System.out.println("directoryIdHex="+HexFormat.of().formatHex(p.directoryId()));
   System.out.println("objectGuidLdapOctetsHex="+HexFormat.of().formatHex(p.objectGuid()));
   System.out.println("accountUsable="+p.accountUsable());
