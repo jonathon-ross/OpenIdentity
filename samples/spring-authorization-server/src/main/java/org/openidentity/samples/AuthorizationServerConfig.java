@@ -60,7 +60,15 @@ public class AuthorizationServerConfig {
   return new OpenIdentityTokenExchangeAuthenticationConverter(dpop,nonce);
  }
  @Bean OpenIdentitySpringTokenIssuer openIdentityTokenIssuer(@Qualifier("tokenGenerator") OAuth2TokenGenerator<?> generator){return new OpenIdentitySpringTokenIssuer(generator);}
- @Bean OpenIdentityTokenExchangeAuthenticationProvider openIdentityProvider(DelegatedAgentExchangeService exchange,OpenIdentitySpringTokenIssuer issuer){
+ @Bean OpenIdentityExchange openIdentityExchange(){
+  return request->{
+   long now=request.now();
+   byte[] subject=new byte[32],actor=new byte[32];Arrays.fill(actor,(byte)7);
+   List<String> audiences=request.resources().isEmpty()?request.audiences():request.resources();
+   return new AuthorizationDecision(subject,actor,audiences,request.scopes(),request.dpop().jkt(),now,now+180);
+  };
+ }
+ @Bean OpenIdentityTokenExchangeAuthenticationProvider openIdentityProvider(OpenIdentityExchange exchange,OpenIdentitySpringTokenIssuer issuer){
   return new OpenIdentityTokenExchangeAuthenticationProvider(exchange,"http://127.0.0.1:9000",Clock.systemUTC(),issuer);
  }
 
