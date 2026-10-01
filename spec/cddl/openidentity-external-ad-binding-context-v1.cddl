@@ -1,5 +1,5 @@
 ; OpenIdentity External Active Directory Binding Context v1
-; STATUS: DRAFT-PRE-FREEZE
+; STATUS: FROZEN-NORMATIVE v1
 ; ContextBytes = deterministic RFC 8949 CBOR(external-ad-binding-context-v1)
 ; ContextHash  = 0x12 || 0x20 || SHA-256(ContextBytes)
 
