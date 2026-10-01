@@ -5,6 +5,10 @@ import java.util.*;
 
 public final class Oi015Codec {
  private Oi015Codec(){}
+ public static byte[] encode(AuthenticationAssertion a,List<AuthenticationProof> proofs){
+  var w=new org.openidentity.cbor.DeterministicCborWriter();byte[] assertion=encodeAssertion(a);w.writeMapHeader(2);w.writeUnsigned(1);w.writeEncoded(assertion);w.writeUnsigned(2);w.writeArrayHeader(proofs.size());byte[] prev=null;for(var p:proofs){if(prev!=null&&Arrays.compareUnsigned(prev,p.methodId())>=0)throw new IllegalArgumentException("proof order");prev=p.methodId();w.writeMapHeader(2);w.writeUnsigned(1);w.writeByteString(p.methodId());w.writeUnsigned(2);w.writeByteString(p.signature());}return w.toByteArray();
+ }
+ public static byte[] encodeAssertion(AuthenticationAssertion a){var w=new org.openidentity.cbor.DeterministicCborWriter();w.writeMapHeader(10);w.writeUnsigned(1);w.writeUnsigned(1);w.writeUnsigned(2);w.writeByteString(a.identity());w.writeUnsigned(3);w.writeByteString(a.stateHash());w.writeUnsigned(4);w.writeUnsigned(a.authenticationGeneration());w.writeUnsigned(5);w.writeByteString(a.audience());w.writeUnsigned(6);w.writeTextString(a.purpose());w.writeUnsigned(7);w.writeUnsigned(a.issuedAt());w.writeUnsigned(8);w.writeUnsigned(a.expiresAt());w.writeUnsigned(9);w.writeByteString(a.nonce());w.writeUnsigned(10);w.writeByteString(a.contextHash());return w.toByteArray();}
  public static SecuredAuthenticationAssertion decode(byte[] exactSecuredBytes){
   try{
    StrictCborReader r=new StrictCborReader(exactSecuredBytes);expect(r.readMapHeader(),2);
