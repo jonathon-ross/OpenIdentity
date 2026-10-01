@@ -3,7 +3,7 @@ import com.unboundid.ldap.listener.*;import com.unboundid.ldap.sdk.*;import org.
 final class LdapAdPrincipalResolverIntegrationTest {
  InMemoryDirectoryServer ds;
  @BeforeEach void start()throws Exception{
-  var cfg=new InMemoryDirectoryServerConfig("dc=oi-test,dc=internal");cfg.addAdditionalBindCredentials("cn=svc,dc=oi-test,dc=internal","secret");ds=new InMemoryDirectoryServer(cfg);ds.startListening();
+  var cfg=new InMemoryDirectoryServerConfig("dc=oi-test,dc=internal");cfg.setSchema(null);cfg.addAdditionalBindCredentials("cn=svc,dc=oi-test,dc=internal","secret");ds=new InMemoryDirectoryServer(cfg);ds.startListening();
   ds.add(new Entry("dc=oi-test,dc=internal",new Attribute("objectClass","top","domain"),new Attribute("dc","oi-test")));
   byte[] guid=HexFormat.of().parseHex("00112233445566778899aabbccddeeff");
   ds.add(new Entry("cn=Alice,dc=oi-test,dc=internal",new Attribute("objectClass","top","person","organizationalPerson","inetOrgPerson"),new Attribute("cn","Alice"),new Attribute("sn","Test"),new Attribute("userPrincipalName","alice@OI-TEST.INTERNAL"),new Attribute("objectGUID",guid),new Attribute("userAccountControl","512")));
