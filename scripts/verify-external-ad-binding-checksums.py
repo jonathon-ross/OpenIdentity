@@ -6,7 +6,7 @@ FILES=[
 "spec/cddl/openidentity-external-ad-binding-v1.cddl",
 "spec/cddl/openidentity-external-ad-binding-context-v1.cddl",
 "spec/external-ad-binding-v1-errors.md",
-"spec/external-ad-binding-v1-pre-freeze-conformance.md",
+"spec/external-ad-binding-v1-conformance.md",
 "test-vectors/external-ad-binding-v1.json",
 "test-vectors/external-ad-binding-v1-crypto.json",
 ]
