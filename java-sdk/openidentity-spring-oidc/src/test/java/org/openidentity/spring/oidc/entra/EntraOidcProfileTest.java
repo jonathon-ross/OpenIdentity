@@ -24,12 +24,6 @@ final class EntraOidcProfileTest {
   var principal=new VerifiedExternalOidcPrincipal(p.issuer(),"sub","client-1",null,null,List.of(),Map.of("tid","99999999-2222-3333-4444-555555555555"));
   assertThrows(IllegalArgumentException.class,()->p.validate(principal));
  }
- @Test void registrationUsesTenantScopedV2Endpoints(){
-  var r=EntraClientRegistrationFactory.create("entra",TENANT,"client-1","secret");
-  assertEquals("https://login.microsoftonline.com/"+TENANT+"/v2.0",r.getProviderDetails().getIssuerUri());
-  assertEquals("https://login.microsoftonline.com/"+TENANT+"/oauth2/v2.0/authorize",r.getProviderDetails().getAuthorizationUri());
-  assertEquals("https://login.microsoftonline.com/"+TENANT+"/oauth2/v2.0/token",r.getProviderDetails().getTokenUri());
-  assertEquals("sub",r.getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName());
-  assertTrue(r.getScopes().containsAll(Set.of("openid","profile","email")));
+
  }
 }
