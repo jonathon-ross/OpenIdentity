@@ -1,6 +1,6 @@
 # External Active Directory Binding v1 — Error Taxonomy
 
-Status: DRAFT-PRE-FREEZE.
+Status: FROZEN-NORMATIVE v1.
 
 Provider-neutral binding errors are reused where semantics are identical:
 BINDING_NOT_FOUND, BINDING_CONFLICT, BINDING_REVOKED, BINDING_GENERATION_STALE,
