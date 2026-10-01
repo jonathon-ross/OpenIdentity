@@ -1,2 +1,6 @@
-# Generate with:
-# python scripts/verify-external-ad-binding-checksums-pre-freeze.py --generate
+a8f3e6c8f99b389484ded79c18c116b39d1ebe25da5b54bd97eea7f2bb01ad22  spec/cddl/openidentity-external-ad-binding-v1.cddl
+a7eb16e9829a18a73081800ce772fb54253b1dcb84296814c5dde852095215cc  spec/cddl/openidentity-external-ad-binding-context-v1.cddl
+a58c6947c845797a95fa67247ef8e79da9ae6da2a2ba3eb8695441137416d006  spec/external-ad-binding-v1-errors.md
+b6a18e930153e33b2cb40a248d1311e4b0c022c45611ca5b72541dffcc25d890  spec/external-ad-binding-v1-pre-freeze-conformance.md
+fa9222353a50519d75fc8b2c64de166ce2d2dc3990e8298a4eae1d4509ba18d1  test-vectors/external-ad-binding-v1-pre-freeze.json
+08af7886f5a5776c21a5d9cd5c00dd9819a1f19097621198c77b125351b40d92  test-vectors/external-ad-binding-v1-crypto-pre-freeze.json
