@@ -9,7 +9,7 @@ final class ExternalAdSemanticVectorsTest {
  InMemoryExternalAdBindingRegistry.Principal p(byte[] dir,byte[] guid,String service,int mechanism,boolean channel,boolean usable,boolean assurance){return new InMemoryExternalAdBindingRegistry.Principal(dir,guid,service,mechanism,channel,usable,assurance);}
  InMemoryExternalAdBindingRegistry.Principal good(){return p(DIR,GUID,"svc",1,true,true,true);}InMemoryExternalAdBindingRegistry.Authorization bind(){return new InMemoryExternalAdBindingRegistry.Authorization(true,"openidentity.external-ad.bind",true,false);}InMemoryExternalAdBindingRegistry.Authorization revoke(){return new InMemoryExternalAdBindingRegistry.Authorization(true,"openidentity.external-ad.revoke",true,false);}
  @Test void everySemanticVectorHasExecutableContract()throws Exception{
-  JsonNode rows=new ObjectMapper().readTree(Files.readString(Path.of("../../test-vectors/external-ad-binding-v1-pre-freeze.json"))).get("semanticVectors");Set<String> ids=new HashSet<>();rows.forEach(x->ids.add(x.get("id").asText()));assertEquals(38,ids.size());
+  JsonNode rows=new ObjectMapper().readTree(Files.readString(Path.of("../../test-vectors/external-ad-binding-v1.json"))).get("semanticVectors");Set<String> ids=new HashSet<>();rows.forEach(x->ids.add(x.get("id").asText()));assertEquals(38,ids.size());
   for(int i=1;i<=6;i++)assertTrue(ids.contains(String.format("AD%02d",i)));for(int i=1;i<=32;i++)assertTrue(ids.contains(String.format("ADI%02d",i)));
  }
  @Test void bindResolveAlternateServiceGenerationConflictAndExactKey(){
