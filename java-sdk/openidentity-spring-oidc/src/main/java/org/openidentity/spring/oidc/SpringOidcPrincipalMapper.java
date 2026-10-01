@@ -12,8 +12,8 @@ public final class SpringOidcPrincipalMapper {
   String issuer=required(user.getIssuer()==null?null:user.getIssuer().toString(),"iss");
   String subject=required(user.getSubject(),"sub");
   String clientId=required(registration.getClientId(),"clientId");
-  Long authenticatedAt=user.getAuthenticationInstant()==null?null:user.getAuthenticationInstant().getEpochSecond();
-  String acr=user.getAuthenticationContextClass()==null?null:user.getAuthenticationContextClass().getValue();
+  Long authenticatedAt=user.getAuthenticatedAt()==null?null:user.getAuthenticatedAt().getEpochSecond();
+  String acr=user.getAuthenticationContextClass();
   List<String> amr=user.getAuthenticationMethods()==null?List.of():List.copyOf(user.getAuthenticationMethods());
   Map<String,Object> provider=new LinkedHashMap<>();
   Set<String> core=Set.of("iss","sub","aud","exp","iat","auth_time","nonce","acr","amr","azp");
