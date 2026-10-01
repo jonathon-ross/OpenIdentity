@@ -8,7 +8,7 @@
 - External OIDC proves authentication of an external account; OpenIdentity proves authority over an OpenIdentity identity.
 - A valid external ID Token alone MUST NOT create, rotate, recover, control, or delegate an OpenIdentity identity.
 - This is interoperability registry state, not canonical IdentityState and not a new core operation.
-- The stable external account identifier is the exact validated tuple `(issuer, subject, clientId)` for v1. Email, UPN, username, phone, and display name MUST NOT be binding keys.
+- The stable external account identifier is the exact validated tuple `(issuer, subject)` for v1. Email, UPN, username, phone, display name, and clientId MUST NOT be binding keys. `clientId` remains committed as relying-party context.
 
 ## 2. Who may create a binding
 
@@ -48,11 +48,11 @@ The OpenIdentity identity then authorizes the exact proposed binding under dedic
 
 A generic login or token-exchange assertion MUST NOT be accepted as binding authorization.
 
-The registry creates ACTIVE state only after both sides succeed. One active external tuple MUST NOT silently identify multiple OpenIdentity identities in the same deployment trust domain.
+The registry creates ACTIVE state only after both sides succeed. One active `(issuer, subject)` MUST NOT silently identify multiple OpenIdentity identities in the same deployment trust domain. `clientId` is retained in the binding record and signed context as provenance/RP context, but does not split the external identity key.
 
 ## 5. Authentication use
 
-A later validated OIDC login may resolve `(iss, sub, clientId)` through an ACTIVE binding to an OpenIdentity identity. This proves only that the external account is an approved authentication bridge.
+A later validated OIDC login resolves the exact `(iss, sub)` through an ACTIVE binding to an OpenIdentity identity. Deployment policy separately verifies that the presenting OIDC client/RP context is acceptable for that binding. This proves only that the external account is an approved authentication bridge.
 
 It MUST NOT imply controller, recovery, assertion, or delegation authority, and MUST NOT authorize mutation of OpenIdentity state or creation of delegation grants.
 
@@ -88,9 +88,9 @@ Microsoft Entra ID, Okta, Auth0, Keycloak, and other providers remain configurat
 
 ## 10. First conformance gates
 
-Positive: B01 valid two-sided bind; B02 exact tuple resolves; B03 revoke blocks resolution; B04 authentication reset invalidates old binding.
+Positive: B01 valid two-sided bind; B02 exact `(iss, sub)` resolves under an allowed RP/client context; B03 revoke blocks resolution; B04 authentication reset invalidates old binding; B05 two allowed clientIds in the same pairwise sector may resolve the same `(iss, sub)` without creating two identity bindings.
 
-Negative: BI01 same sub/different issuer; BI02 same issuer/different sub; BI03 different clientId; BI04 email-only match; BI05 invalid/stale OpenIdentity authorization; BI06 tuple mismatch; BI07 duplicate active tuple; BI08 revoked; BI09 stale authentication generation; BI10 deactivated identity; BI11 untrusted issuer; BI12 administrator-only attempted binding.
+Negative: BI01 same sub/different issuer; BI02 same issuer/different sub; BI03 disallowed/unrecognized clientId context; BI04 email-only match; BI05 invalid/stale OpenIdentity authorization; BI06 tuple mismatch; BI07 duplicate active tuple; BI08 revoked; BI09 stale authentication generation; BI10 deactivated identity; BI11 untrusted issuer; BI12 administrator-only attempted binding.
 
 ## 11. OI-015 authorization — DECISION
 
@@ -106,9 +106,20 @@ The registry challenge is deliberately distinct from the OI-015 verifier nonce: 
 
 This lets the profile inherit OI-015's current-state, AuthenticationPolicy, generation, threshold-signature, expiry, nonce, and replay semantics without creating a second authentication primitive.
 
-## 12. Open questions before freeze
+## 12. External subject key and client context — DECISION
 
-1. Keep clientId always in the v1 key, or distinguish public vs pairwise subjects from trusted metadata?
-2. Mandatory binding lifetime, or permit non-expiring generation-bound bindings?
-3. Registry uniqueness global per deployment or scoped to an issuer trust domain?
-4. Which OIDC assurance claims, if any, belong in the resolved authentication result?
+v1 identifies the external account by the exact validated OIDC pair `(issuer, subject)`.
+
+`clientId` MUST NOT be part of the identity key. OIDC pairwise subject identifiers are already sector-scoped by the OpenID Provider, and multiple clients in one sector can legitimately observe the same pairwise subject.
+
+`clientId` remains mandatory in ExternalOidcBindingContextV1 and in binding provenance. It records which RP context participated in the binding ceremony and lets deployment policy constrain which client contexts may later use the binding.
+
+Changing clientId therefore does not create a different external identity, but a clientId not permitted by deployment/binding policy MUST fail closed.
+
+Implementations MUST NOT infer that equal `sub` values from different issuers identify the same account.
+
+## 13. Open questions before freeze
+
+1. Mandatory binding lifetime, or permit non-expiring generation-bound bindings?
+2. Registry uniqueness global per deployment or scoped to an issuer trust domain?
+3. Which OIDC assurance claims, if any, belong in the resolved authentication result?
