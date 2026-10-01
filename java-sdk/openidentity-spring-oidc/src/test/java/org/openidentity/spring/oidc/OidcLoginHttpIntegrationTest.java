@@ -5,7 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.eclipse.jetty.ee11.servlet.*;import org.eclipse.jetty.server.*;
 import org.junit.jupiter.api.Test;
 import org.openidentity.oidc.*;
-import org.springframework.context.annotation.*;import org.springframework.security.config.Customizer;import org.springframework.security.config.annotation.web.builders.HttpSecurity;import org.springframework.security.oauth2.client.registration.*;import org.springframework.security.oauth2.core.AuthorizationGrantType;import org.springframework.security.web.SecurityFilterChain;import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;import org.springframework.web.servlet.DispatcherServlet;
+import org.springframework.context.annotation.*;import org.springframework.security.config.Customizer;import org.springframework.security.config.annotation.web.builders.HttpSecurity;import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;import org.springframework.security.oauth2.client.registration.*;import org.springframework.security.oauth2.core.AuthorizationGrantType;import org.springframework.security.web.SecurityFilterChain;import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;import org.springframework.web.servlet.DispatcherServlet;
 import java.io.*;import java.net.*;import java.net.http.*;import java.nio.charset.StandardCharsets;import java.time.Instant;import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
