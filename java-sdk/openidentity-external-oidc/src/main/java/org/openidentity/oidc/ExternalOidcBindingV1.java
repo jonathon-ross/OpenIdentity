@@ -37,8 +37,7 @@ public final class ExternalOidcBindingV1 {
    key(r,1);if(r.readUnsigned()!=VERSION)throw new IllegalArgumentException("version");
    key(r,2);byte[] identity=r.readByteString();key(r,3);String issuer=r.readTextString();key(r,4);String subject=r.readTextString();
    key(r,5);String clientId=r.readTextString();key(r,6);long createdAt=r.readUnsigned();
-   key(r,7);Long expiresAt;
-   int p=r.position();try{expiresAt=r.readUnsigned();}catch(IllegalArgumentException e){byte[] one=r.slice(p,p+1);if(one.length!=1||(one[0]&255)!=0xf6)throw e;expiresAt=null;r=new StrictCborReader(bytes);skipToAfterNull(r);}
+   key(r,7);Long expiresAt;if(r.peekByte()==0xf6){r.readNull();expiresAt=null;}else expiresAt=r.readUnsigned();
    key(r,8);long generation=r.readUnsigned();if(!r.done())throw new IllegalArgumentException("trailing");
    Binding b=new Binding(identity,issuer,subject,clientId,createdAt,expiresAt,generation);
    if(!java.util.Arrays.equals(bytes,encode(b)))throw new IllegalArgumentException("non-deterministic");
@@ -46,7 +45,6 @@ public final class ExternalOidcBindingV1 {
   }catch(RuntimeException e){throw new IllegalArgumentException("invalid binding bytes",e);}
  }
  private static void key(StrictCborReader r,long expected){if(r.readUnsigned()!=expected)throw new IllegalArgumentException("map key");}
- private static void skipToAfterNull(StrictCborReader r){r.readMapHeader();key(r,1);r.readUnsigned();key(r,2);r.readByteString();key(r,3);r.readTextString();key(r,4);r.readTextString();key(r,5);r.readTextString();key(r,6);r.readUnsigned();key(r,7);int p=r.position();if((r.slice(p,p+1)[0]&255)!=0xf6)throw new IllegalArgumentException("null");try{var fld=StrictCborReader.class.getDeclaredField("p");fld.setAccessible(true);fld.setInt(r,p+1);}catch(ReflectiveOperationException e){throw new IllegalStateException(e);}}
  public static byte[] bindingId(Binding b){return bindingId(encode(b));}
  public static byte[] bindingId(byte[] bb){
   var w=new DeterministicCborWriter();w.writeArrayHeader(3);
