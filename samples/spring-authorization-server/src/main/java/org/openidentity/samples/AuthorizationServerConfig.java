@@ -16,6 +16,7 @@ import org.springframework.security.oauth2.server.authorization.client.*;
 import org.springframework.security.oauth2.server.authorization.settings.*;
 import org.springframework.security.oauth2.server.authorization.token.*;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.Customizer;
 import java.security.*;
 import java.security.interfaces.RSAPublicKey;
 import java.security.interfaces.RSAPrivateKey;
@@ -70,6 +71,13 @@ public class AuthorizationServerConfig {
  }
  @Bean OpenIdentityTokenExchangeAuthenticationProvider openIdentityProvider(OpenIdentityExchange exchange,OpenIdentitySpringTokenIssuer issuer){
   return new OpenIdentityTokenExchangeAuthenticationProvider(exchange,"http://127.0.0.1:9000",Clock.systemUTC(),issuer);
+ }
+
+ @Bean @Order(2) SecurityFilterChain resourceServerSecurityFilterChain(HttpSecurity http) throws Exception{
+  http.securityMatcher("/api/**")
+      .authorizeHttpRequests(a->a.anyRequest().hasAuthority("SCOPE_records.read"))
+      .oauth2ResourceServer(o->o.jwt(Customizer.withDefaults()).dPoP(Customizer.withDefaults()));
+  return http.build();
  }
 
  @Bean @Order(1) SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,OpenIdentityTokenExchangeAuthenticationConverter converter,OpenIdentityTokenExchangeAuthenticationProvider provider) throws Exception{
