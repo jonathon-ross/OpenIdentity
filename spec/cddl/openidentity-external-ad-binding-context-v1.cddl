@@ -1,0 +1,41 @@
+; OpenIdentity External Active Directory Binding Context v1
+; STATUS: DRAFT-PRE-FREEZE
+; ContextBytes = deterministic RFC 8949 CBOR(external-ad-binding-context-v1)
+; ContextHash  = 0x12 || 0x20 || SHA-256(ContextBytes)
+
+start = external-ad-binding-context-v1
+identity-id = bstr .size 32
+directory-id = bstr .size 16
+object-guid = bstr .size 16
+
+external-ad-binding-context-v1 = {
+    1 => 1,
+    2 => action,
+    3 => identity-id,
+    4 => directory-id,
+    5 => object-guid,
+    6 => tstr .size (1..2048), ; serviceId
+    7 => auth-mechanism,
+    8 => bstr .size (16..128), ; registry ceremony challenge
+    9 => uint64,               ; AuthenticationAuthority generation
+    10 => uint64,              ; proposed/stored createdAt
+    11 => uint64 / nil,        ; proposed/stored expiresAt
+    ? 12 => bstr .size 34      ; BindingId, required for REVOKE
+}
+
+action = 1 / 2
+auth-mechanism = 1 / 2
+
+; action 1 = BIND, action 2 = REVOKE.
+; auth-mechanism 1 = KERBEROS_SPNEGO.
+; auth-mechanism 2 = PROTECTED_LDAP.
+; OI-015 purpose is openidentity.external-ad.bind for BIND and
+; openidentity.external-ad.revoke for REVOKE.
+; OI-015 identity equals field 3 and authenticationGeneration equals field 9.
+; OI-015 contextHash equals SHA2-256 Multihash(ContextBytes).
+; Field 8 is distinct from the OI-015 verifier nonce.
+; BIND omits field 12. REVOKE requires field 12 naming the exact BindingId.
+; BIND createdAt is fixed before OI-015 authorization.
+; REVOKE fields 10 and 11 equal stored binding createdAt/expiresAt.
+; Authentication mechanism is authorization/assurance context and is not part of
+; ExternalSubjectKey or durable BindingBytes.
