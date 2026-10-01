@@ -29,7 +29,8 @@ final class OpenIdentityTokenEndpointHttpContractTest {
   r.setParameter("actor_token",b64(new byte[]{4,5,6}));
   r.addParameter("resource","https://api.example.test/");
   r.setParameter("audience","records-service");
-  r.setParameter("scope","records.read records.write");\n  r.setParameter("dpop_jkt","attacker-controlled");
+  r.setParameter("scope","records.read records.write");
+  r.setParameter("dpop_jkt","attacker-controlled");
 
   var client=new TestingAuthenticationToken("agent-client","",List.of());client.setAuthenticated(true);
   SecurityContextHolder.getContext().setAuthentication(client);
