@@ -16,9 +16,9 @@ public final class Oi015Verifier {
  public Oi015VerificationResult tryVerify(SecuredAuthenticationAssertion secured,byte[] expectedAudience,String expectedPurpose,byte[] expectedNonce,byte[] expectedContextHash,long now){
   try{
    VerifiedAuthentication v=verify(secured,expectedAudience,expectedPurpose,expectedNonce,expectedContextHash,now);
-   return new Oi015VerificationResult(true,false,v.identity());
+   return new Oi015VerificationResult(true,false,v.identity(),null);
   }catch(VerificationException e){
-   return new Oi015VerificationResult(false,e.error()==VerificationError.ASSERTION_CONTEXT_BINDING_MISMATCH,null);
+   return new Oi015VerificationResult(false,e.error()==VerificationError.ASSERTION_CONTEXT_BINDING_MISMATCH,null,e.error());
   }
  }
  public VerifiedAuthentication verify(SecuredAuthenticationAssertion secured,byte[] expectedAudience,String expectedPurpose,byte[] expectedNonce,byte[] expectedContextHash,long now){
