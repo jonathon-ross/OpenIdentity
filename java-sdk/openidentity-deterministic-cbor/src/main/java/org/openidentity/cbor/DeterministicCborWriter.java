@@ -8,6 +8,8 @@ public final class DeterministicCborWriter {
     private final ByteArrayOutputStream out=new ByteArrayOutputStream();
     public byte[] toByteArray(){return out.toByteArray();}
     public void writeUnsigned(long v){if(v<0)throw new IllegalArgumentException("unsigned value");writeType(0,v);}
+    public void writeNegative(long v){if(v>=0||v==Long.MIN_VALUE)throw new IllegalArgumentException("negative value");writeType(1,-1-v);}
+    public void writeNull(){out.write(0xf6);}
     public void writeByteString(byte[] v){Objects.requireNonNull(v,"value");writeType(2,v.length);out.writeBytes(v);}
     public void writeTextString(String v){Objects.requireNonNull(v,"value");byte[] b=v.getBytes(StandardCharsets.UTF_8);writeType(3,b.length);out.writeBytes(b);}
     public void writeArrayHeader(int n){if(n<0)throw new IllegalArgumentException("array size");writeType(4,n);}
