@@ -17,5 +17,6 @@
  <dependency><groupId>org.eclipse.jetty</groupId><artifactId>jetty-server</artifactId><version>12.1.7</version><scope>test</scope></dependency>
  <dependency><groupId>org.eclipse.jetty.ee11</groupId><artifactId>jetty-ee11-servlet</artifactId><version>12.1.7</version><scope>test</scope></dependency>
  <dependency><groupId>com.nimbusds</groupId><artifactId>nimbus-jose-jwt</artifactId><version>10.8</version><scope>test</scope></dependency>
+ <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><version>2.20.0</version><scope>test</scope></dependency>
 </dependencies>
 </project>
