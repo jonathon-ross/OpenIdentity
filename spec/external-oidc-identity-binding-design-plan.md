@@ -171,6 +171,63 @@ Issuer aliases MUST NOT be used to bypass uniqueness. Only the exact issuer iden
 
 Registry implementations MUST enforce the invariant transactionally (for example, a unique index/conditional write over the canonical issuer+subject key for ACTIVE ownership) so concurrent binding requests cannot create a split mapping.
 
-## 15. Open questions before freeze
+## 15. Resolved authentication assurance — DECISION
 
-1. Which OIDC assurance claims, if any, belong in the resolved authentication result?
+OIDC assurance is transient authentication evidence, not durable binding identity.
+
+The durable ExternalOidcBinding MUST NOT copy mutable login/session assurance claims such as acr, amr, auth_time, authentication-method detail, device posture, risk, Conditional Access result, group membership, role membership, or similar provider state into the binding identity record.
+
+A successful use-time resolution produces a separate conceptual result:
+
+    ResolvedExternalOidcAuthentication {
+        identity
+        bindingId
+        issuer
+        subject
+        clientId
+        authenticatedAt?
+        acr?
+        amr[]
+        providerAssurance
+    }
+
+The normative cross-provider core is deliberately small:
+
+- issuer: exact validated OIDC iss;
+- subject: exact validated OIDC sub;
+- clientId: the validated RP/client context;
+- authenticatedAt: validated auth_time when the OP supplied it;
+- acr: exact validated acr value when supplied;
+- amr: exact validated amr string values when supplied.
+
+Absence of auth_time, acr, or amr MUST remain absence. Implementations MUST NOT synthesize MFA, assurance level, or authentication time merely because login succeeded.
+
+The profile does not assign universal security ordering to arbitrary acr values or amr combinations. Deployment policy interprets them only in the context of a trusted issuer/provider configuration.
+
+Provider-specific assurance belongs in an opaque/local providerAssurance structure and MUST NOT alter BindingId, ExternalSubject identity, canonical binding bytes, or OpenIdentity authority. Examples include Microsoft Entra tenant/context identifiers, Conditional Access or authentication-strength information, managed-device signals, Okta-specific assurance data, or equivalent provider extensions.
+
+Provider-specific group/role/directory claims are authorization inputs only when an explicit deployment profile maps them. They MUST NOT automatically become OpenIdentity capabilities, delegation, controller authority, or durable identity attributes.
+
+Use-time policy MAY require:
+
+- auth_time to be present and sufficiently recent;
+- a particular trusted acr;
+- one or more amr values;
+- provider-specific MFA/authentication-strength evidence;
+- device or risk requirements.
+
+Failure to meet such policy makes the current authentication unusable but does not revoke or rewrite the durable binding.
+
+The resolved assurance snapshot is request/session evidence. Implementations MAY retain audit metadata according to local security/privacy policy, but MUST NOT treat a previously stored snapshot as proof of current authentication.
+
+## 16. Pre-freeze status
+
+All initial design questions are now resolved:
+
+1. Binding authorization: frozen OI-015 with dedicated bind/revoke purposes and ExternalOidcBindingContextV1.
+2. External identity key: exact (issuer, subject); clientId is RP/provenance context.
+3. Binding lifetime: durable/generation-bound with optional deployment expiry; authentication freshness is separate.
+4. Registry uniqueness: one active (issuer, subject) maps to at most one OpenIdentity identity per authoritative registry.
+5. Assurance: interoperable OIDC assurance is transient use-time evidence; provider-specific signals remain local/opaque.
+
+The next step is a pre-freeze normative pass: define canonical BindingBytes/BindingId and registry state, tighten ExternalOidcBindingContextV1 semantics, specify processing algorithms and public failure behavior, and create independent conformance vectors before declaring v1 frozen.
