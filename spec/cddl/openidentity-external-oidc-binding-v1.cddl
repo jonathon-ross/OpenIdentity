@@ -1,0 +1,36 @@
+; OpenIdentity External OIDC Binding v1
+; STATUS: PRE-FREEZE — NOT FROZEN
+; Deterministic encoding: RFC 8949 Core Deterministic Encoding Requirements
+; plus OpenIdentity cryptographic-agility restrictions.
+
+start = external-oidc-binding-v1
+
+identity-id = bstr .size 32
+
+external-oidc-binding-v1 = {
+    1 => 1,                    ; version
+    2 => identity-id,
+    3 => tstr .size (1..2048), ; exact validated issuer
+    4 => tstr .size (1..2048), ; exact validated subject
+    5 => tstr .size (1..2048), ; binding ceremony clientId provenance
+    6 => uint64,               ; createdAt Unix seconds
+    7 => uint64 / nil,         ; expiresAt or nil
+    8 => uint64                ; AuthenticationAuthority generation
+}
+
+; BindingBytes = deterministic CBOR(external-oidc-binding-v1)
+;
+; BindingId = SHA2-256 Multihash of deterministic CBOR:
+; [
+;   "OpenIdentity External OIDC Binding",
+;   1,
+;   BindingBytes
+; ]
+;
+; BindingId bytes = 0x12 || 0x20 || 32-byte SHA-256 digest.
+;
+; issuer and subject together form the ExternalSubjectKey.
+; clientId is provenance/RP context and is not part of ExternalSubjectKey.
+; Text values are exact trusted OIDC values; this profile performs no
+; Unicode normalization, case folding, URL rewriting, issuer aliasing,
+; or provider-specific canonicalization.
