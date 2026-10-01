@@ -7,4 +7,5 @@
  <dependency><groupId>org.bouncycastle</groupId><artifactId>bcprov-jdk18on</artifactId><version>1.86</version></dependency>
  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
 </dependencies>
+<build><plugins><plugin><groupId>org.codehaus.mojo</groupId><artifactId>exec-maven-plugin</artifactId><version>3.6.2</version><configuration><mainClass>org.openidentity.bootstrap.CreateCanonicalIdentity</mainClass></configuration></plugin></plugins></build>
 </project>
