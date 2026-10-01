@@ -29,7 +29,11 @@ public class EntraOidcSampleApplication {
  @Bean SecurityFilterChain security(HttpSecurity http,ClientRegistrationRepository regs,SpringExternalOidcAuthenticationResolver resolver)throws Exception{
   http.authorizeHttpRequests(a->a.requestMatchers("/").permitAll().anyRequest().authenticated()).csrf(c->c.ignoringRequestMatchers("/openidentity/link/complete")).oauth2Login(o->o.successHandler(new OpenIdentityOidcLoginSuccessHandler(regs,resolver)));return http.build();
  }
- @GetMapping("/") String home(){return "OpenIdentity Entra OIDC sample";}
+ @GetMapping("/") Map<String,String> home(HttpSession session){
+  Object value=session.getAttribute(OpenIdentityOidcLoginSuccessHandler.SESSION_ATTRIBUTE);
+  if(!(value instanceof ResolvedExternalOidcAuthentication resolved))return Map.of("status","UNAUTHENTICATED","login","/oauth2/authorization/entra");
+  return Map.of("status","AUTHENTICATED","authentication","OPENIDENTITY_EXTERNAL_OIDC","identity",HexFormat.of().formatHex(resolved.identity()),"provider","Microsoft Entra ID","bindingStatus","ACTIVE");
+ }
  @GetMapping("/openidentity/link") Map<String,String> link(){return Map.of("status","Entra authenticated; external identity is not yet bound.","next","GET /openidentity/link/begin?identity=<64-hex OpenIdentity ID>");}
  @GetMapping("/openidentity/identities") Map<String,Object> identities(){Path dir=Path.of(env("OPENIDENTITY_STATE_DIR","../../dev/openidentity-state")).toAbsolutePath().normalize();List<String> ids=new ArrayList<>();try{if(Files.isDirectory(dir))try(var stream=Files.list(dir)){stream.map(p->p.getFileName().toString()).filter(n->n.matches("[0-9a-fA-F]{64}\\.oidstate")).map(n->n.substring(0,64)).sorted().forEach(ids::add);}}catch(java.io.IOException e){throw new java.io.UncheckedIOException(e);}return Map.of("stateDirectory",dir.toString(),"identities",ids);}
  @GetMapping("/openidentity/link/begin") ExternalOidcBindingHttpSession.Request begin(@RequestParam("identity") String identity,OAuth2AuthenticationToken authentication,HttpSession session){
