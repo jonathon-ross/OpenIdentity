@@ -76,7 +76,7 @@ public class AuthorizationServerConfig {
  @Bean @Order(2) SecurityFilterChain resourceServerSecurityFilterChain(HttpSecurity http) throws Exception{
   http.securityMatcher("/api/**")
       .authorizeHttpRequests(a->a.anyRequest().hasAuthority("SCOPE_records.read"))
-      .oauth2ResourceServer(o->o.jwt(Customizer.withDefaults()));
+      .oauth2ResourceServer(o->o.jwt(Customizer.withDefaults()).dPoP(Customizer.withDefaults()));
   return http.build();
  }
 
