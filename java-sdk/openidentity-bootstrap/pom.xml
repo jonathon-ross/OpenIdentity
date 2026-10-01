@@ -4,6 +4,7 @@
 <artifactId>openidentity-bootstrap</artifactId><name>OpenIdentity Bootstrap Tools</name>
 <dependencies>
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-core</artifactId><version>${project.version}</version></dependency>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-authentication</artifactId><version>${project.version}</version></dependency>
  <dependency><groupId>org.bouncycastle</groupId><artifactId>bcprov-jdk18on</artifactId><version>1.86</version></dependency>
  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
 </dependencies>
