@@ -35,17 +35,20 @@ public final class InMemoryExternalOidcBindingRegistry {
   long generation=policy.currentAuthenticationGeneration(identity);
   var binding=new ExternalOidcBindingV1.Binding(identity,principal.issuer(),principal.subject(),principal.clientId(),createdAt,expiresAt,generation);
   Key key=new Key(principal.issuer(),principal.subject());State existing=active.get(key);
-  if(existing!=null&&!Arrays.equals(verified(existing).identity(),identity))fail(BINDING_CONFLICT);\n  byte[] bytes=ExternalOidcBindingV1.encode(binding),id=ExternalOidcBindingV1.bindingId(bytes);State state=new State(bytes,id,Status.ACTIVE,null);
+  if(existing!=null&&!Arrays.equals(verified(existing).identity(),identity))fail(BINDING_CONFLICT);
+  byte[] bytes=ExternalOidcBindingV1.encode(binding),id=ExternalOidcBindingV1.bindingId(bytes);State state=new State(bytes,id,Status.ACTIVE,null);
   active.put(key,state);byId.put(HexFormat.of().formatHex(id),state);consumedChallenges.add(challengeKey);return state;
  }
 
  public synchronized State revoke(byte[] bindingId,byte[] challenge,long revokedAt,Authorization auth,Policy policy){
   State state=byId.get(HexFormat.of().formatHex(bindingId));require(state!=null,BINDING_NOT_FOUND);require(state.status()==Status.ACTIVE,BINDING_REVOKED);
-  ExternalOidcBindingV1.Binding stored=verified(state);\n  require(policy.identityActive(stored.identity()),IDENTITY_INACTIVE);
+  ExternalOidcBindingV1.Binding stored=verified(state);
+  require(policy.identityActive(stored.identity()),IDENTITY_INACTIVE);
   String ck=HexFormat.of().formatHex(challenge);require(!consumedChallenges.contains(ck),BINDING_CHALLENGE_INVALID);
   require(auth.valid()&&"openidentity.external-oidc.revoke".equals(auth.purpose()),BINDING_AUTHORIZATION_INVALID);
   require(auth.contextMatches(),BINDING_CONTEXT_MISMATCH);require(!auth.replayed(),BINDING_REPLAY);
-  require(policy.currentAuthenticationGeneration(stored.identity())==stored.authenticationGeneration(),BINDING_GENERATION_STALE);\n  State revoked=new State(state.bindingBytes(),state.bindingId(),Status.REVOKED,revokedAt);byId.put(HexFormat.of().formatHex(bindingId),revoked);
+  require(policy.currentAuthenticationGeneration(stored.identity())==stored.authenticationGeneration(),BINDING_GENERATION_STALE);
+  State revoked=new State(state.bindingBytes(),state.bindingId(),Status.REVOKED,revokedAt);byId.put(HexFormat.of().formatHex(bindingId),revoked);
   active.remove(new Key(stored.issuer(),stored.subject()));consumedChallenges.add(ck);return revoked;
  }
 
@@ -56,7 +59,10 @@ public final class InMemoryExternalOidcBindingRegistry {
    boolean revoked=byId.values().stream().anyMatch(s->{try{var b=verified(s);return s.status()==Status.REVOKED&&b.issuer().equals(principal.issuer())&&b.subject().equals(principal.subject());}catch(ExternalOidcBindingException e){return false;}});
    if(revoked)fail(BINDING_REVOKED);fail(BINDING_NOT_FOUND);
   }
-  ExternalOidcBindingV1.Binding stored=verified(state);\n  require(policy.identityActive(stored.identity()),IDENTITY_INACTIVE);\n  require(policy.currentAuthenticationGeneration(stored.identity())==stored.authenticationGeneration(),BINDING_GENERATION_STALE);\n  require(stored.expiresAt()==null||now<stored.expiresAt(),BINDING_EXPIRED);
+  ExternalOidcBindingV1.Binding stored=verified(state);
+  require(policy.identityActive(stored.identity()),IDENTITY_INACTIVE);
+  require(policy.currentAuthenticationGeneration(stored.identity())==stored.authenticationGeneration(),BINDING_GENERATION_STALE);
+  require(stored.expiresAt()==null||now<stored.expiresAt(),BINDING_EXPIRED);
   require(policy.clientAllowed(principal.issuer(),principal.clientId()),OIDC_CLIENT_NOT_ALLOWED);
   require(policy.assuranceSufficient(principal),ASSURANCE_INSUFFICIENT);
   return new ResolvedExternalOidcAuthentication(stored.identity(),state.bindingId(),principal.issuer(),principal.subject(),principal.clientId(),principal.authenticatedAt(),principal.acr(),principal.amr(),principal.providerAssurance());
