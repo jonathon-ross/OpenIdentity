@@ -1,0 +1,7 @@
+package org.openidentity.ad;
+import org.junit.jupiter.api.*;import org.junit.jupiter.api.io.TempDir;import java.nio.file.*;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+final class ExternalAdBindingPersistenceTest{
+ @TempDir Path dir;long gen=3;final InMemoryExternalAdBindingRegistry.Policy policy=new InMemoryExternalAdBindingRegistry.Policy(){public boolean directoryTrusted(byte[] d){return true;}public boolean serviceAllowed(byte[] d,String s){return true;}public boolean mechanismAllowed(byte[] d,int m){return true;}public boolean identityActive(byte[] i){return true;}public long currentAuthenticationGeneration(byte[] i){return gen;}};
+ @Test void activeBindingAndChallengeSurviveRestart(){Path f=dir.resolve("ad.store");byte[] id=new byte[32],d=new byte[16],g=new byte[16],c=new byte[32];c[0]=9;var p=new InMemoryExternalAdBindingRegistry.Principal(d,g,"svc",1,true,true,true);var a=new InMemoryExternalAdBindingRegistry.Authorization(true,"openidentity.external-ad.bind",true,false);new InMemoryExternalAdBindingRegistry(f).bind(p,id,1,null,c,a,policy);var r=new InMemoryExternalAdBindingRegistry(f);assertArrayEquals(id,r.resolve(p,2,policy).identity());assertEquals(ExternalAdBindingError.BINDING_CHALLENGE_INVALID,assertThrows(ExternalAdBindingException.class,()->r.bind(new InMemoryExternalAdBindingRegistry.Principal(d,other(g),"svc",1,true,true,true),id,3,null,c,a,policy)).error());}
+ static byte[] other(byte[] x){byte[] y=x.clone();y[0]=1;return y;}
+}
