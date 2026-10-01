@@ -8,6 +8,7 @@
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-external-oidc</artifactId><version>${project.version}</version></dependency>
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-authentication</artifactId><version>${project.version}</version></dependency>
  <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-oauth2-client</artifactId><version>${spring-security.version}</version></dependency>
+ <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-oauth2-jose</artifactId><version>${spring-security.version}</version></dependency>
  <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-config</artifactId><version>${spring-security.version}</version></dependency>
  <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><version>7.0.5</version></dependency>
  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
