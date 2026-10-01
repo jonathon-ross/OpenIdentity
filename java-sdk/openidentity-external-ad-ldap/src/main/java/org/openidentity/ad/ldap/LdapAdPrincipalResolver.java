@@ -18,6 +18,14 @@ public final class LdapAdPrincipalResolver implements AdPrincipalResolver {
    SearchResultEntry e=r.getSearchEntries().get(0);Attribute g=attributeIgnoreCase(e,"objectGUID");if(g==null||g.getValueByteArrays().length!=1||g.getValueByteArrays()[0].length!=16)throw new ExternalAdBindingException(ExternalAdBindingError.AD_PRINCIPAL_INVALID);
    byte[] guid=g.getValueByteArrays()[0];boolean usable=true;String uac=valueIgnoreCase(e,"userAccountControl");if(uac!=null){try{usable=(Integer.parseInt(uac)&2)==0;}catch(NumberFormatException x){usable=false;}}
    return new VerifiedAdPrincipal(profile.directoryId(),guid,evidence.serviceId(),evidence.authenticationMechanism(),evidence.channelTrusted(),usable,true,Map.of("dn",e.getDN(),"upn",Objects.toString(valueIgnoreCase(e,"userPrincipalName"),"")));
-  }catch(ExternalAdBindingException e){throw e;}catch(LDAPException e){throw new ExternalAdBindingException(ExternalAdBindingError.AD_PRINCIPAL_INVALID);}
+  }catch(ExternalAdBindingException e){throw e;}catch(LDAPException e){throw new LdapAdResolutionException(e.getResultCode().intValue(),e.getDiagnosticMessage(),e);}
+ }
+ private static Attribute attributeIgnoreCase(SearchResultEntry e,String name){
+  for(Attribute a:e.getAttributes())if(a.getName().equalsIgnoreCase(name))return a;
+  return null;
+ }
+ private static String valueIgnoreCase(SearchResultEntry e,String name){
+  Attribute a=attributeIgnoreCase(e,name);
+  return a==null?null:a.getValue();
  }
 }
