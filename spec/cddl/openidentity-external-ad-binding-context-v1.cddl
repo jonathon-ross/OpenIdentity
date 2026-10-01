@@ -24,7 +24,7 @@ external-ad-binding-context-v1 = {
 }
 
 action = 1 / 2
-auth-mechanism = 1 / 2
+auth-mechanism = 1 / 2 / 3
 
 ; action 1 = BIND, action 2 = REVOKE.
 ; auth-mechanism 1 = KERBEROS_SPNEGO.
@@ -39,3 +39,8 @@ auth-mechanism = 1 / 2
 ; REVOKE fields 10 and 11 equal stored binding createdAt/expiresAt.
 ; Authentication mechanism is authorization/assurance context and is not part of
 ; ExternalSubjectKey or durable BindingBytes.
+
+; objectGuid is the exact 16 octets of the AD objectGUID LDAP attribute.
+; Implementations MUST NOT directly serialize a language/runtime UUID/GUID object.
+; Adapters receiving textual UUID/GUID values MUST convert them to the exact AD LDAP
+; objectGUID octets before constructing this context.
