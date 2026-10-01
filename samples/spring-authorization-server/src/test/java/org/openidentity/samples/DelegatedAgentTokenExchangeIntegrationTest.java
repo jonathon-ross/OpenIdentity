@@ -83,6 +83,22 @@ final class DelegatedAgentTokenExchangeIntegrationTest {
   assertNotNull(jwt.getSubject());
  }
 
+ @Test void authorizationServerMetadataAdvertisesOpenIdentityInteropProfile() throws Exception {
+  HttpRequest request=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/.well-known/oauth-authorization-server")).GET().build();
+  HttpResponse<String> response=http.send(request,HttpResponse.BodyHandlers.ofString());
+  assertEquals(200,response.statusCode(),response.body());
+  assertTrue(response.body().contains("\"urn:ietf:params:oauth:grant-type:token-exchange\""),response.body());
+  assertTrue(response.body().contains("\"openidentity_token_exchange_profiles_supported\""),response.body());
+  assertTrue(response.body().contains("\"https://openidentity.org/oauth/profile/delegated-agent-v1\""),response.body());
+  assertTrue(response.body().contains("\"openidentity_subject_token_types_supported\""),response.body());
+  assertTrue(response.body().contains("\""+OpenIdentityOAuthParameters.SUBJECT_TOKEN_TYPE+"\""),response.body());
+  assertTrue(response.body().contains("\"openidentity_actor_token_types_supported\""),response.body());
+  assertTrue(response.body().contains("\""+OpenIdentityOAuthParameters.ACTOR_TOKEN_TYPE+"\""),response.body());
+  assertTrue(response.body().contains("\"openidentity_dpop_required\":true"),response.body());
+  assertTrue(response.body().contains("\"openidentity_refresh_tokens_supported\":false"),response.body());
+  assertTrue(response.body().contains("\"openidentity_max_access_token_lifetime_seconds\":300"),response.body());
+ }
+
  @Test void replayedDpopProofIsRejectedAtHttpBoundary() throws Exception {
   ECKey dpopKey=new ECKeyGenerator(Curve.P_256).keyID(UUID.randomUUID().toString()).generate();
   String jti=UUID.randomUUID().toString();
