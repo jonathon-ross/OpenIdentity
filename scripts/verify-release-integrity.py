@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import subprocess, sys
+import os, shutil, subprocess, sys
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -14,7 +14,11 @@ def run(label,*cmd,cwd=ROOT):
 run("External OIDC frozen checksums",sys.executable,"scripts/verify-external-oidc-binding-checksums.py")
 run("External OIDC executable semantic vectors",sys.executable,"scripts/verify-external-oidc-binding-v1.py")
 run("Entra integration hardening",sys.executable,"scripts/verify-entra-integration-hardening.py")
-run("Java conformance reactor","mvn","clean","install",cwd=ROOT/"java-sdk")
+maven = shutil.which("mvn.cmd" if os.name == "nt" else "mvn") or shutil.which("mvn")
+if not maven:
+    print("OPENIDENTITY RELEASE INTEGRITY GATE: FAIL (Maven executable not found on PATH)")
+    sys.exit(1)
+run("Java conformance reactor",maven,"clean","install",cwd=ROOT/"java-sdk")
 
 status=subprocess.run(["git","status","--porcelain"],cwd=ROOT,text=True,capture_output=True,check=True).stdout
 if status.strip():
