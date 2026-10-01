@@ -72,9 +72,10 @@ public final class InMemoryExternalOidcBindingRegistry {
   try{b=ExternalOidcBindingV1.decode(state.bindingBytes());}catch(IllegalArgumentException e){fail(OIDC_PRINCIPAL_INVALID);return null;}
   require(Arrays.equals(ExternalOidcBindingV1.bindingId(state.bindingBytes()),state.bindingId()),BINDING_ID_MISMATCH);return b;
  }
- // Test-only corruption hook used to exercise persisted-state integrity failures.
- synchronized void replaceStateForTest(State state){
-  var b=verified(state);active.put(new Key(b.issuer(),b.subject()),state);byId.put(HexFormat.of().formatHex(state.bindingId()),state);
+ // Test-only corruption hook. Deliberately bypasses integrity validation so
+ // production resolve/revoke paths can prove they detect corrupted persisted state.
+ synchronized void replaceStateForTest(String issuer,String subject,State state){
+  active.put(new Key(issuer,subject),state);byId.put(HexFormat.of().formatHex(state.bindingId()),state);
  }
  private static void require(boolean ok,ExternalOidcBindingError e){if(!ok)fail(e);}private static void fail(ExternalOidcBindingError e){throw new ExternalOidcBindingException(e);}
 }
