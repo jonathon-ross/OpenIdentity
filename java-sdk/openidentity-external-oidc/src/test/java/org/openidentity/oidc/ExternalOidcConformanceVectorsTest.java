@@ -52,5 +52,5 @@ final class ExternalOidcConformanceVectorsTest {
  @Test void BI20_revokePurposeCannotBind(){err(BINDING_AUTHORIZATION_INVALID,()->new InMemoryExternalOidcBindingRegistry().bind(base(),ID,1790841600L,null,ch(1),revoke(),policy));}
  @Test void BI21_revokeDifferentBindingIdContext(){var r=bound();var a=r.resolve(base(),1790841660L,policy);err(BINDING_CONTEXT_MISMATCH,()->r.revoke(a.bindingId(),ch(2),1790841700L,new InMemoryExternalOidcBindingRegistry.Authorization(true,"openidentity.external-oidc.revoke",false,false),policy));}
  @Test void BI22_insufficientAssurance(){var r=bound();assurance=false;err(ASSURANCE_INSUFFICIENT,()->r.resolve(base(),1790841660L,policy));}
- @Test void BI23_malformedBindingBytes(){var r=bound();byte[] malformed=HexFormat.of().parseHex("a8011818");byte[] fake=new byte[34];fake[0]=0x12;fake[1]=0x20;assertThrows(IllegalArgumentException.class,()->r.replaceStateForTest(new InMemoryExternalOidcBindingRegistry.State(malformed,fake,InMemoryExternalOidcBindingRegistry.Status.ACTIVE,null)));}
+ @Test void BI23_malformedBindingBytes(){var r=bound();byte[] malformed=HexFormat.of().parseHex("a8011818");byte[] fake=new byte[34];fake[0]=0x12;fake[1]=0x20;err(OIDC_PRINCIPAL_INVALID,()->r.replaceStateForTest(new InMemoryExternalOidcBindingRegistry.State(malformed,fake,InMemoryExternalOidcBindingRegistry.Status.ACTIVE,null)));}
 }
