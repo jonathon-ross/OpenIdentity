@@ -23,7 +23,10 @@ public final class InMemoryExternalOidcBindingRegistry {
  private record Key(String issuer,String subject){}
  private final Map<Key,State> active=new HashMap<>();
  private final Map<String,State> byId=new HashMap<>();
- private final Set<String> consumedChallenges=new HashSet<>();\n private final Path persistenceFile;\n public InMemoryExternalOidcBindingRegistry(){this.persistenceFile=null;}\n public InMemoryExternalOidcBindingRegistry(Path persistenceFile){this.persistenceFile=Objects.requireNonNull(persistenceFile).toAbsolutePath().normalize();load();}
+ private final Set<String> consumedChallenges=new HashSet<>();
+ private final Path persistenceFile;
+ public InMemoryExternalOidcBindingRegistry(){this.persistenceFile=null;}
+ public InMemoryExternalOidcBindingRegistry(Path persistenceFile){this.persistenceFile=Objects.requireNonNull(persistenceFile).toAbsolutePath().normalize();load();}
 
  public synchronized State bind(VerifiedExternalOidcPrincipal principal,byte[] identity,long createdAt,Long expiresAt,byte[] challenge,Authorization auth,Policy policy){
   require(policy.providerTrusted(principal.issuer()),OIDC_PROVIDER_UNTRUSTED);
