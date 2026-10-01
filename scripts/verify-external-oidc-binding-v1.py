@@ -38,4 +38,18 @@ for v in data["vectors"]:
     assert bid.hex()==v["bindingIdHex"],v["id"]+" BindingId"
     assert cb.hex()==v["bindContextBytesHex"],v["id"]+" ContextBytes"
     assert ch.hex()==v["bindContextHashHex"],v["id"]+" ContextHash"
-    print(v["id"],"VERIFIED")
+    rchallenge=bytes.fromhex(v["revokeRegistryChallengeHex"])
+    rctx={1:1,2:2,3:identity,4:v["issuer"],5:v["subject"],6:v["clientId"],7:rchallenge,8:v["authenticationGeneration"],9:v["createdAt"],10:v["expiresAt"],11:bid}
+    rcb=cbor(rctx);rch=multihash(rcb)
+    assert rcb.hex()==v["revokeContextBytesHex"],v["id"]+" RevokeContextBytes"
+    assert rch.hex()==v["revokeContextHashHex"],v["id"]+" RevokeContextHash"
+    print(v["id"],"CRYPTO VERIFIED")
+
+allowed_labels={"OK","OIDC_PROVIDER_UNTRUSTED","OIDC_PRINCIPAL_INVALID","OIDC_CLIENT_NOT_ALLOWED","BINDING_CHALLENGE_INVALID","BINDING_AUTHORIZATION_INVALID","BINDING_CONTEXT_MISMATCH","BINDING_GENERATION_STALE","BINDING_EXPIRED","BINDING_CONFLICT","BINDING_NOT_FOUND","BINDING_REVOKED","BINDING_ID_MISMATCH","IDENTITY_INACTIVE","ASSURANCE_INSUFFICIENT","BINDING_REPLAY"}
+seen=set()
+for sv in data.get("semanticVectors",[]):
+    assert sv["id"] not in seen,"duplicate semantic vector "+sv["id"]
+    seen.add(sv["id"])
+    assert sv["expected"] in allowed_labels,sv["id"]+" unknown error label"
+    assert (sv["expected"]=="OK")==bool(sv["valid"]),sv["id"]+" valid/expected mismatch"
+print(len(data.get("semanticVectors",[])),"SEMANTIC VECTOR CONTRACTS VERIFIED")
