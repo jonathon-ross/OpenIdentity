@@ -34,7 +34,8 @@ final class OidcLoginHttpIntegrationTest {
 
  @Configuration @EnableWebSecurity static class AppConfig {
   @Bean SecurityFilterChain chain(HttpSecurity http,ClientRegistrationRepository registrations,SpringExternalOidcAuthenticationResolver resolver)throws Exception{
-   http.authorizeHttpRequests(a->a.requestMatchers("/").permitAll().anyRequest().authenticated()).oauth2Login(o->o.successHandler(new OpenIdentityOidcLoginSuccessHandler(registrations,resolver)));return http.build();
+   http.authorizeHttpRequests(a->a.requestMatchers("/").permitAll().anyRequest().authenticated()).oauth2Login(o->o.successHandler(new OpenIdentityOidcLoginSuccessHandler(registrations,resolver)).failureHandler((request,response,exception)->{response.setStatus(401);response.setContentType("text/plain");StringBuilder m=new StringBuilder(exception.getClass().getName()).append(": ").append(exception.getMessage());Throwable cause=exception.getCause();while(cause!=null){m.append("\
+CAUSED BY ").append(cause.getClass().getName()).append(": ").append(cause.getMessage());cause=cause.getCause();}response.getWriter().write(m.toString());}));return http.build();
   }
   @Bean org.springframework.web.servlet.function.RouterFunction<org.springframework.web.servlet.function.ServerResponse> routes(){return org.springframework.web.servlet.function.RouterFunctions.route().GET("/",r->{Object v=r.servletRequest().getSession(false)==null?null:r.servletRequest().getSession(false).getAttribute(OpenIdentityOidcLoginSuccessHandler.SESSION_ATTRIBUTE);return org.springframework.web.servlet.function.ServerResponse.ok().body(v instanceof ResolvedExternalOidcAuthentication?"resolved":"unresolved");}).build();}
  }
