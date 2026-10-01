@@ -34,6 +34,19 @@ final class OpenIdentitySpringAdapterTest {
   finally{SecurityContextHolder.clearContext();}
  }
 
+ @Test void converterMapsInvalidDpopProofToOAuthError(){
+  var req=new MockHttpServletRequest();req.setParameter("grant_type","urn:ietf:params:oauth:grant-type:token-exchange");
+  req.setParameter("subject_token_type",OpenIdentityOAuthParameters.SUBJECT_TOKEN_TYPE);req.setParameter("actor_token_type",OpenIdentityOAuthParameters.ACTOR_TOKEN_TYPE);
+  req.setParameter("subject_token",b64(new byte[]{1}));req.setParameter("actor_token",b64(new byte[]{2}));
+  var client=new TestingAuthenticationToken("client","",List.of());client.setAuthenticated(true);SecurityContextHolder.getContext().setAuthentication(client);
+  try{
+   var c=new OpenIdentityTokenExchangeAuthenticationConverter(r->{throw new org.springframework.security.oauth2.jwt.BadJwtException("replayed proof");},r->new byte[32]);
+   var e=assertThrows(OAuth2AuthenticationException.class,()->c.convert(req));
+   assertEquals(OAuth2ErrorCodes.INVALID_DPOP_PROOF,e.getError().getErrorCode());
+   assertFalse(e.getError().getDescription().contains("replayed"));
+  }finally{SecurityContextHolder.clearContext();}
+ }
+
  @Test void targetFailureMapsToRfc8693InvalidTargetWithoutSensitiveDetail(){
   var e=new ProfileException(ProfileError.TARGET_SCOPE_PAIR_NOT_AUTHORIZED);
   var o=OpenIdentityProfileErrorMapper.toOAuth(e);assertEquals("invalid_target",o.getError().getErrorCode());
