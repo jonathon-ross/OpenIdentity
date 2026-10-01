@@ -6,6 +6,8 @@ import org.openidentity.oauth.ProfileException;
 import org.springframework.security.core.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.AuthenticationConverter;
+import org.springframework.security.oauth2.core.*;
+import org.springframework.security.oauth2.jwt.JwtException;
 import java.util.*;
 
 public final class OpenIdentityTokenExchangeAuthenticationConverter implements AuthenticationConverter {
@@ -22,7 +24,10 @@ public final class OpenIdentityTokenExchangeAuthenticationConverter implements A
   Authentication client=SecurityContextHolder.getContext().getAuthentication();if(client==null||!client.isAuthenticated())throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.INVALID_REQUEST));
   byte[] subject=decode(one(request,"subject_token",true)),actor=decode(one(request,"actor_token",true));
   byte[] expectedNonce=nonce.resolve(request);if(expectedNonce==null||expectedNonce.length==0)throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.INVALID_REQUEST));
-  ValidatedDpopProofResult validatedDpop=dpop.resolve(request);if(validatedDpop==null)throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.DPOP_REQUIRED));
+  ValidatedDpopProofResult validatedDpop;
+  try{validatedDpop=dpop.resolve(request);}
+  catch(JwtException e){throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_DPOP_PROOF,"The DPoP proof could not be accepted.",null),e);}
+  if(validatedDpop==null)throw OpenIdentityProfileErrorMapper.toOAuth(new ProfileException(ProfileError.DPOP_REQUIRED));
   String requested=one(request,"requested_token_type",false);
   List<String> resources=many(request,"resource"),audiences=many(request,"audience");
   List<String> scopes=splitScopes(one(request,"scope",false));
