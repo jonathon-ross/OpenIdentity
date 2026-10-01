@@ -92,10 +92,23 @@ Positive: B01 valid two-sided bind; B02 exact tuple resolves; B03 revoke blocks 
 
 Negative: BI01 same sub/different issuer; BI02 same issuer/different sub; BI03 different clientId; BI04 email-only match; BI05 invalid/stale OpenIdentity authorization; BI06 tuple mismatch; BI07 duplicate active tuple; BI08 revoked; BI09 stale authentication generation; BI10 deactivated identity; BI11 untrusted issuer; BI12 administrator-only attempted binding.
 
-## 11. Open questions before freeze
+## 11. OI-015 authorization — DECISION
+
+v1 reuses frozen OI-015 rather than defining another signature object.
+
+BIND requires purpose `openidentity.external-oidc.bind`; REVOKE requires `openidentity.external-oidc.revoke`.
+
+The OI-015 contextHash is the SHA2-256 Multihash of deterministic `ExternalOidcBindingContextV1` bytes defined in `spec/cddl/openidentity-external-oidc-binding-context-v1.cddl`.
+
+The context domain-separates BIND from REVOKE and commits to the exact OpenIdentity identity, validated issuer, subject, OIDC clientId, registry ceremony challenge, expected AuthenticationAuthority generation, requested expiration, and BindingId for revocation.
+
+The registry challenge is deliberately distinct from the OI-015 verifier nonce: the challenge identifies this binding transaction, while the OI-015 nonce retains its frozen verifier freshness/replay role.
+
+This lets the profile inherit OI-015's current-state, AuthenticationPolicy, generation, threshold-signature, expiry, nonce, and replay semantics without creating a second authentication primitive.
+
+## 12. Open questions before freeze
 
 1. Keep clientId always in the v1 key, or distinguish public vs pairwise subjects from trusted metadata?
-2. Reuse OI-015 with dedicated bind/revoke purposes, or define a smaller signed binding authorization object?
-3. Mandatory binding lifetime, or permit non-expiring generation-bound bindings?
-4. Registry uniqueness global per deployment or scoped to an issuer trust domain?
-5. Which OIDC assurance claims, if any, belong in the resolved authentication result?
+2. Mandatory binding lifetime, or permit non-expiring generation-bound bindings?
+3. Registry uniqueness global per deployment or scoped to an issuer trust domain?
+4. Which OIDC assurance claims, if any, belong in the resolved authentication result?
