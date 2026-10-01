@@ -1,5 +1,5 @@
 {
-  "suite": "openidentity-external-oidc-binding-v1-pre-freeze",
+  "suite": "openidentity-external-oidc-binding-v1-frozen-v1",
   "vectors": [
     {
       "id": "B01",
