@@ -56,12 +56,10 @@ OI-015 contextHash is the SHA2-256 Multihash of exact deterministic ContextBytes
 2. Complete normal OIDC authentication and obtain an already-validated principal.
 3. Require exact non-empty issuer and subject.
 4. Require clientId/RP context allowed by deployment policy.
-5. Establish a fresh single-ceremony registryChallenge.
-6. Construct exact BIND context.
+5. Establish a fresh single-ceremony registryChallenge and fix proposed createdAt before authorization.\n6. Construct exact BIND context including proposed createdAt and expiresAt.
 7. Verify OI-015 completely against current OpenIdentity state, policy, audience, purpose, time, nonce, generation and contextHash.
 8. Require assertion identity equal proposed identity.
-9. Apply requested-expiration policy.
-10. Construct exact BindingBytes and BindingId.
+9. Apply requested-expiration policy without changing the signed createdAt/expiresAt values.\n10. Construct exact BindingBytes from the values already committed by the BIND context and derive BindingId.
 11. Atomically enforce external-subject uniqueness.
 12. Consume challenge and replay state.
 13. Store immutable evidence and ACTIVE state.
