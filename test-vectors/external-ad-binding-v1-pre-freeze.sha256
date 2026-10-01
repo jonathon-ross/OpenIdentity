@@ -1,0 +1,2 @@
+# Generate with:
+# python scripts/verify-external-ad-binding-checksums-pre-freeze.py --generate
