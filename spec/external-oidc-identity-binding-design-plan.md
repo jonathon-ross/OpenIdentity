@@ -118,8 +118,35 @@ Changing clientId therefore does not create a different external identity, but a
 
 Implementations MUST NOT infer that equal `sub` values from different issuers identify the same account.
 
-## 13. Open questions before freeze
+## 13. Binding lifetime and authentication freshness — DECISION
 
-1. Mandatory binding lifetime, or permit non-expiring generation-bound bindings?
-2. Registry uniqueness global per deployment or scoped to an issuer trust domain?
-3. Which OIDC assurance claims, if any, belong in the resolved authentication result?
+v1 does NOT impose a universal mandatory maximum lifetime on an external OIDC binding.
+
+A binding is durable account-link state, not an OIDC login session, access token, refresh token, or assertion. It remains potentially usable until the earliest applicable invalidation event:
+
+- explicit binding revocation;
+- OpenIdentity identity deactivation;
+- AuthenticationAuthority generation change;
+- configured binding expiresAt, when present;
+- issuer/provider trust disabled or removed;
+- local deployment policy suspension.
+
+The optional expiresAt field remains in ExternalOidcBindingContextV1. A deployment MAY require an expiration and MAY impose a local maximum binding lifetime. If the deployment does not require expiry, the field is nil and generation/revocation/provider-trust state remain the normative invalidation mechanisms.
+
+Authentication freshness is evaluated separately at use time. Resolving a durable binding MUST still require a newly validated external OIDC authentication result whose auth age, acr/amr, MFA, device, risk, and other assurance signals satisfy deployment policy for the requested action.
+
+A durable binding MUST NOT cause an old ID Token, old OIDC session, or old OI-015 assertion to become reusable.
+
+High-risk operations MAY require fresh OIDC reauthentication and MUST continue to require the applicable native OpenIdentity authority proofs. External OIDC binding never upgrades into controller, recovery, assertion, or delegation authority.
+
+This separation is deliberate:
+
+    binding lifetime       = how long the account relationship exists
+    authentication freshness = how recently/strongly the external account proved control
+
+Deployments SHOULD prefer immediate invalidation signals and risk-based reauthentication over forcing periodic relinking solely because time elapsed.
+
+## 14. Open questions before freeze
+
+1. Registry uniqueness global per deployment or scoped to an issuer trust domain?
+2. Which OIDC assurance claims, if any, belong in the resolved authentication result?
