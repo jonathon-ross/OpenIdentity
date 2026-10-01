@@ -53,10 +53,7 @@ public class AuthorizationServerConfig {
 
  @Bean SampleOpenIdentityFixture.Material sampleMaterial(){return SampleOpenIdentityFixture.create();}
  @Bean DelegatedAgentExchangeService delegatedAgentExchangeService(SampleOpenIdentityFixture.Material material){return material.exchangeService();}
- @Bean ValidatedDpopJktResolver validatedDpopJktResolver(SampleOpenIdentityFixture.Material material){
-  // Sample-only validated-proof boundary. Production deployments must connect this to complete RFC 9449 validation.
-  return request->material.dpopJkt();
- }
+ @Bean ValidatedDpopJktResolver validatedDpopJktResolver(){return new SpringValidatedDpopProofResolver();}
  @Bean ActorNonceResolver actorNonceResolver(SampleOpenIdentityFixture.Material material){return request->material.nonce();}
 
  @Bean OpenIdentityTokenExchangeAuthenticationConverter openIdentityConverter(ValidatedDpopJktResolver dpop,ActorNonceResolver nonce){
