@@ -6,7 +6,7 @@ import java.security.*;import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class CreateIdentityV01Test {
- @Test void frozenV01ShapeStateHashAndAuthorizationSignatureAreSelfConsistent(){
+ @Test void frozenV01ShapeStateHashAndAuthorizationSignatureAreSelfConsistent() throws Exception {
   byte[] id=new byte[32],mid=new byte[16],seed=new byte[32];for(int i=0;i<id.length;i++)id[i]=(byte)i;for(int i=0;i<mid.length;i++)mid[i]=(byte)(0x10+i);Arrays.fill(seed,(byte)7);
   var priv=new org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters(seed,0);byte[] pub=priv.generatePublicKey().getEncoded();
   byte[] op=CreateIdentityV01.operation(id,mid,pub),state=CreateIdentityV01.state(id,mid,pub),hash=CreateIdentityV01.stateHash(state);
