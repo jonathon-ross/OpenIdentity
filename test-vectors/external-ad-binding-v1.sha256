@@ -1,0 +1,2 @@
+# Generate once after frozen artifact promotion with:
+# python scripts/verify-external-ad-binding-checksums.py --generate
