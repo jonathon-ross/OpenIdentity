@@ -1,5 +1,5 @@
 ; OpenIdentity External OIDC Binding v1
-; STATUS: PRE-FREEZE — NOT FROZEN
+; STATUS: FROZEN-NORMATIVE v1
 ; Deterministic encoding: RFC 8949 Core Deterministic Encoding Requirements
 ; plus OpenIdentity cryptographic-agility restrictions.
 
