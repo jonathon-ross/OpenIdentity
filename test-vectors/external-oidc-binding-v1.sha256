@@ -1,0 +1,4 @@
+91e50374c14bf5bb3a005b20215b1e116faa6e7ab39f5b70911e7bfbc298b933  spec/cddl/openidentity-external-oidc-binding-v1.cddl
+7a237939fd3e17c5c93f7f0f8e7a2b5f73f491dc9f1da296a1dfa86de3e48e27  spec/cddl/openidentity-external-oidc-binding-context-v1.cddl
+854118d8d19c55cfd3c50961824660a50f834d1b76a4e22f7bd3b0ca123b9652  spec/external-oidc-binding-v1-pre-freeze-conformance.md
+db8ec6b487b8ae762226ea5e80dba0057cbac8e006a80d8d5093f61d0000328a  test-vectors/external-oidc-binding-v1.json
