@@ -1,5 +1,9 @@
 server:
   port: 9000
+  servlet:
+    session:
+      cookie:
+        name: OPENIDENTITY_AUTH_SERVER_SESSION
 logging:
   level:
     org.springframework.security: INFO
