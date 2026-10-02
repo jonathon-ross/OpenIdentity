@@ -57,3 +57,9 @@ __pycache__/
 # Kerberos service credentials
 *.keytab
 /dev/kerberos/
+/dev/microsoft-ad-bindings.store
+*.jks
+*.p12
+*.pfx
+krb5.conf
+jaas.conf
