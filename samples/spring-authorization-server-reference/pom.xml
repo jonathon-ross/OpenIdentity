@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
+<parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>4.0.2</version><relativePath/></parent>
+<groupId>org.openidentity.samples</groupId><artifactId>spring-authorization-server-reference</artifactId><version>0.1.0-SNAPSHOT</version>
+<properties><java.version>21</java.version><openidentity.version>0.1.0-SNAPSHOT</openidentity.version></properties>
+<dependencies>
+ <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-spring-authorization-server</artifactId><version>${openidentity.version}</version></dependency>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-spring-core</artifactId><version>${openidentity.version}</version></dependency>
+</dependencies>
+<build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
+</project>
