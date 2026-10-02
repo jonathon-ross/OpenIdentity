@@ -8,7 +8,7 @@ class OpenIdentityJwtCustomizerTest {
  private static JwtEncodingContext context(OAuth2TokenType type,Authentication principal){
   var client=RegisteredClient.withId("id").clientId("client").clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC).authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE).redirectUri("https://client.example/callback").scope("openid").build();
   var as=new AuthorizationServerContext(){public String getIssuer(){return "https://issuer.example";}public AuthorizationServerSettings getAuthorizationServerSettings(){return AuthorizationServerSettings.builder().issuer(getIssuer()).build();}};
-  return JwtEncodingContext.with(JwsHeader.with(() -> "RS256"),JwtClaimsSet.builder()).registeredClient(client).principal(principal).authorizationServerContext(as).authorizedScopes(Set.of("openid")).tokenType(type).authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE).build();
+  return JwtEncodingContext.with(JwsHeader.with(() -> "RS256"),JwtClaimsSet.builder().issuer("https://issuer.example")).registeredClient(client).principal(principal).authorizationServerContext(as).authorizedScopes(Set.of("openid")).tokenType(type).authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE).build();
  }
  private static final class OiPrincipal extends AbstractAuthenticationToken implements OpenIdentityPrincipal{
   OiPrincipal(){super(List.of());setAuthenticated(true);}@Override public Object getPrincipal(){return "ignored";}@Override public Object getCredentials(){return "";}@Override public byte[] openIdentityId(){byte[] b=new byte[32];Arrays.fill(b,(byte)0x42);return b;}
