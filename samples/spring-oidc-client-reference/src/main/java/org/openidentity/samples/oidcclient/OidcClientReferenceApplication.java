@@ -4,7 +4,7 @@ import org.springframework.boot.*;import org.springframework.boot.autoconfigure.
 public class OidcClientReferenceApplication {
  private static final Logger LOG=LoggerFactory.getLogger(OidcClientReferenceApplication.class);
  public static void main(String[] a){SpringApplication.run(OidcClientReferenceApplication.class,a);}
- @Bean SecurityFilterChain security(HttpSecurity http)throws Exception{return http.authorizeHttpRequests(a->a.requestMatchers("/","/error").permitAll().anyRequest().authenticated()).oauth2Login(o->o
+ @Bean SecurityFilterChain security(HttpSecurity http)throws Exception{return http.authorizeHttpRequests(a->a.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll().requestMatchers("/","/error").permitAll().anyRequest().authenticated()).oauth2Login(o->o
   .successHandler((req,res,auth)->{LOG.info("OIDC LOGIN SUCCESS principal={}",auth.getName());res.sendRedirect("/me");})
   .failureHandler((req,res,e)->{LOG.error("OIDC LOGIN FAILURE type={} message={}",e.getClass().getName(),e.getMessage(),e);res.sendError(401,"OIDC login failed: "+e.getMessage());})
  ).build();}
