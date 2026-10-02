@@ -1,5 +1,5 @@
 package org.openidentity.spring;
-import org.springframework.security.oauth2.core.OAuth2TokenType;import org.springframework.security.oauth2.server.authorization.token.*;import java.util.*;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;import org.springframework.security.oauth2.server.authorization.token.*;import java.util.*;
 public final class OpenIdentityJwtCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext> {
  @Override public void customize(JwtEncodingContext context){
   if(context.getPrincipal() instanceof OpenIdentityPrincipal p){
