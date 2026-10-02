@@ -1,5 +1,5 @@
 package org.openidentity.samples.spnego;
-import org.openidentity.ad.spnego.SpnegoAcceptor;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.SpringBootApplication;import org.springframework.context.annotation.Bean;import org.springframework.http.*;import org.springframework.web.bind.annotation.*;import java.nio.file.*;import java.util.*;
+import org.openidentity.ad.spnego.SpnegoAcceptor;import jakarta.servlet.http.HttpSession;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.SpringBootApplication;import org.springframework.context.annotation.Bean;import org.springframework.http.*;import org.springframework.web.bind.annotation.*;import java.nio.file.*;import java.util.*;
 
 @SpringBootApplication @RestController
 public class SpnegoSampleApplication {
@@ -11,12 +11,15 @@ public class SpnegoSampleApplication {
   Path keytab=Path.of(req("OPENIDENTITY_KERBEROS_KEYTAB"));
   return new SpnegoAcceptor(principal,keytab);
  }
- @GetMapping("/") ResponseEntity<?> home(@RequestHeader(value="Authorization",required=false)String authorization){
+ @GetMapping("/") ResponseEntity<?> home(@RequestHeader(value="Authorization",required=false)String authorization,HttpSession session){
   if(authorization==null||!authorization.regionMatches(true,0,"Negotiate ",0,10))return challenge(null);
   byte[] token;try{token=Base64.getDecoder().decode(authorization.substring(10).trim());}catch(IllegalArgumentException e){return ResponseEntity.badRequest().body(Map.of("status","INVALID_NEGOTIATE_TOKEN"));}
+  SpnegoAcceptor.Exchange exchange=(SpnegoAcceptor.Exchange)session.getAttribute("SPNEGO_EXCHANGE");
+  if(exchange==null){exchange=acceptor.begin();session.setAttribute("SPNEGO_EXCHANGE",exchange);}
   SpnegoAcceptor.Result r;
-  try{r=acceptor.accept(token);}catch(IllegalArgumentException e){return challenge(null);}
+  try{r=exchange.accept(token);}catch(IllegalArgumentException e){exchange.close();session.removeAttribute("SPNEGO_EXCHANGE");return challenge(null);}
   if(!r.established())return challenge(r.responseToken());
+  exchange.close();session.removeAttribute("SPNEGO_EXCHANGE");
   HttpHeaders h=new HttpHeaders();if(r.responseToken().length>0)h.set(HttpHeaders.WWW_AUTHENTICATE,"Negotiate "+Base64.getEncoder().encodeToString(r.responseToken()));
   return new ResponseEntity<>(Map.of("status","KERBEROS_AUTHENTICATED","principal",r.principal(),"productionAuthentication",true,"authenticationMechanism","KERBEROS_SPNEGO"),h,HttpStatus.OK);
  }
