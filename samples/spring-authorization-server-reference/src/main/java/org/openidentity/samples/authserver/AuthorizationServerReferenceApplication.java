@@ -6,7 +6,13 @@ public class AuthorizationServerReferenceApplication {
  public static void main(String[] a){SpringApplication.run(AuthorizationServerReferenceApplication.class,a);}
  @Bean @Order(1) SecurityFilterChain authorizationServer(HttpSecurity http,ObjectProvider<DevelopmentOpenIdentityPrincipalConfiguration.DevelopmentOpenIdentityPrincipalFilter> dev,ObjectProvider<OpenIdentityActiveDirectorySecurityConfigurer> ad)throws Exception{
   var devFilter=dev.getIfAvailable();if(devFilter!=null)http.addFilterAfter(devFilter,SecurityContextHolderFilter.class);
-  var adConfigurer=ad.getIfAvailable();if(adConfigurer!=null)http.with(adConfigurer,x->{});
+  var adConfigurer=ad.getIfAvailable();if(adConfigurer!=null){
+    http.with(adConfigurer,x->{});
+    http.exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->{
+      res.setHeader("WWW-Authenticate","Negotiate");
+      res.setStatus(401);
+    }));
+  }
   http.oauth2AuthorizationServer(as->as.oidc(Customizer.withDefaults()));
   http.authorizeHttpRequests(a->a
       .requestMatchers(HttpMethod.GET,"/oauth2/authorize").hasRole("OPENIDENTITY")
