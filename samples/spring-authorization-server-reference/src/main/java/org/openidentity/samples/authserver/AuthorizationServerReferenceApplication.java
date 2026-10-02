@@ -1,13 +1,16 @@
 package org.openidentity.samples.authserver;
 import com.nimbusds.jose.jwk.*;import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;import com.nimbusds.jose.proc.SecurityContext;import com.nimbusds.jose.jwk.source.JWKSource;import com.nimbusds.jose.jwk.JWKSet;
-import org.openidentity.spring.*;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.SpringBootApplication;import org.springframework.context.annotation.*;import org.springframework.beans.factory.ObjectProvider;import org.springframework.security.web.context.SecurityContextHolderFilter;import org.springframework.core.annotation.Order;import org.springframework.security.config.Customizer;import org.springframework.security.config.annotation.web.builders.HttpSecurity;import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;import org.springframework.security.oauth2.jwt.JwtDecoder;import org.springframework.security.oauth2.core.*;import org.springframework.security.oauth2.server.authorization.client.*;import org.springframework.security.oauth2.server.authorization.settings.*;import org.springframework.security.oauth2.server.authorization.token.*;import org.springframework.security.web.SecurityFilterChain;import java.util.*;
+import org.openidentity.spring.*;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.SpringBootApplication;import org.springframework.context.annotation.*;import org.springframework.beans.factory.ObjectProvider;import org.springframework.security.web.context.SecurityContextHolderFilter;import org.springframework.core.annotation.Order;import org.springframework.security.config.Customizer;import org.springframework.security.config.annotation.web.builders.HttpSecurity;import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;import org.springframework.security.oauth2.jwt.JwtDecoder;import org.springframework.security.oauth2.core.*;import org.springframework.security.oauth2.server.authorization.client.*;import org.springframework.security.oauth2.server.authorization.settings.*;import org.springframework.security.oauth2.server.authorization.token.*;import org.springframework.security.web.SecurityFilterChain;import org.springframework.http.HttpMethod;import java.util.*;
 @SpringBootApplication
 public class AuthorizationServerReferenceApplication {
  public static void main(String[] a){SpringApplication.run(AuthorizationServerReferenceApplication.class,a);}
  @Bean @Order(1) SecurityFilterChain authorizationServer(HttpSecurity http,ObjectProvider<DevelopmentOpenIdentityPrincipalConfiguration.DevelopmentOpenIdentityPrincipalFilter> dev)throws Exception{
   var devFilter=dev.getIfAvailable();if(devFilter!=null)http.addFilterAfter(devFilter,SecurityContextHolderFilter.class);
   http.oauth2AuthorizationServer(as->as.oidc(Customizer.withDefaults()));
-  http.authorizeHttpRequests(a->a.anyRequest().hasRole("OPENIDENTITY"));
+  http.authorizeHttpRequests(a->a
+      .requestMatchers(HttpMethod.GET,"/oauth2/authorize").hasRole("OPENIDENTITY")
+      .requestMatchers(HttpMethod.POST,"/oauth2/authorize").hasRole("OPENIDENTITY")
+      .anyRequest().permitAll());
   return http.build();
  }
  @Bean RegisteredClientRepository clients(){
