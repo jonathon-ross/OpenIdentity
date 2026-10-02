@@ -71,3 +71,11 @@ The observed GUID may appear in interoperability documentation as a non-secret t
 ## Remaining productization work
 
 This milestone proves interoperability. It does not yet define enterprise deployment automation, HA/state-store strategy, keytab rotation, multi-domain/forest discovery, managed service identities, operational telemetry, or a reusable Spring enterprise adapter. Those belong above the frozen protocol layer.
+
+## Reusable Spring integration hardening
+
+The proven Microsoft path has been extracted into `openidentity-spring-active-directory`. The reusable module owns SPNEGO exchange lifecycle, Spring Security authentication, validated LDAP principal resolution, persistent binding lookup, and Boot auto-configuration. The `spring-ad-microsoft` sample consumes that module rather than reimplementing those mechanics.
+
+Local tests verify that missing or malformed HTTP Negotiate input does not invoke GSS/AD, multi-round SPNEGO continuation is preserved, GSS rejection produces a Negotiate challenge, UNBOUND principals receive AD-only authority, ACTIVE bindings expose the OpenIdentity identity and authority, downstream directory failures propagate rather than becoming authentication loops, disabled auto-configuration contributes no integration beans, and enabled incomplete configuration fails closed.
+
+The final live acceptance pass MUST use the extracted Spring module through `spring-ad-microsoft`; success of an older sample-owned integration is not sufficient for this milestone.
