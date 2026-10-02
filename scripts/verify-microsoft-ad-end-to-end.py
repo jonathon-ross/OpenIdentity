@@ -16,7 +16,8 @@ if not maven:
   if q.is_file():maven=str(q)
 if not maven:maven=shutil.which("mvn.cmd" if os.name=="nt" else "mvn") or shutil.which("mvn")
 if not maven or not Path(maven).is_file():print("OPENIDENTITY MICROSOFT AD END-TO-END GATE: FAIL (Maven not found)");sys.exit(1)
-run("Java reactor including LDAP and SPNEGO",maven,"clean","test",cwd=ROOT/"java-sdk")
+run("Java reactor including LDAP, SPNEGO, and Spring AD",maven,"clean","test",cwd=ROOT/"java-sdk")
+run("Reusable Microsoft AD Spring sample",maven,"clean","package",cwd=ROOT/"samples/spring-ad-microsoft")
 for pat in ("*.keytab","*.pfx","*.p12","*.jks"):
  tracked=subprocess.run(["git","ls-files",pat],cwd=ROOT,text=True,capture_output=True,check=True).stdout.strip()
  if tracked:print(tracked);print(f"OPENIDENTITY MICROSOFT AD END-TO-END GATE: FAIL (tracked secret artifact {pat})");sys.exit(1)
