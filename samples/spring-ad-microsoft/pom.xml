@@ -7,6 +7,8 @@
  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-external-ad-spnego</artifactId><version>${openidentity.version}</version></dependency>
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-external-ad-ldap</artifactId><version>${openidentity.version}</version></dependency>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-authentication</artifactId><version>${openidentity.version}</version></dependency>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-core</artifactId><version>${openidentity.version}</version></dependency>
 </dependencies>
 <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
 </project>
