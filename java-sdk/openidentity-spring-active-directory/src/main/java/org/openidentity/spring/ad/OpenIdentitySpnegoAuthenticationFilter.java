@@ -1,7 +1,7 @@
 package org.openidentity.spring.ad;
 import jakarta.servlet.*;import jakarta.servlet.http.*;import org.springframework.http.HttpHeaders;import org.slf4j.*;import org.springframework.security.core.context.SecurityContextHolder;import org.springframework.web.filter.OncePerRequestFilter;import java.io.*;import java.util.*;
 
-public final class OpenIdentitySpnegoAuthenticationFilter extends OncePerRequestFilter {
+final class OpenIdentitySpnegoAuthenticationFilter extends OncePerRequestFilter {
  private static final Logger LOG=LoggerFactory.getLogger(OpenIdentitySpnegoAuthenticationFilter.class);
  private static final String EXCHANGE=OpenIdentitySpnegoAuthenticationFilter.class.getName()+".EXCHANGE";
  private final SpnegoExchangeProvider exchanges;private final OpenIdentityActiveDirectoryService service;
