@@ -8,7 +8,8 @@ public final class OpenIdentitySpnegoAuthenticationFilter extends OncePerRequest
  @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain)throws ServletException,IOException{
   if(SecurityContextHolder.getContext().getAuthentication()!=null){chain.doFilter(req,res);return;}
   String h=req.getHeader(HttpHeaders.AUTHORIZATION);
-  if(h==null||!h.regionMatches(true,0,"Negotiate ",0,10)){challenge(res,null);return;}
+  if(h==null){chain.doFilter(req,res);return;}
+  if(!h.regionMatches(true,0,"Negotiate ",0,10)){chain.doFilter(req,res);return;}
   byte[] token;try{token=Base64.getDecoder().decode(h.substring(10).trim());}catch(IllegalArgumentException e){res.sendError(400,"Invalid Negotiate token");return;}
   HttpSession session=req.getSession(true);SpnegoExchange x=(SpnegoExchange)session.getAttribute(EXCHANGE);
   if(x==null){x=exchanges.begin();session.setAttribute(EXCHANGE,x);}
