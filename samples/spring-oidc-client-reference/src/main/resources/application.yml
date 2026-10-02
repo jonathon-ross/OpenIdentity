@@ -1,5 +1,9 @@
 server:
   port: 8081
+  servlet:
+    session:
+      cookie:
+        name: OPENIDENTITY_CLIENT_SESSION
   error:
     include-exception: true
     include-message: always
