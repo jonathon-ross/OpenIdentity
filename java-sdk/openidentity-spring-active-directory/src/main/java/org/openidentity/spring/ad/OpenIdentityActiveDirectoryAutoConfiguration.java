@@ -15,6 +15,10 @@ public class OpenIdentityActiveDirectoryAutoConfiguration {
  @Bean SpnegoExchangeProvider openIdentitySpnegoExchangeProvider(SpnegoAcceptor a){return ()->{var x=a.begin();return new SpnegoExchange(){public SpnegoExchange.Result accept(byte[] token){var r=x.accept(token);return new SpnegoExchange.Result(r.established(),r.principal(),r.responseToken());}public void close(){x.close();}};};}
  @Bean OpenIdentitySpnegoAuthenticationFilter openIdentitySpnegoAuthenticationFilter(SpnegoExchangeProvider x,OpenIdentityActiveDirectoryService s){return new OpenIdentitySpnegoAuthenticationFilter(x,s);}
  @Bean OpenIdentityActiveDirectorySecurityConfigurer openIdentityAdSecurityConfigurer(OpenIdentitySpnegoAuthenticationFilter f){return new OpenIdentityActiveDirectorySecurityConfigurer(f);}
- @Bean @ConditionalOnMissingBean(SecurityFilterChain.class) SecurityFilterChain openIdentityAdSecurityFilterChain(HttpSecurity http,OpenIdentityActiveDirectorySecurityConfigurer ad)throws Exception{http.with(ad,c->{});return http.csrf(c->c.disable()).authorizeHttpRequests(a->a.requestMatchers("/error").permitAll().anyRequest().authenticated()).build();}
+ @Bean @ConditionalOnMissingBean(SecurityFilterChain.class) SecurityFilterChain openIdentityAdSecurityFilterChain(HttpSecurity http,OpenIdentityActiveDirectorySecurityConfigurer ad)throws Exception{
+  http.with(ad,c->{});
+  http.exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->{res.setHeader("WWW-Authenticate","Negotiate");res.setStatus(401);res.setContentType("application/json");res.getWriter().write("{\"status\":\"NEGOTIATE_REQUIRED\"}");}));
+  return http.csrf(c->c.disable()).requestCache(c->c.disable()).authorizeHttpRequests(a->a.requestMatchers("/error").permitAll().anyRequest().authenticated()).build();
+ }
  private static String required(String v,String n){if(v==null||v.isBlank())throw new IllegalStateException("missing openidentity.active-directory."+n);return v;}
 }
