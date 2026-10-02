@@ -3,15 +3,15 @@ import jakarta.servlet.*;import jakarta.servlet.http.*;import org.openidentity.a
 
 public final class OpenIdentitySpnegoAuthenticationFilter extends OncePerRequestFilter {
  private static final String EXCHANGE=OpenIdentitySpnegoAuthenticationFilter.class.getName()+".EXCHANGE";
- private final SpnegoAcceptor acceptor;private final OpenIdentityActiveDirectoryService service;
- public OpenIdentitySpnegoAuthenticationFilter(SpnegoAcceptor acceptor,OpenIdentityActiveDirectoryService service){this.acceptor=Objects.requireNonNull(acceptor);this.service=Objects.requireNonNull(service);}
+ private final SpnegoExchangeProvider exchanges;private final OpenIdentityActiveDirectoryService service;
+ public OpenIdentitySpnegoAuthenticationFilter(SpnegoExchangeProvider exchanges,OpenIdentityActiveDirectoryService service){this.exchanges=Objects.requireNonNull(exchanges);this.service=Objects.requireNonNull(service);}
  @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain)throws ServletException,IOException{
   if(SecurityContextHolder.getContext().getAuthentication()!=null){chain.doFilter(req,res);return;}
   String h=req.getHeader(HttpHeaders.AUTHORIZATION);
   if(h==null||!h.regionMatches(true,0,"Negotiate ",0,10)){challenge(res,null);return;}
   byte[] token;try{token=Base64.getDecoder().decode(h.substring(10).trim());}catch(IllegalArgumentException e){res.sendError(400,"Invalid Negotiate token");return;}
   HttpSession session=req.getSession(true);SpnegoAcceptor.Exchange x=(SpnegoAcceptor.Exchange)session.getAttribute(EXCHANGE);
-  if(x==null){x=acceptor.begin();session.setAttribute(EXCHANGE,x);}
+  if(x==null){x=exchanges.begin();session.setAttribute(EXCHANGE,x);}
   final SpnegoAcceptor.Result g;
   try{g=x.accept(token);}
   catch(IllegalArgumentException e){x.close();session.removeAttribute(EXCHANGE);SecurityContextHolder.clearContext();challenge(res,null);return;}
