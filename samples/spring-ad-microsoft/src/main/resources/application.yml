@@ -1,0 +1,16 @@
+openidentity:
+  active-directory:
+    enabled: true
+    kerberos:
+      service-principal: ${OPENIDENTITY_KERBEROS_SERVICE_PRINCIPAL}
+      keytab: ${OPENIDENTITY_KERBEROS_KEYTAB}
+    ldap:
+      profile-id: microsoft-ad
+      host: ${OPENIDENTITY_AD_HOST:DC01.oi-test.internal}
+      port: 636
+      base-dn: ${OPENIDENTITY_AD_BASE_DN:DC=oi-test,DC=internal}
+      bind-principal: ${OPENIDENTITY_AD_BIND_DN:oi-ldap@oi-test.internal}
+      directory-id-hex: ${OPENIDENTITY_AD_DIRECTORY_ID:d0d1d2d3d4d5d6d7d8d9dadbdcdddedf}
+    bindings:
+      state-directory: ${OPENIDENTITY_STATE_DIR}
+      store: ${OPENIDENTITY_AD_BINDING_STORE}
