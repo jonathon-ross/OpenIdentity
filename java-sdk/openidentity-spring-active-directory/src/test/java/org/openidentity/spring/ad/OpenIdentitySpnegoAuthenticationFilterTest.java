@@ -40,4 +40,29 @@ class OpenIdentitySpnegoAuthenticationFilterTest {
   private final Result result;private final RuntimeException error;FakeExchange(Result r,RuntimeException e){result=r;error=e;}
   public Result accept(byte[] token){if(error!=null)throw error;return result;}public void close(){}
  }
+ @Test void establishedUnboundPrincipalPopulatesAdOnlySecurityContext()throws Exception{
+  var filter=new OpenIdentitySpnegoAuthenticationFilter(established(),service(false,false));var req=request();var res=new MockHttpServletResponse();boolean[] called={false};
+  filter.doFilter(req,res,(a,b)->called[0]=true);
+  assertTrue(called[0]);var a=(OpenIdentityAdAuthenticationToken)SecurityContextHolder.getContext().getAuthentication();assertNotNull(a);assertEquals("alice@OI-TEST.INTERNAL",a.getPrincipal());assertFalse(a.result().bound());assertTrue(a.getAuthorities().stream().anyMatch(x->x.getAuthority().equals("ROLE_AD_AUTHENTICATED")));assertFalse(a.getAuthorities().stream().anyMatch(x->x.getAuthority().equals("ROLE_OPENIDENTITY")));
+ }
+ @Test void establishedActiveBindingUsesOpenIdentityPrincipal()throws Exception{
+  var filter=new OpenIdentitySpnegoAuthenticationFilter(established(),service(true,false));var req=request();var res=new MockHttpServletResponse();
+  filter.doFilter(req,res,(a,b)->{});
+  var a=(OpenIdentityAdAuthenticationToken)SecurityContextHolder.getContext().getAuthentication();assertNotNull(a);assertEquals("42".repeat(32),a.getPrincipal());assertTrue(a.result().bound());assertTrue(a.getAuthorities().stream().anyMatch(x->x.getAuthority().equals("ROLE_OPENIDENTITY")));
+ }
+ @Test void downstreamAdFailurePropagatesInsteadOfRechallenging()throws Exception{
+  var filter=new OpenIdentitySpnegoAuthenticationFilter(established(),service(false,true));var req=request();var res=new MockHttpServletResponse();
+  IllegalStateException e=assertThrows(IllegalStateException.class,()->filter.doFilter(req,res,(a,b)->fail()));assertEquals("directory unavailable",e.getMessage());assertNull(res.getHeader("WWW-Authenticate"));
+ }
+ private static SpnegoExchangeProvider established(){return ()->new FakeExchange(new SpnegoExchange.Result(true,"alice@OI-TEST.INTERNAL",new byte[0]),null);}
+ private static OpenIdentityActiveDirectoryService service(boolean active,boolean fail){
+  byte[] directory=new byte[16],guid=new byte[16],identity=new byte[32];Arrays.fill(identity,(byte)0x42);
+  AdPrincipalResolver resolver=e->{if(fail)throw new IllegalStateException("directory unavailable");return new VerifiedAdPrincipal(directory,guid,"svc",ExternalAdBindingV1.KERBEROS_SPNEGO,true,true,true,Map.of());};
+  InMemoryExternalAdBindingRegistry.Policy policy=new InMemoryExternalAdBindingRegistry.Policy(){public boolean directoryTrusted(byte[] d){return true;}public boolean serviceAllowed(byte[] d,String s){return true;}public boolean mechanismAllowed(byte[] d,int m){return true;}public boolean identityActive(byte[] i){return true;}public long currentAuthenticationGeneration(byte[] i){return 0;}};
+  try{
+   var registry=new InMemoryExternalAdBindingRegistry(java.nio.file.Files.createTempFile("oi-ad-test",".store"));
+   if(active){var p=resolver.resolve(null);registry.bind(ExternalAdPrincipalBridge.registryPrincipal(p),identity,System.currentTimeMillis()/1000,null,new byte[32],new InMemoryExternalAdBindingRegistry.Authorization(true,"openidentity.external-ad.bind",true,false),policy);}
+   return new OpenIdentityActiveDirectoryService(resolver,registry,policy,"test","svc");
+  }catch(java.io.IOException e){throw new RuntimeException(e);}
+ }
 }
