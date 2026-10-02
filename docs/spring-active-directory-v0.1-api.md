@@ -9,6 +9,7 @@ Applications should treat these types as the supported integration surface:
 - `OpenIdentityActiveDirectoryProperties` — Boot configuration under `openidentity.active-directory`.
 - `OpenIdentityActiveDirectoryAuthentication` — immutable authentication result, including AD verification and OpenIdentity binding state.
 - `OpenIdentityAdAuthenticationToken` — Spring Security authentication stored in the `SecurityContext`.
+- `OpenIdentityActiveDirectoryService` — non-HTTP resolution API for callers that already possess a cryptographically established Kerberos principal.
 - `OpenIdentityActiveDirectorySecurityConfigurer` — explicit integration point for applications that supply their own `SecurityFilterChain`.
 - `ActiveDirectoryCredentialProvider` — optional application-provided LDAP secret source.
 
