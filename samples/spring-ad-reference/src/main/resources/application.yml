@@ -1,0 +1,16 @@
+openidentity:
+  active-directory:
+    enabled: true
+    kerberos:
+      service-principal: ${OPENIDENTITY_KERBEROS_SERVICE_PRINCIPAL}
+      keytab: ${OPENIDENTITY_KERBEROS_KEYTAB}
+    ldap:
+      profile-id: microsoft-ad
+      host: ${OPENIDENTITY_AD_HOST}
+      port: ${OPENIDENTITY_AD_PORT:636}
+      base-dn: ${OPENIDENTITY_AD_BASE_DN}
+      bind-principal: ${OPENIDENTITY_AD_BIND_DN}
+      directory-id-hex: ${OPENIDENTITY_AD_DIRECTORY_ID}
+    bindings:
+      state-directory: ${OPENIDENTITY_STATE_DIR}
+      store: ${OPENIDENTITY_AD_BINDING_STORE}
