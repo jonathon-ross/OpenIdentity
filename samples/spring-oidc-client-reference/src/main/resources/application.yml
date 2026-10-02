@@ -1,5 +1,8 @@
 server:
   port: 8081
+  error:
+    include-exception: true
+    include-message: always
 spring:
   security:
     oauth2:
@@ -16,7 +19,3 @@ spring:
           openidentity:
             issuer-uri: http://127.0.0.1:9000
 
-server:
-  error:
-    include-exception: true
-    include-message: always
