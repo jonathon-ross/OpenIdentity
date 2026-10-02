@@ -1,5 +1,5 @@
 package org.openidentity.spring.ad;
-import jakarta.servlet.*;import jakarta.servlet.http.*;import org.openidentity.ad.spnego.SpnegoAcceptor;import org.springframework.http.HttpHeaders;import org.springframework.security.core.context.SecurityContextHolder;import org.springframework.web.filter.OncePerRequestFilter;import java.io.*;import java.util.*;
+import jakarta.servlet.*;import jakarta.servlet.http.*;import org.springframework.http.HttpHeaders;import org.springframework.security.core.context.SecurityContextHolder;import org.springframework.web.filter.OncePerRequestFilter;import java.io.*;import java.util.*;
 
 public final class OpenIdentitySpnegoAuthenticationFilter extends OncePerRequestFilter {
  private static final String EXCHANGE=OpenIdentitySpnegoAuthenticationFilter.class.getName()+".EXCHANGE";
@@ -10,9 +10,9 @@ public final class OpenIdentitySpnegoAuthenticationFilter extends OncePerRequest
   String h=req.getHeader(HttpHeaders.AUTHORIZATION);
   if(h==null||!h.regionMatches(true,0,"Negotiate ",0,10)){challenge(res,null);return;}
   byte[] token;try{token=Base64.getDecoder().decode(h.substring(10).trim());}catch(IllegalArgumentException e){res.sendError(400,"Invalid Negotiate token");return;}
-  HttpSession session=req.getSession(true);SpnegoAcceptor.Exchange x=(SpnegoAcceptor.Exchange)session.getAttribute(EXCHANGE);
+  HttpSession session=req.getSession(true);SpnegoExchange x=(SpnegoExchange)session.getAttribute(EXCHANGE);
   if(x==null){x=exchanges.begin();session.setAttribute(EXCHANGE,x);}
-  final SpnegoAcceptor.Result g;
+  final SpnegoExchange.Result g;
   try{g=x.accept(token);}
   catch(IllegalArgumentException e){x.close();session.removeAttribute(EXCHANGE);SecurityContextHolder.clearContext();challenge(res,null);return;}
   if(!g.established()){challenge(res,g.responseToken());return;}
