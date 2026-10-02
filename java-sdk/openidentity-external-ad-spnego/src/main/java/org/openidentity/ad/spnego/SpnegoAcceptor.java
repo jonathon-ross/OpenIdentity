@@ -1,9 +1,28 @@
 package org.openidentity.ad.spnego;
 import org.ietf.jgss.*;import javax.security.auth.*;import javax.security.auth.login.*;import javax.security.auth.callback.*;import java.nio.file.*;import java.security.*;import java.util.*;
+
 public final class SpnegoAcceptor {
- public record Result(String principal,byte[] responseToken){public Result{if(principal==null||principal.isBlank())throw new IllegalArgumentException("principal");responseToken=responseToken==null?new byte[0]:responseToken.clone();}@Override public byte[] responseToken(){return responseToken.clone();}}
+ public record Result(boolean established,String principal,byte[] responseToken){
+  public Result{if(established&&(principal==null||principal.isBlank()))throw new IllegalArgumentException("principal");responseToken=responseToken==null?new byte[0]:responseToken.clone();}
+  @Override public byte[] responseToken(){return responseToken.clone();}
+ }
  private final Subject subject;
- public SpnegoAcceptor(String servicePrincipal,Path keytab){Objects.requireNonNull(servicePrincipal);Objects.requireNonNull(keytab);Configuration cfg=new Configuration(){public AppConfigurationEntry[] getAppConfigurationEntry(String n){Map<String,Object> o=new HashMap<>();o.put("useKeyTab","true");o.put("keyTab",keytab.toAbsolutePath().toString());o.put("principal",servicePrincipal);o.put("storeKey","true");o.put("doNotPrompt","true");o.put("isInitiator","false");o.put("refreshKrb5Config","true");return new AppConfigurationEntry[]{new AppConfigurationEntry("com.sun.security.auth.module.Krb5LoginModule",AppConfigurationEntry.LoginModuleControlFlag.REQUIRED,o)};}};try{LoginContext lc=new LoginContext("OpenIdentitySpnego",null,new NoCallbacks(),cfg);lc.login();subject=lc.getSubject();}catch(LoginException e){throw new IllegalStateException("Kerberos acceptor login failed",e);}}
- public Result accept(byte[] token){if(token==null||token.length==0)throw new IllegalArgumentException("SPNEGO token");try{return Subject.doAs(subject,(PrivilegedExceptionAction<Result>)()->{GSSManager m=GSSManager.getInstance();GSSContext c=m.createContext((GSSCredential)null);try{byte[] out=c.acceptSecContext(token,0,token.length);if(!c.isEstablished())throw new GSSException(GSSException.CONTINUE_NEEDED);GSSName src=c.getSrcName();if(src==null)throw new GSSException(GSSException.NO_CRED);return new Result(src.toString(),out);}finally{c.dispose();}});}catch(PrivilegedActionException e){throw new IllegalArgumentException("SPNEGO verification failed",e.getException());}}
+ public SpnegoAcceptor(String servicePrincipal,Path keytab){
+  Objects.requireNonNull(servicePrincipal);Objects.requireNonNull(keytab);
+  Configuration cfg=new Configuration(){public AppConfigurationEntry[] getAppConfigurationEntry(String n){Map<String,Object> o=new HashMap<>();o.put("useKeyTab","true");o.put("keyTab",keytab.toAbsolutePath().toString());o.put("principal",servicePrincipal);o.put("storeKey","true");o.put("doNotPrompt","true");o.put("isInitiator","false");o.put("refreshKrb5Config","true");return new AppConfigurationEntry[]{new AppConfigurationEntry("com.sun.security.auth.module.Krb5LoginModule",AppConfigurationEntry.LoginModuleControlFlag.REQUIRED,o)};}};
+  try{LoginContext lc=new LoginContext("OpenIdentitySpnego",null,new NoCallbacks(),cfg);lc.login();subject=lc.getSubject();}catch(LoginException e){throw new IllegalStateException("Kerberos acceptor login failed",e);}
+ }
+ public Result accept(byte[] token){
+  if(token==null||token.length==0)throw new IllegalArgumentException("SPNEGO token");
+  try{return Subject.doAs(subject,(PrivilegedExceptionAction<Result>)()->{
+   GSSManager m=GSSManager.getInstance();GSSContext c=m.createContext((GSSCredential)null);
+   try{
+    byte[] out=c.acceptSecContext(token,0,token.length);
+    if(!c.isEstablished())return new Result(false,null,out);
+    GSSName src=c.getSrcName();if(src==null)throw new GSSException(GSSException.NO_CRED);
+    return new Result(true,src.toString(),out);
+   }finally{c.dispose();}
+  });}catch(PrivilegedActionException e){throw new IllegalArgumentException("SPNEGO verification failed",e.getException());}
+ }
  private static final class NoCallbacks implements CallbackHandler{public void handle(Callback[] c){if(c.length!=0)throw new UnsupportedOperationException("callbacks not allowed");}}
 }
