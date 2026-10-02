@@ -198,7 +198,7 @@ The application workflow should:
 5. persist the resulting binding;
 6. resolve subsequent authentications through that persistent binding.
 
-The Microsoft reference sample demonstrates this workflow. The Spring AD module intentionally does not silently auto-link an AD account to an OpenIdentity identity.
+`samples/spring-ad-reference` is the minimal consumer example for ordinary Spring applications. `samples/spring-ad-microsoft` demonstrates the fuller OI-015 linking workflow. The Spring AD module intentionally does not silently auto-link an AD account to an OpenIdentity identity.
 
 ## Failure behavior
 
