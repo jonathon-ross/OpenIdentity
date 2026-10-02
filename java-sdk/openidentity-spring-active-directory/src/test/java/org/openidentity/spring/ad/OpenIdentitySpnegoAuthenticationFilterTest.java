@@ -3,11 +3,11 @@ import org.junit.jupiter.api.*;import org.openidentity.ad.*;import java.util.*;i
 import static org.junit.jupiter.api.Assertions.*;
 class OpenIdentitySpnegoAuthenticationFilterTest {
  @AfterEach void clear(){SecurityContextHolder.clearContext();}
- @Test void missingHeaderChallengesWithoutStartingDependencies()throws Exception{
+ @Test void missingHeaderPassesDownstreamWithoutStartingDependencies()throws Exception{
   boolean[] began={false};SpnegoExchangeProvider p=()->{began[0]=true;throw new AssertionError("GSS must not start");};
   var filter=new OpenIdentitySpnegoAuthenticationFilter(p,unusedService());var req=new MockHttpServletRequest();var res=new MockHttpServletResponse();boolean[] called={false};
   filter.doFilter(req,res,(a,b)->called[0]=true);
-  assertEquals(401,res.getStatus());assertEquals("Negotiate",res.getHeader("WWW-Authenticate"));assertFalse(called[0]);assertFalse(began[0]);
+  assertEquals(200,res.getStatus());assertNull(res.getHeader("WWW-Authenticate"));assertTrue(called[0]);assertFalse(began[0]);
  }
  @Test void malformedTokenIsBadRequestWithoutStartingDependencies()throws Exception{
   boolean[] began={false};SpnegoExchangeProvider p=()->{began[0]=true;throw new AssertionError("GSS must not start");};
