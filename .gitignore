@@ -53,3 +53,7 @@ __pycache__/
 *.authentication.key
 /dev/openidentity-ad-bindings.store
 /dev/openidentity-ad-ldap-bindings.store
+
+# Kerberos service credentials
+*.keytab
+/dev/kerberos/
