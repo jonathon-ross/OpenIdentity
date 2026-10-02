@@ -1,4 +1,6 @@
 openidentity:
+  authorization-server:
+    issuer: ${OPENIDENTITY_AUTHORIZATION_SERVER_ISSUER:http://openidentity.oi-test.internal:9000}
   active-directory:
     enabled: true
     kerberos:
