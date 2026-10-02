@@ -15,3 +15,8 @@ spring:
         provider:
           openidentity:
             issuer-uri: http://127.0.0.1:9000
+
+server:
+  error:
+    include-exception: true
+    include-message: always
