@@ -1,5 +1,5 @@
 package org.openidentity.samples.nativeauth;
-import com.fasterxml.jackson.databind.*;import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;import org.bouncycastle.crypto.signers.Ed25519Signer;import org.openidentity.auth.*;import org.openidentity.core.*;import java.nio.file.*;import java.time.Instant;import java.util.*;
+import com.fasterxml.jackson.databind.*;import com.fasterxml.jackson.databind.node.ObjectNode;import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;import org.bouncycastle.crypto.signers.Ed25519Signer;import org.openidentity.auth.*;import org.openidentity.core.*;import java.nio.file.*;import java.time.Instant;import java.util.*;
 public final class NativeOi015Signer {
  public static void main(String[] args)throws Exception{
   if(args.length!=5){System.err.println("usage: NativeOi015Signer <challenge.json> <state-dir> <identity-hex> <method-id-hex> <private-seed-hex>");System.exit(2);}
