@@ -34,6 +34,7 @@ public record IdentityStateCommitment(int stateVersion,byte[] identity,long sequ
  private static void skip(StrictCborReader r){
   int b=r.peekByte(),major=b>>>5;
   if(major==0){r.readUnsigned();return;}
+  if(major==1){r.readNegative();return;}
   if(major==2){r.readByteString();return;}
   if(major==3){r.readTextString();return;}
   if(major==4){long n=r.readArrayHeader();for(long i=0;i<n;i++)skip(r);return;}
