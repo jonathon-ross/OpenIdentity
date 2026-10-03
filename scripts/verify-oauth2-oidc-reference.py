@@ -10,7 +10,7 @@ def find_maven():
   if found:return found
  raise SystemExit("FAIL: Maven executable not found. Pass its path as the first argument, e.g. python scripts/verify-oauth2-oidc-reference.py /path/to/mvn")
 MVN=find_maven()
-EXPECTED="99e2da9324adadb2f18350e1b95d9e491a502f4a91e12857cd7c092c0b0e62f3"
+DEVELOPMENT_PRINCIPAL_SUBJECT="99e2da9324adadb2f18350e1b95d9e491a502f4a91e12857cd7c092c0b0e62f3"
 
 def run(label,*args,cwd):
  print(f"\n=== {label} ===",flush=True)
@@ -30,7 +30,7 @@ run("Native OI-015 signer reference",MVN,"clean","package",cwd=ROOT/"samples/nat
 require("samples/spring-authorization-server-reference/src/main/java/org/openidentity/samples/authserver/AuthorizationServerReferenceApplication.java",
  "AuthorizationGrantType.AUTHORIZATION_CODE","ClientAuthenticationMethod.NONE","requireProofKey(true)","scope(\"openid\")","new OpenIdentityJwtCustomizer()","OpenIdentityActiveDirectorySecurityConfigurer","WWW-Authenticate\",\"Negotiate","openidentity.authorization-server.issuer")
 require("samples/spring-authorization-server-reference/src/main/java/org/openidentity/samples/authserver/DevelopmentOpenIdentityPrincipalConfiguration.java",
- EXPECTED,"ROLE_OPENIDENTITY")
+ DEVELOPMENT_PRINCIPAL_SUBJECT,"ROLE_OPENIDENTITY")
 require("samples/spring-oidc-client-reference/src/main/resources/application.yml",
  "${OPENIDENTITY_OIDC_ISSUER:http://127.0.0.1:9000}","client-authentication-method: none","authorization-grant-type: authorization_code","scope: openid,profile","OPENIDENTITY_CLIENT_SESSION")
 require("samples/spring-authorization-server-reference/src/main/resources/application.yml","OPENIDENTITY_AUTH_SERVER_SESSION")
@@ -79,4 +79,5 @@ finally:
   server.kill();server.wait(timeout=5)
  if state_dir.exists(): shutil.rmtree(state_dir)
 print("\nOPENIDENTITY OAUTH2/OIDC REFERENCE GATE: PASS")
-print("Expected OIDC subject:",EXPECTED)
+print("Static development-principal subject:",DEVELOPMENT_PRINCIPAL_SUBJECT)
+print("Native OI-015 live subject:",material["identityHex"])
