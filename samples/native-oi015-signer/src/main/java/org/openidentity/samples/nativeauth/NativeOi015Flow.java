@@ -20,19 +20,16 @@ public final class NativeOi015Flow {
   ObjectNode verify=json.createObjectNode().put("challengeId",c.required("challengeId").asText()).put("assertionBase64Url",Base64.getUrlEncoder().withoutPadding().encodeToString(secured));HttpResponse<String> verified=http.send(HttpRequest.newBuilder(URI.create(base+"/openidentity/auth/login/verify")).header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(verify))).build(),HttpResponse.BodyHandlers.ofString());
   if(verified.statusCode()!=200)throw new IllegalStateException("verify HTTP "+verified.statusCode()+": "+verified.body());JsonNode out=json.readTree(verified.body());ObjectNode result=json.createObjectNode();result.put("status",out.required("status").asText());result.put("identity",out.required("identity").asText());result.put("continue",base+out.required("continue").asText());cookies.getCookieStore().getCookies().stream().filter(x->x.getName().contains("SESSION")).findFirst().ifPresent(x->result.put("sessionCookieName",x.getName()));
   URI continuation=URI.create(base+out.required("continue").asText());HttpResponse<String> authorization=http.send(HttpRequest.newBuilder(continuation).GET().build(),HttpResponse.BodyHandlers.ofString());
-  result.put("authorizationStatus",authorization.statusCode());authorization.headers().firstValue("Location").ifPresent(x->result.put("authorizationLocation",x));String authorizationBody=authorization.body();if(authorizationBody!=null&&!authorizationBody.isBlank())result.put("authorizationBody",authorizationBody);
-  if(referenceMode&&authorization.statusCode()==200&&authorizationBody!=null&&authorizationBody.contains("Consent required")){
+  result.put("authorizationStatus",authorization.statusCode());String authorizationLocation=authorization.headers().firstValue("Location").orElse("");if(!authorizationLocation.isBlank())result.put("authorizationLocation",authorizationLocation);String authorizationBody=authorization.body();if(authorizationBody!=null&&!authorizationBody.isBlank())result.put("authorizationBody",authorizationBody);
+  if(referenceMode&&authorization.statusCode()/100==3&&!authorizationLocation.isBlank()){
+   String code=queryParam(URI.create(authorizationLocation).getRawQuery(),"code");if(code!=null)exchangeCode(http,json,result,base,code,verifier);
+  }else if(referenceMode&&authorization.statusCode()==200&&authorizationBody!=null&&authorizationBody.contains("Consent required")){
    Matcher stateMatcher=Pattern.compile("name=\\\"state\\\" value=\\\"([^\\\"]+)\\\"").matcher(authorizationBody);if(!stateMatcher.find())throw new IllegalStateException("consent state unavailable");String consentState=stateMatcher.group(1);
    String form="client_id="+URLEncoder.encode("openidentity-reference-client",StandardCharsets.UTF_8)+"&state="+URLEncoder.encode(consentState,StandardCharsets.UTF_8)+"&scope="+URLEncoder.encode("profile",StandardCharsets.UTF_8);
    HttpResponse<String> consent=http.send(HttpRequest.newBuilder(URI.create(base+"/oauth2/authorize")).header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(form)).build(),HttpResponse.BodyHandlers.ofString());
    result.put("consentStatus",consent.statusCode());String location=consent.headers().firstValue("Location").orElse("");if(!location.isBlank())result.put("consentLocation",location);
    if(consent.statusCode()/100==3&&!location.isBlank()){
-    URI redirect=URI.create(location);String code=queryParam(redirect.getRawQuery(),"code");if(code!=null){
-     result.put("authorizationCodeReceived",true);
-     String tokenForm="grant_type=authorization_code&client_id="+URLEncoder.encode("openidentity-reference-client",StandardCharsets.UTF_8)+"&code="+URLEncoder.encode(code,StandardCharsets.UTF_8)+"&redirect_uri="+URLEncoder.encode("http://localhost:8081/login/oauth2/code/openidentity",StandardCharsets.UTF_8)+"&code_verifier="+URLEncoder.encode(verifier,StandardCharsets.UTF_8);
-     HttpResponse<String> token=http.send(HttpRequest.newBuilder(URI.create(base+"/oauth2/token")).header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(tokenForm)).build(),HttpResponse.BodyHandlers.ofString());
-     result.put("tokenStatus",token.statusCode());if(token.statusCode()==200){JsonNode tokens=json.readTree(token.body());result.put("accessTokenReceived",tokens.hasNonNull("access_token"));if(tokens.hasNonNull("id_token")){String[] parts=tokens.get("id_token").asText().split("\\.");if(parts.length==3){JsonNode claims=json.readTree(Base64.getUrlDecoder().decode(parts[1]));String subject=claims.path("sub").asText();result.put("idTokenSubject",subject);result.put("subjectMatchesIdentity",subject.equals(out.required("identity").asText()));}}}else result.put("tokenBody",token.body());
-    }
+    URI redirect=URI.create(location);String code=queryParam(redirect.getRawQuery(),"code");if(code!=null)exchangeCode(http,json,result,base,code,verifier);
    }
   }
   String gateFailure=null;
@@ -46,13 +43,20 @@ public final class NativeOi015Flow {
  private static String failedGate(JsonNode result,String identity){
   if(!"AUTHENTICATED".equals(result.path("status").asText()))return "native OI-015 authentication";
   if(!result.path("identity").asText().equals(identity))return "authenticated identity continuity";
-  if(result.path("authorizationStatus").asInt()!=200)return "OAuth authorization/consent";
-  if(result.path("consentStatus").asInt()/100!=3)return "OAuth consent submission";
+  int authorizationStatus=result.path("authorizationStatus").asInt();
+  if(authorizationStatus!=200&&authorizationStatus/100!=3)return "OAuth authorization";
+  if(authorizationStatus==200&&result.path("consentStatus").asInt()/100!=3)return "OAuth consent submission";
   if(!result.path("authorizationCodeReceived").asBoolean(false))return "authorization code issuance";
   if(result.path("tokenStatus").asInt()!=200)return "PKCE token exchange";
   if(!result.path("accessTokenReceived").asBoolean(false))return "access token issuance";
   if(!result.path("subjectMatchesIdentity").asBoolean(false))return "OIDC subject continuity";
   return null;
+ }
+ private static void exchangeCode(HttpClient http,ObjectMapper json,ObjectNode result,String base,String code,String verifier)throws Exception{
+  result.put("authorizationCodeReceived",true);
+  String tokenForm="grant_type=authorization_code&client_id="+URLEncoder.encode("openidentity-reference-client",StandardCharsets.UTF_8)+"&code="+URLEncoder.encode(code,StandardCharsets.UTF_8)+"&redirect_uri="+URLEncoder.encode("http://localhost:8081/login/oauth2/code/openidentity",StandardCharsets.UTF_8)+"&code_verifier="+URLEncoder.encode(verifier,StandardCharsets.UTF_8);
+  HttpResponse<String> token=http.send(HttpRequest.newBuilder(URI.create(base+"/oauth2/token")).header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(tokenForm)).build(),HttpResponse.BodyHandlers.ofString());
+  result.put("tokenStatus",token.statusCode());if(token.statusCode()==200){JsonNode tokens=json.readTree(token.body());result.put("accessTokenReceived",tokens.hasNonNull("access_token"));if(tokens.hasNonNull("id_token")){String[] parts=tokens.get("id_token").asText().split("\\.");if(parts.length==3){JsonNode claims=json.readTree(Base64.getUrlDecoder().decode(parts[1]));String subject=claims.path("sub").asText();result.put("idTokenSubject",subject);result.put("subjectMatchesIdentity",subject.equals(result.path("identity").asText()));}}}else result.put("tokenBody",token.body());
  }
  private static String queryParam(String query,String name){if(query==null)return null;for(String pair:query.split("&")){int i=pair.indexOf('=');String k=URLDecoder.decode(i<0?pair:pair.substring(0,i),StandardCharsets.UTF_8);if(k.equals(name))return URLDecoder.decode(i<0?"":pair.substring(i+1),StandardCharsets.UTF_8);}return null;}
 }
