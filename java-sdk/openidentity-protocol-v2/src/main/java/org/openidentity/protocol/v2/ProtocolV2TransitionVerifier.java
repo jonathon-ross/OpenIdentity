@@ -8,14 +8,14 @@ import java.security.MessageDigest;
 import java.util.*;
 
 public final class ProtocolV2TransitionVerifier {
- private static final long CREATE=1,ROTATE_CONTROLLER=2,SET_AUTHENTICATION_POLICY=6,RESET_AUTHENTICATION=8;
+ private static final long CREATE=1,ROTATE_CONTROLLER=2,SET_AUTHENTICATION_POLICY=6,SET_DELEGATION_POLICY=7,RESET_AUTHENTICATION=8,RESET_DELEGATIONS=9;
  private ProtocolV2TransitionVerifier(){}
 
  public static VerifiedIdentityTransition verifyAndApply(byte[] predecessorStateBytes,byte[] signedOperationBytes){
   State predecessor=parseState(predecessorStateBytes);
   Signed signed=parseSigned(signedOperationBytes);
   Operation op=parseOperation(signed.operationBytes);
-  require(op.protocolVersion==2&&(op.type==SET_AUTHENTICATION_POLICY||op.type==ROTATE_CONTROLLER||op.type==RESET_AUTHENTICATION),"unsupported Protocol v2 operation");
+  require(op.protocolVersion==2&&(op.type==SET_AUTHENTICATION_POLICY||op.type==ROTATE_CONTROLLER||op.type==RESET_AUTHENTICATION||op.type==SET_DELEGATION_POLICY||op.type==RESET_DELEGATIONS),"unsupported Protocol v2 operation");
   require(MessageDigest.isEqual(op.identity,predecessor.identity),"operation identity mismatch");
   require(predecessor.sequence!=Long.MAX_VALUE&&op.sequence==predecessor.sequence+1,"operation sequence mismatch");
   require(MessageDigest.isEqual(op.previousStateHash,IdentityStateCommitment.sha256Multihash(predecessorStateBytes)),"previous StateHash mismatch");
@@ -28,6 +28,18 @@ public final class ProtocolV2TransitionVerifier {
    byte[] nextController=parseSinglePolicyPayload(op.payload,"controller policy payload");Policy proposed=parsePolicy(nextController);
    require(verifyPop(proposed,signed.controllerPops,signed.operationBytes,"OpenIdentity Controller Proof"),"controller proof-of-possession invalid");
    successor=encodeControllerRotationState(predecessor,op.sequence,nextController);
+  }else if(op.type==RESET_DELEGATIONS){
+   require(predecessor.version==3,"RESET_DELEGATIONS requires v3");require(signed.controllerPops.isEmpty()&&signed.authenticationProofs.isEmpty()&&signed.assertionProofs.isEmpty()&&signed.delegationProofs.isEmpty(),"unexpected RESET proofs");
+   requireEmptyPayload(op.payload);require(predecessor.delegation.generation!=Long.MAX_VALUE,"delegation generation overflow");
+   successor=encodePreservingDelegationState(predecessor,op.sequence,new Authority(predecessor.delegation.generation+1,predecessor.delegation.policy));
+  }else if(op.type==SET_DELEGATION_POLICY){
+   require(signed.controllerPops.isEmpty()&&signed.authenticationProofs.isEmpty()&&signed.assertionProofs.isEmpty(),"unexpected non-delegation proofs");
+   Payload payload=parsePayload(op.payload);Authority current=predecessor.delegation;long generation=current.generation;byte[] next=payload.authenticationPolicy;
+   if(current.policy==null){require(next!=null,"cannot remove absent delegation policy");require(payload.disposition==null,"disposition forbidden on initial install");}
+   else if(next==null){require(payload.disposition==null,"disposition forbidden on removal");require(generation!=Long.MAX_VALUE,"delegation generation overflow");generation++;}
+   else {require(!Arrays.equals(current.policy,next),"no-op delegation policy replacement");require(payload.disposition!=null,"missing delegation disposition");require(payload.disposition==1||payload.disposition==2,"invalid delegation disposition");if(payload.disposition==1){require(generation!=Long.MAX_VALUE,"delegation generation overflow");generation++;}}
+   if(next!=null)require(verifyPop(parsePolicy(next),signed.delegationProofs,signed.operationBytes,"OpenIdentity Delegation Proof"),"delegation proof-of-possession invalid");else require(signed.delegationProofs.isEmpty(),"proofs forbidden on removal");
+   successor=encodePreservingDelegationState(predecessor,op.sequence,new Authority(generation,next));
   }else if(op.type==RESET_AUTHENTICATION){
    require(predecessor.version==3,"RESET_AUTHENTICATION requires v3");require(signed.controllerPops.isEmpty()&&signed.authenticationProofs.isEmpty()&&signed.assertionProofs.isEmpty()&&signed.delegationProofs.isEmpty(),"unexpected RESET proofs");
    requireEmptyPayload(op.payload);require(predecessor.authentication.generation!=Long.MAX_VALUE,"authentication generation overflow");
@@ -95,6 +107,7 @@ public final class ProtocolV2TransitionVerifier {
 
  private static byte[] parseSinglePolicyPayload(byte[] bytes,String message){StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()==1&&r.readUnsigned()==1,message);byte[] p=r.readEncoded();require(r.done(),message);return p;}
  private static byte[] encodeControllerRotationState(State p,long sequence,byte[] controller){int n=7+(p.recovery==null?0:1)+(p.assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(p.status);w.writeUnsigned(5);w.writeEncoded(controller);if(p.recovery!=null){w.writeUnsigned(6);w.writeByteString(p.recovery);}if(p.assertion!=null){w.writeUnsigned(7);w.writeEncoded(p.assertion);}w.writeUnsigned(8);w.writeEncoded(authority(p.version<3?0:p.authentication.generation,p.version<3?null:p.authentication.policy));w.writeUnsigned(9);w.writeEncoded(authority(p.version<3?0:p.delegation.generation,p.version<3?null:p.delegation.policy));return w.toByteArray();}
+ private static byte[] encodePreservingDelegationState(State p,long sequence,Authority delegation){int n=7+(p.recovery==null?0:1)+(p.assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(p.status);w.writeUnsigned(5);w.writeEncoded(p.controllerPolicy);if(p.recovery!=null){w.writeUnsigned(6);w.writeByteString(p.recovery);}if(p.assertion!=null){w.writeUnsigned(7);w.writeEncoded(p.assertion);}w.writeUnsigned(8);w.writeEncoded(authority(p.authentication.generation,p.authentication.policy));w.writeUnsigned(9);w.writeEncoded(authority(delegation.generation,delegation.policy));return w.toByteArray();}
  private static byte[] encodePreservingState(State p,long sequence,Authority authentication){int n=7+(p.recovery==null?0:1)+(p.assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(p.status);w.writeUnsigned(5);w.writeEncoded(p.controllerPolicy);if(p.recovery!=null){w.writeUnsigned(6);w.writeByteString(p.recovery);}if(p.assertion!=null){w.writeUnsigned(7);w.writeEncoded(p.assertion);}w.writeUnsigned(8);w.writeEncoded(authority(authentication.generation,authentication.policy));w.writeUnsigned(9);w.writeEncoded(authority(p.delegation.generation,p.delegation.policy));return w.toByteArray();}
  private static CreatePayload parseCreatePayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader(),prev=0;byte[] controller=null,assertion=null,authentication=null,delegation=null;for(long i=0;i<n;i++){long k=r.readUnsigned();require(k>prev,"CREATE payload labels");prev=k;if(k==1)controller=r.readEncoded();else if(k==3)assertion=r.readEncoded();else if(k==4)authentication=r.readEncoded();else if(k==5)delegation=r.readEncoded();else throw new IllegalArgumentException("unsupported CREATE payload field");}require(controller!=null,"CREATE controller policy");return new CreatePayload(controller,assertion,authentication,delegation);}
  private static byte[] encodeCreateState(byte[] identity,CreatePayload p){int n=7+(p.assertionPolicy==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(identity);w.writeUnsigned(3);w.writeUnsigned(1);w.writeUnsigned(4);w.writeUnsigned(1);w.writeUnsigned(5);w.writeEncoded(p.controllerPolicy);if(p.assertionPolicy!=null){w.writeUnsigned(7);w.writeEncoded(p.assertionPolicy);}w.writeUnsigned(8);w.writeEncoded(authority(0,p.authenticationPolicy));w.writeUnsigned(9);w.writeEncoded(authority(0,p.delegationPolicy));return w.toByteArray();}
