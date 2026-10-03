@@ -3,7 +3,13 @@
 from pathlib import Path
 import subprocess,sys,re,os,time,urllib.request,tempfile,shutil
 ROOT=Path(__file__).resolve().parents[1]
-MVN=sys.argv[1] if len(sys.argv)>1 else ("mvn.cmd" if sys.platform.startswith("win") else "mvn")
+def find_maven():
+ if len(sys.argv)>1:return sys.argv[1]
+ for name in (["mvn.cmd","mvn.bat","mvn.exe","mvn"] if sys.platform.startswith("win") else ["mvn"]):
+  found=shutil.which(name)
+  if found:return found
+ raise SystemExit("FAIL: Maven executable not found. Pass its path as the first argument, e.g. python scripts/verify-oauth2-oidc-reference.py /path/to/mvn")
+MVN=find_maven()
 EXPECTED="99e2da9324adadb2f18350e1b95d9e491a502f4a91e12857cd7c092c0b0e62f3"
 
 def run(label,*args,cwd):
