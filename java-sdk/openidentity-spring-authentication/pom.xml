@@ -10,5 +10,6 @@
   <dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId><version>7.0.3</version></dependency>
   <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
    <dependency><groupId>jakarta.servlet</groupId><artifactId>jakarta.servlet-api</artifactId><version>6.1.0</version><scope>provided</scope></dependency>
+   <dependency><groupId>org.bouncycastle</groupId><artifactId>bcprov-jdk18on</artifactId><version>1.86</version><scope>test</scope></dependency>
  </dependencies>
 </project>
