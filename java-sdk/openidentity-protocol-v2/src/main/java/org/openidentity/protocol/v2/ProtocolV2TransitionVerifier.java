@@ -8,24 +8,33 @@ import java.security.MessageDigest;
 import java.util.*;
 
 public final class ProtocolV2TransitionVerifier {
- private static final long CREATE=1,SET_AUTHENTICATION_POLICY=6;
+ private static final long CREATE=1,ROTATE_CONTROLLER=2,SET_AUTHENTICATION_POLICY=6;
  private ProtocolV2TransitionVerifier(){}
 
  public static VerifiedIdentityTransition verifyAndApply(byte[] predecessorStateBytes,byte[] signedOperationBytes){
   State predecessor=parseState(predecessorStateBytes);
   Signed signed=parseSigned(signedOperationBytes);
   Operation op=parseOperation(signed.operationBytes);
-  require(op.protocolVersion==2&&op.type==SET_AUTHENTICATION_POLICY,"unsupported Protocol v2 operation");
+  require(op.protocolVersion==2&&(op.type==SET_AUTHENTICATION_POLICY||op.type==ROTATE_CONTROLLER),"unsupported Protocol v2 operation");
   require(MessageDigest.isEqual(op.identity,predecessor.identity),"operation identity mismatch");
   require(predecessor.sequence!=Long.MAX_VALUE&&op.sequence==predecessor.sequence+1,"operation sequence mismatch");
   require(MessageDigest.isEqual(op.previousStateHash,IdentityStateCommitment.sha256Multihash(predecessorStateBytes)),"previous StateHash mismatch");
   require(predecessor.status==1,"identity not ACTIVE");
   Policy controller=parsePolicy(predecessor.controllerPolicy);
   require(verifyThreshold(controller,signed.controllerProofs,signing("OpenIdentity Operation",signed.operationBytes,null)),"controller authorization invalid");
-  Payload payload=parsePayload(op.payload);
-  Policy authentication=parsePolicy(payload.authenticationPolicy);
-  require(verifyPop(authentication,signed.authenticationProofs,signed.operationBytes,"OpenIdentity Authentication Proof"),"authentication proof-of-possession invalid");
-  byte[] successor=encodeStateV3(predecessor,op.sequence,payload.authenticationPolicy);
+  byte[] successor;
+  if(op.type==ROTATE_CONTROLLER){
+   require(signed.authenticationProofs.isEmpty()&&signed.assertionProofs.isEmpty()&&signed.delegationProofs.isEmpty(),"unexpected derived-authority proofs");
+   byte[] nextController=parseSinglePolicyPayload(op.payload,"controller policy payload");Policy proposed=parsePolicy(nextController);
+   require(verifyPop(proposed,signed.controllerPops,signed.operationBytes,"OpenIdentity Controller Proof"),"controller proof-of-possession invalid");
+   successor=encodeControllerRotationState(predecessor,op.sequence,nextController);
+  }else{
+   require(signed.controllerPops.isEmpty(),"unexpected controller PoP");
+   Payload payload=parsePayload(op.payload);
+   Policy authentication=parsePolicy(payload.authenticationPolicy);
+   require(verifyPop(authentication,signed.authenticationProofs,signed.operationBytes,"OpenIdentity Authentication Proof"),"authentication proof-of-possession invalid");
+   successor=encodeStateV3(predecessor,op.sequence,payload.authenticationPolicy);
+  }
   var pc=IdentityStateCommitment.parse(predecessorStateBytes);var sc=IdentityStateCommitment.parse(successor);
   return new VerifiedIdentityTransition(pc.identity(),pc.sequence(),pc.stateHash(),sc.sequence(),successor,sc.stateHash(),2,sc.stateVersion(),sc.status());
  }
@@ -73,6 +82,9 @@ public final class ProtocolV2TransitionVerifier {
   require(r.done()&&id!=null&&payload!=null,"operation");return new Operation(pv,type,id,seq,ph,payload);
  }
 
+
+ private static byte[] parseSinglePolicyPayload(byte[] bytes,String message){StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()==1&&r.readUnsigned()==1,message);byte[] p=r.readEncoded();require(r.done(),message);return p;}
+ private static byte[] encodeControllerRotationState(State p,long sequence,byte[] controller){int n=7+(p.recovery==null?0:1)+(p.assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(p.status);w.writeUnsigned(5);w.writeEncoded(controller);if(p.recovery!=null){w.writeUnsigned(6);w.writeByteString(p.recovery);}if(p.assertion!=null){w.writeUnsigned(7);w.writeEncoded(p.assertion);}w.writeUnsigned(8);w.writeEncoded(authority(0,null));w.writeUnsigned(9);w.writeEncoded(authority(0,null));return w.toByteArray();}
  private static CreatePayload parseCreatePayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader(),prev=0;byte[] controller=null,assertion=null,authentication=null,delegation=null;for(long i=0;i<n;i++){long k=r.readUnsigned();require(k>prev,"CREATE payload labels");prev=k;if(k==1)controller=r.readEncoded();else if(k==3)assertion=r.readEncoded();else if(k==4)authentication=r.readEncoded();else if(k==5)delegation=r.readEncoded();else throw new IllegalArgumentException("unsupported CREATE payload field");}require(controller!=null,"CREATE controller policy");return new CreatePayload(controller,assertion,authentication,delegation);}
  private static byte[] encodeCreateState(byte[] identity,CreatePayload p){int n=7+(p.assertionPolicy==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(identity);w.writeUnsigned(3);w.writeUnsigned(1);w.writeUnsigned(4);w.writeUnsigned(1);w.writeUnsigned(5);w.writeEncoded(p.controllerPolicy);if(p.assertionPolicy!=null){w.writeUnsigned(7);w.writeEncoded(p.assertionPolicy);}w.writeUnsigned(8);w.writeEncoded(authority(0,p.authenticationPolicy));w.writeUnsigned(9);w.writeEncoded(authority(0,p.delegationPolicy));return w.toByteArray();}
  private static Payload parsePayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()>=1,"payload");require(r.readUnsigned()==1,"authentication policy payload");byte[] p=r.readEncoded();while(!r.done())r.skipValue();return new Payload(p);}
