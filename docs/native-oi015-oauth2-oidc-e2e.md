@@ -1,6 +1,6 @@
 # Native OI-015 → OAuth2/OIDC End-to-End Gate
 
-Status: **LIVE ACCEPTANCE PASS — 2026-10-03**
+Status: **BROWSER-OWNED LIVE ACCEPTANCE PASS — 2026-10-03**
 
 ## Proven chain
 
@@ -64,3 +64,18 @@ The product/reference flow must replace that manual transfer with a native brows
 10. ID-token `sub` equals the native OpenIdentity identity exactly.
 
 Result: **OPENIDENTITY NATIVE OI-015 → OAUTH2/OIDC END-TO-END: PASS**
+
+
+## Browser-owned continuation acceptance
+
+A second live acceptance run removed the manual session-cookie transfer. The ordinary OIDC client initiated authorization, the Authorization Server redirected the unauthenticated browser to the native OI-015 login handoff, the browser created the challenge in its own Authorization Server session, an external signer produced the OI-015 assertion, the browser submitted that assertion, and successful verification established the same browser session before automatically resuming the original authorization request.
+
+Observed final OIDC subject remained:
+
+```text
+be3d2604cf501d1c9a6a00d253390620a0e56cb909d2cb29997939c29d305708
+```
+
+Result: **OPENIDENTITY NATIVE OI-015 → BROWSER HANDOFF → OAUTH2/OIDC END-TO-END: PASS**
+
+The reference UI currently uses copy/paste only as a transport between the external authenticator and browser. It is not the intended production authenticator transport.
