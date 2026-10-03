@@ -9,4 +9,5 @@ public class NativeOi015Configuration {
  @Bean OpenIdentityAuthenticationHttpController nativeAuthenticationController(OpenIdentityAuthenticationService service){return new OpenIdentityAuthenticationHttpController(service);}
  @Bean OpenIdentityAuthenticationContinuationStore nativeContinuationStore(){return new InMemoryOpenIdentityAuthenticationContinuationStore();}
  @Bean OpenIdentityOAuthContinuationController nativeOAuthContinuationController(OpenIdentityAuthenticationService service,OpenIdentityAuthenticationContinuationStore store){return new OpenIdentityOAuthContinuationController(service,store);}
+ @Bean OpenIdentityNativeLoginPageController nativeLoginPageController(){return new OpenIdentityNativeLoginPageController();}
 }
