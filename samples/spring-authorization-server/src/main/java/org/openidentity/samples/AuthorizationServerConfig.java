@@ -28,10 +28,19 @@ public class AuthorizationServerConfig {
  static final AuthorizationGrantType TOKEN_EXCHANGE=new AuthorizationGrantType("urn:ietf:params:oauth:grant-type:token-exchange");
 
  @Bean RegisteredClientRepository registeredClientRepository(){
-  RegisteredClient client=RegisteredClient.withId(UUID.randomUUID().toString()).clientId("agent-client").clientSecret("{noop}secret")
+  RegisteredClient agentClient=RegisteredClient.withId(UUID.randomUUID().toString()).clientId("agent-client").clientSecret("{noop}secret")
       .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC).authorizationGrantType(TOKEN_EXCHANGE)
       .scope("records.read").scope("records.write").build();
-  return new InMemoryRegisteredClientRepository(client);
+
+  RegisteredClient oidcClient=RegisteredClient.withId(UUID.randomUUID().toString()).clientId("openidentity-reference-client")
+      .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+      .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+      .redirectUri("http://localhost:8081/login/oauth2/code/openidentity")
+      .scope(OidcScopes.OPENID).scope(OidcScopes.PROFILE)
+      .clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(true).build())
+      .build();
+
+  return new InMemoryRegisteredClientRepository(agentClient,oidcClient);
  }
 
  @Bean RSAKey rsaKey(){
