@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
+<parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>4.0.2</version><relativePath/></parent>
+<groupId>org.openidentity.samples</groupId><artifactId>native-oi015-signer</artifactId><version>0.1.0-SNAPSHOT</version>
+<properties><java.version>21</java.version><openidentity.version>0.1.0-SNAPSHOT</openidentity.version></properties>
+<dependencies>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-authentication</artifactId><version>${openidentity.version}</version></dependency>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-core</artifactId><version>${openidentity.version}</version></dependency>
+ <dependency><groupId>org.bouncycastle</groupId><artifactId>bcprov-jdk18on</artifactId><version>1.86</version></dependency>
+ <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
+</dependencies>
+<build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><skip>true</skip></configuration></plugin></plugins></build>
+</project>
