@@ -34,6 +34,7 @@ public final class NativeOi015Flow {
   }
   String gateFailure=null;
   if(referenceMode){
+   testWrongPkce(http,json,result,base,verifier,challenge);
    gateFailure=failedGate(result,h.formatHex(identity));
    if(gateFailure==null)result.put("gate","NATIVE OI-015 -> OAUTH2/OIDC END-TO-END: PASS");else result.put("gate","FAIL: "+gateFailure);
   }
@@ -51,7 +52,17 @@ public final class NativeOi015Flow {
   if(!result.path("accessTokenReceived").asBoolean(false))return "access token issuance";
   if(!result.path("subjectMatchesIdentity").asBoolean(false))return "OIDC subject continuity";
   if(!result.path("authorizationCodeReplayRejected").asBoolean(false))return "authorization code replay rejection";
+  if(!result.path("wrongPkceRejected").asBoolean(false))return "wrong PKCE verifier rejection";
   return null;
+ }
+ private static void testWrongPkce(HttpClient http,ObjectMapper json,ObjectNode result,String base,String verifier,String challenge)throws Exception{
+  String attackTarget="/oauth2/authorize?response_type=code&client_id=openidentity-reference-client&scope=openid%20profile&redirect_uri=http://localhost:8081/login/oauth2/code/openidentity&nonce=native-oi015-pkce-negative&code_challenge="+challenge+"&code_challenge_method=S256&state=native-oi015-pkce-negative";
+  HttpResponse<String> authorization=http.send(HttpRequest.newBuilder(URI.create(base+attackTarget)).GET().build(),HttpResponse.BodyHandlers.ofString());String location=authorization.headers().firstValue("Location").orElse("");
+  if(authorization.statusCode()==200&&authorization.body()!=null&&authorization.body().contains("Consent required")){
+   Matcher stateMatcher=Pattern.compile("name=\\\"state\\\" value=\\\"([^\\\"]+)\\\"").matcher(authorization.body());if(!stateMatcher.find())return;String form="client_id="+URLEncoder.encode("openidentity-reference-client",StandardCharsets.UTF_8)+"&state="+URLEncoder.encode(stateMatcher.group(1),StandardCharsets.UTF_8)+"&scope="+URLEncoder.encode("profile",StandardCharsets.UTF_8);HttpResponse<String> consent=http.send(HttpRequest.newBuilder(URI.create(base+"/oauth2/authorize")).header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(form)).build(),HttpResponse.BodyHandlers.ofString());location=consent.headers().firstValue("Location").orElse("");
+  }
+  if(location.isBlank())return;String code=queryParam(URI.create(location).getRawQuery(),"code");if(code==null)return;
+  String wrongVerifier=verifier+"-wrong";String tokenForm="grant_type=authorization_code&client_id="+URLEncoder.encode("openidentity-reference-client",StandardCharsets.UTF_8)+"&code="+URLEncoder.encode(code,StandardCharsets.UTF_8)+"&redirect_uri="+URLEncoder.encode("http://localhost:8081/login/oauth2/code/openidentity",StandardCharsets.UTF_8)+"&code_verifier="+URLEncoder.encode(wrongVerifier,StandardCharsets.UTF_8);HttpResponse<String> token=http.send(HttpRequest.newBuilder(URI.create(base+"/oauth2/token")).header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(tokenForm)).build(),HttpResponse.BodyHandlers.ofString());result.put("wrongPkceStatus",token.statusCode());result.put("wrongPkceRejected",token.statusCode()>=400);
  }
  private static void exchangeCode(HttpClient http,ObjectMapper json,ObjectNode result,String base,String code,String verifier)throws Exception{
   result.put("authorizationCodeReceived",true);
