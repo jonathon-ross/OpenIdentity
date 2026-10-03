@@ -13,10 +13,10 @@ class OpenIdentityAuthenticatorTransactionControllerTest {
  @Test void unknownTransactionCannotComplete(){
   var r=controller().complete("missing",new MockHttpServletRequest(),new MockHttpServletResponse());assertEquals(409,r.getStatusCode().value());assertEquals("UNKNOWN",r.getBody().get("status"));
  }
- @Test void pendingTransactionCannotCompleteAndIsConsumed(){
+ @Test void pendingTransactionCannotCompleteButRemainsPending(){
   var c=controller();var created=c.create(new OpenIdentityAuthenticatorTransactionController.CreateRequest("/oauth2/authorize?client_id=c"));String id=(String)created.get("transactionId");
   var first=c.complete(id,new MockHttpServletRequest(),new MockHttpServletResponse());assertEquals(409,first.getStatusCode().value());assertEquals("PENDING",first.getBody().get("status"));
-  var second=c.complete(id,new MockHttpServletRequest(),new MockHttpServletResponse());assertEquals(409,second.getStatusCode().value());assertEquals("UNKNOWN",second.getBody().get("status"));
+  var second=c.complete(id,new MockHttpServletRequest(),new MockHttpServletResponse());assertEquals(409,second.getStatusCode().value());assertEquals("PENDING",second.getBody().get("status"));
  }
  @Test void malformedAssertionRejectsTransactionAndCannotRetry(){
   var c=controller();var created=c.create(new OpenIdentityAuthenticatorTransactionController.CreateRequest("/oauth2/authorize?client_id=c"));String id=(String)created.get("transactionId");
