@@ -28,8 +28,8 @@ public final class OpenIdentitySpringTokenIssuer {
       .build();
   OAuth2Token generated=tokenGenerator.generate(context);if(generated==null)throw invalid();
   OAuth2AccessToken access;
-  if(generated instanceof OAuth2AccessToken a)access=a;
-  else access=new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,generated.getTokenValue(),generated.getIssuedAt(),generated.getExpiresAt(),new LinkedHashSet<>(d.scopes()));
+  if(generated instanceof OAuth2AccessToken a)access=new OAuth2AccessToken(new OAuth2AccessToken.TokenType("DPoP"),a.getTokenValue(),a.getIssuedAt(),a.getExpiresAt(),a.getScopes());
+  else access=new OAuth2AccessToken(new OAuth2AccessToken.TokenType("DPoP"),generated.getTokenValue(),generated.getIssuedAt(),generated.getExpiresAt(),new LinkedHashSet<>(d.scopes()));
   Map<String,Object> additional=new LinkedHashMap<>();additional.put("issued_token_type","urn:ietf:params:oauth:token-type:access_token");
   return new OAuth2AccessTokenAuthenticationToken(registered,client,access,null,additional);
  }
