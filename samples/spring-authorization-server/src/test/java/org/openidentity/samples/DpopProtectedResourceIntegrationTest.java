@@ -35,6 +35,12 @@ final class DpopProtectedResourceIntegrationTest {
   assertEquals(200,response.statusCode(),response.body());assertEquals("records",response.body());
  }
 
+
+ @Test void missingDpopProofIsRejected() throws Exception {
+  ECKey key=key();String access=accessToken(key);
+  HttpRequest request=HttpRequest.newBuilder(URI.create(resourceUri())).header("Authorization","DPoP "+access).GET().build();
+  assertEquals(401,http.send(request,HttpResponse.BodyHandlers.ofString()).statusCode());
+ }
  @Test void proofSignedByDifferentKeyIsRejected() throws Exception {
   ECKey bound=key(),attacker=key();String access=accessToken(bound);
   HttpResponse<String> response=send(access,proof(attacker,"GET",resourceUri(),access,UUID.randomUUID().toString()));
