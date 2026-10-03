@@ -8,22 +8,37 @@ import java.security.MessageDigest;
 import java.util.*;
 
 public final class ProtocolV2TransitionVerifier {
- private static final long CREATE=1,ROTATE_CONTROLLER=2,SET_AUTHENTICATION_POLICY=6,SET_DELEGATION_POLICY=7,RESET_AUTHENTICATION=8,RESET_DELEGATIONS=9;
+ private static final long CREATE=1,ROTATE_CONTROLLER=2,RECOVER=3,DEACTIVATE=4,SET_AUTHENTICATION_POLICY=6,SET_DELEGATION_POLICY=7,RESET_AUTHENTICATION=8,RESET_DELEGATIONS=9;
  private ProtocolV2TransitionVerifier(){}
 
  public static VerifiedIdentityTransition verifyAndApply(byte[] predecessorStateBytes,byte[] signedOperationBytes){
   State predecessor=parseState(predecessorStateBytes);
   Signed signed=parseSigned(signedOperationBytes);
   Operation op=parseOperation(signed.operationBytes);
-  require(op.protocolVersion==2&&(op.type==SET_AUTHENTICATION_POLICY||op.type==ROTATE_CONTROLLER||op.type==RESET_AUTHENTICATION||op.type==SET_DELEGATION_POLICY||op.type==RESET_DELEGATIONS),"unsupported Protocol v2 operation");
+  require(op.protocolVersion==2&&(op.type==SET_AUTHENTICATION_POLICY||op.type==ROTATE_CONTROLLER||op.type==RESET_AUTHENTICATION||op.type==SET_DELEGATION_POLICY||op.type==RESET_DELEGATIONS||op.type==RECOVER||op.type==DEACTIVATE),"unsupported Protocol v2 operation");
   require(MessageDigest.isEqual(op.identity,predecessor.identity),"operation identity mismatch");
   require(predecessor.sequence!=Long.MAX_VALUE&&op.sequence==predecessor.sequence+1,"operation sequence mismatch");
   require(MessageDigest.isEqual(op.previousStateHash,IdentityStateCommitment.sha256Multihash(predecessorStateBytes)),"previous StateHash mismatch");
-  require(predecessor.status==1,"identity not ACTIVE");
+  require(predecessor.status==1||op.type==RECOVER,"operation not permitted while DEACTIVATED");
   Policy controller=parsePolicy(predecessor.controllerPolicy);
   require(verifyThreshold(controller,signed.controllerProofs,signing("OpenIdentity Operation",signed.operationBytes,null)),"controller authorization invalid");
   byte[] successor;
-  if(op.type==ROTATE_CONTROLLER){
+  if(op.type==RECOVER){
+   require(signed.controllerProofs.isEmpty(),"RECOVER forbids ordinary controller authorization");require(signed.authenticationProofs.isEmpty()&&signed.delegationProofs.isEmpty(),"RECOVER forbids derived-authority proofs");
+   require(predecessor.recovery!=null&&predecessor.recovery.length==34,"recovery unavailable");RecoveryPayload rp=parseRecoveryPayload(op.payload);
+   Policy newController=parsePolicy(rp.controllerPolicy);require(verifyPop(newController,signed.controllerPops,signed.operationBytes,"OpenIdentity Controller Proof"),"recovered controller PoP invalid");
+   require(MessageDigest.isEqual(predecessor.recovery,IdentityStateCommitment.sha256Multihash(rp.recoveryPolicy)),"recovery commitment mismatch");
+   Policy recoveryPolicy=parseRecoveryPolicy(rp.recoveryPolicy);require(verifyPop(recoveryPolicy,signed.recoveryProofs,signed.operationBytes,"OpenIdentity Recovery"),"recovery authorization invalid");
+   byte[] assertion;if(rp.assertionDisposition==1){require(predecessor.assertion!=null&&rp.assertionPolicy==null&&signed.assertionProofs.isEmpty(),"invalid assertion preserve");assertion=predecessor.assertion;}
+   else if(rp.assertionDisposition==2){require(predecessor.assertion!=null&&rp.assertionPolicy==null&&signed.assertionProofs.isEmpty(),"invalid assertion removal");assertion=null;}
+   else if(rp.assertionDisposition==3){require(predecessor.assertion!=null&&rp.assertionPolicy!=null,"invalid assertion replacement");require(verifyPop(parsePolicy(rp.assertionPolicy),signed.assertionProofs,signed.operationBytes,"OpenIdentity Assertion Proof"),"assertion PoP invalid");assertion=rp.assertionPolicy;}
+   else throw new IllegalArgumentException("invalid assertion disposition");
+   long ag=predecessor.version==3?predecessor.authentication.generation:0,dg=predecessor.version==3?predecessor.delegation.generation:0;require(ag!=Long.MAX_VALUE&&dg!=Long.MAX_VALUE,"recovery generation overflow");
+   successor=encodeRecoveryState(predecessor,op.sequence,rp.controllerPolicy,rp.newRecoveryCommitment,assertion,ag+1,dg+1);
+  }else if(op.type==DEACTIVATE){
+   require(predecessor.status==1,"DEACTIVATE requires ACTIVE");require(signed.controllerPops.isEmpty()&&signed.recoveryProofs.isEmpty()&&signed.authenticationProofs.isEmpty()&&signed.assertionProofs.isEmpty()&&signed.delegationProofs.isEmpty(),"unexpected DEACTIVATE proofs");requireEmptyPayload(op.payload);
+   successor=encodeStatusState(predecessor,op.sequence,2);
+  }else if(op.type==ROTATE_CONTROLLER){
    require(signed.authenticationProofs.isEmpty()&&signed.assertionProofs.isEmpty()&&signed.delegationProofs.isEmpty(),"unexpected derived-authority proofs");
    byte[] nextController=parseSinglePolicyPayload(op.payload,"controller policy payload");Policy proposed=parsePolicy(nextController);
    require(verifyPop(proposed,signed.controllerPops,signed.operationBytes,"OpenIdentity Controller Proof"),"controller proof-of-possession invalid");
@@ -73,12 +88,13 @@ public final class ProtocolV2TransitionVerifier {
  private record State(int version,byte[] identity,long sequence,int status,byte[] controllerPolicy,byte[] recovery,byte[] assertion,Authority authentication,Authority delegation){}
  private record Authority(long generation,byte[] policy){}
  private record Operation(long protocolVersion,long type,byte[] identity,long sequence,byte[] previousStateHash,byte[] payload){}
- private record Signed(byte[] operationBytes,List<Proof> controllerProofs,List<Proof> controllerPops,List<Proof> authenticationProofs,List<Proof> assertionProofs,List<Proof> delegationProofs){}
+ private record Signed(byte[] operationBytes,List<Proof> controllerProofs,List<Proof> controllerPops,List<Proof> recoveryProofs,List<Proof> authenticationProofs,List<Proof> assertionProofs,List<Proof> delegationProofs){}
  private record Proof(byte[] methodId,byte[] signature){}
  private record Method(byte[] id,byte[] publicKey){}
  private record Policy(long threshold,List<Method> methods){}
  private record Payload(byte[] authenticationPolicy,Long disposition){}
  private record CreatePayload(byte[] controllerPolicy,byte[] assertionPolicy,byte[] authenticationPolicy,byte[] delegationPolicy){}
+ private record RecoveryPayload(byte[] controllerPolicy,byte[] recoveryPolicy,byte[] newRecoveryCommitment,long assertionDisposition,byte[] assertionPolicy){}
 
  private static State parseState(byte[] bytes){
   StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader(),prev=0,version=-1,seq=-1,status=-1;byte[] id=null,cp=null,recovery=null,assertion=null;Authority auth=null,delegation=null;
@@ -93,9 +109,9 @@ public final class ProtocolV2TransitionVerifier {
  }
  private static Authority parseAuthority(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader();require(n==1||n==2,"authority");require(r.readUnsigned()==1,"authority generation");long g=r.readUnsigned();byte[] p=null;if(n==2){require(r.readUnsigned()==2,"authority policy");p=r.readEncoded();}require(r.done(),"authority trailing");return new Authority(g,p);}
  private static Signed parseSigned(byte[] bytes){
-  StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()>=1,"signed operation");byte[] op=null;List<Proof> controller=List.of(),controllerPops=List.of(),auth=List.of(),assertion=List.of(),delegation=List.of();long prev=0;
-  while(!r.done()){long k=r.readUnsigned();require(k>prev,"noncanonical signed labels");prev=k;if(k==1)op=r.readEncoded();else if(k==2)controller=proofs(r);else if(k==3)controllerPops=proofs(r);else if(k==5)auth=proofs(r);else if(k==6)assertion=proofs(r);else if(k==7)delegation=proofs(r);else r.skipValue();}
-  require(op!=null,"missing operation");return new Signed(op,controller,controllerPops,auth,assertion,delegation);
+  StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()>=1,"signed operation");byte[] op=null;List<Proof> controller=List.of(),controllerPops=List.of(),recovery=List.of(),auth=List.of(),assertion=List.of(),delegation=List.of();long prev=0;
+  while(!r.done()){long k=r.readUnsigned();require(k>prev,"noncanonical signed labels");prev=k;if(k==1)op=r.readEncoded();else if(k==2)controller=proofs(r);else if(k==3)controllerPops=proofs(r);else if(k==4)recovery=proofs(r);else if(k==5)auth=proofs(r);else if(k==6)assertion=proofs(r);else if(k==7)delegation=proofs(r);else r.skipValue();}
+  require(op!=null,"missing operation");return new Signed(op,controller,controllerPops,recovery,auth,assertion,delegation);
  }
  private static List<Proof> proofs(StrictCborReader r){long n=r.readArrayHeader();List<Proof> out=new ArrayList<>();for(long i=0;i<n;i++){require(r.readMapHeader()==2,"proof");require(r.readUnsigned()==1,"proof method");byte[] id=r.readByteString();require(r.readUnsigned()==2,"proof signature");out.add(new Proof(id,r.readByteString()));}return List.copyOf(out);}
  private static Operation parseOperation(byte[] bytes){
@@ -105,6 +121,11 @@ public final class ProtocolV2TransitionVerifier {
  }
 
 
+ private static RecoveryPayload parseRecoveryPayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader();require(n==4||n==5,"recovery payload shape");require(r.readUnsigned()==1,"recovery controller");byte[] cp=r.readEncoded();require(r.readUnsigned()==2,"recovery policy");byte[] rp=r.readEncoded();require(r.readUnsigned()==3,"new recovery commitment");byte[] rc=r.readByteString();require(rc.length==34,"new recovery commitment length");require(r.readUnsigned()==4,"assertion disposition");long d=r.readUnsigned();byte[] ap=null;if(n==5){require(r.readUnsigned()==5,"replacement assertion");ap=r.readEncoded();}require(r.done(),"recovery payload trailing");return new RecoveryPayload(cp,rp,rc,d,ap);}
+ private static Policy parseRecoveryPolicy(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()==3&&r.readUnsigned()==1,"recovery policy");long threshold=r.readUnsigned();require(r.readUnsigned()==2,"recovery policy version");r.readUnsigned();require(r.readUnsigned()==3,"recovery methods");long n=r.readArrayHeader();List<Method> ms=new ArrayList<>();for(long i=0;i<n;i++){byte[] m=r.readEncoded();Policy one=parsePolicy(singleMethodPolicy(m));ms.add(one.methods.get(0));}require(r.done()&&threshold>0&&threshold<=ms.size(),"recovery threshold");return new Policy(threshold,List.copyOf(ms));}
+ private static byte[] singleMethodPolicy(byte[] method){var w=new DeterministicCborWriter();w.writeMapHeader(2);w.writeUnsigned(1);w.writeUnsigned(1);w.writeUnsigned(2);w.writeArrayHeader(1);w.writeEncoded(method);return w.toByteArray();}
+ private static byte[] encodeRecoveryState(State p,long sequence,byte[] controller,byte[] recovery,byte[] assertion,long authGeneration,long delegationGeneration){int n=8+(assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(1);w.writeUnsigned(5);w.writeEncoded(controller);w.writeUnsigned(6);w.writeByteString(recovery);if(assertion!=null){w.writeUnsigned(7);w.writeEncoded(assertion);}w.writeUnsigned(8);w.writeEncoded(authority(authGeneration,null));w.writeUnsigned(9);w.writeEncoded(authority(delegationGeneration,null));return w.toByteArray();}
+ private static byte[] encodeStatusState(State p,long sequence,int status){int n=7+(p.recovery==null?0:1)+(p.assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(status);w.writeUnsigned(5);w.writeEncoded(p.controllerPolicy);if(p.recovery!=null){w.writeUnsigned(6);w.writeByteString(p.recovery);}if(p.assertion!=null){w.writeUnsigned(7);w.writeEncoded(p.assertion);}w.writeUnsigned(8);w.writeEncoded(authority(p.authentication.generation,p.authentication.policy));w.writeUnsigned(9);w.writeEncoded(authority(p.delegation.generation,p.delegation.policy));return w.toByteArray();}
  private static byte[] parseSinglePolicyPayload(byte[] bytes,String message){StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()==1&&r.readUnsigned()==1,message);byte[] p=r.readEncoded();require(r.done(),message);return p;}
  private static byte[] encodeControllerRotationState(State p,long sequence,byte[] controller){int n=7+(p.recovery==null?0:1)+(p.assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(p.status);w.writeUnsigned(5);w.writeEncoded(controller);if(p.recovery!=null){w.writeUnsigned(6);w.writeByteString(p.recovery);}if(p.assertion!=null){w.writeUnsigned(7);w.writeEncoded(p.assertion);}w.writeUnsigned(8);w.writeEncoded(authority(p.version<3?0:p.authentication.generation,p.version<3?null:p.authentication.policy));w.writeUnsigned(9);w.writeEncoded(authority(p.version<3?0:p.delegation.generation,p.version<3?null:p.delegation.policy));return w.toByteArray();}
  private static byte[] encodePreservingDelegationState(State p,long sequence,Authority delegation){int n=7+(p.recovery==null?0:1)+(p.assertion==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(p.identity);w.writeUnsigned(3);w.writeUnsigned(sequence);w.writeUnsigned(4);w.writeUnsigned(p.status);w.writeUnsigned(5);w.writeEncoded(p.controllerPolicy);if(p.recovery!=null){w.writeUnsigned(6);w.writeByteString(p.recovery);}if(p.assertion!=null){w.writeUnsigned(7);w.writeEncoded(p.assertion);}w.writeUnsigned(8);w.writeEncoded(authority(p.authentication.generation,p.authentication.policy));w.writeUnsigned(9);w.writeEncoded(authority(delegation.generation,delegation.policy));return w.toByteArray();}
