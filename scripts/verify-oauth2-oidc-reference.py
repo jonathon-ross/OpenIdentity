@@ -38,7 +38,7 @@ state_dir=ROOT/"tmp/native-oi015-ci-state"
 if state_dir.exists(): shutil.rmtree(state_dir)
 state_dir.mkdir(parents=True)
 fixture=subprocess.run([MVN,"-q","exec:java","-Dexec.mainClass=org.openidentity.samples.nativeauth.NativeOi015FixtureGenerator",f"-Dexec.args={state_dir}"],cwd=ROOT/"samples/native-oi015-signer",check=True,text=True,capture_output=True)
-m=re.search(r'\\{[\\s\\S]*"identityHex"[\\s\\S]*\\}',fixture.stdout)
+m=re.search(r'\{[\s\S]*"identityHex"[\s\S]*\}',fixture.stdout)
 if not m: raise SystemExit("FAIL live gate: fixture JSON unavailable")
 import json
 material=json.loads(m.group(0))
