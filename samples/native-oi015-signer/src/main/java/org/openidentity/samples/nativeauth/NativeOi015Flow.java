@@ -35,7 +35,19 @@ public final class NativeOi015Flow {
     }
    }
   }
+  if(referenceMode){
+   require("AUTHENTICATED".equals(result.path("status").asText()),"native OI-015 authentication");
+   require(result.path("identity").asText().equals(h.formatHex(identity)),"authenticated identity continuity");
+   require(result.path("authorizationStatus").asInt()==200,"OAuth authorization/consent");
+   require(result.path("consentStatus").asInt()/100==3,"OAuth consent submission");
+   require(result.path("authorizationCodeReceived").asBoolean(false),"authorization code issuance");
+   require(result.path("tokenStatus").asInt()==200,"PKCE token exchange");
+   require(result.path("accessTokenReceived").asBoolean(false),"access token issuance");
+   require(result.path("subjectMatchesIdentity").asBoolean(false),"OIDC subject continuity");
+   result.put("gate","NATIVE OI-015 -> OAUTH2/OIDC END-TO-END: PASS");
+  }
   System.out.println(json.writerWithDefaultPrettyPrinter().writeValueAsString(result));
  }
+ private static void require(boolean ok,String gate){if(!ok)throw new IllegalStateException("END-TO-END GATE FAILED: "+gate);}
  private static String queryParam(String query,String name){if(query==null)return null;for(String pair:query.split("&")){int i=pair.indexOf('=');String k=URLDecoder.decode(i<0?pair:pair.substring(0,i),StandardCharsets.UTF_8);if(k.equals(name))return URLDecoder.decode(i<0?"":pair.substring(i+1),StandardCharsets.UTF_8);}return null;}
 }
