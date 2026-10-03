@@ -20,6 +20,15 @@ public final class StrictCborReader {
  public byte[] readRawText(){Head h=head(3);int n=size(h.value);need(n);byte[] b=Arrays.copyOfRange(in,p,p+n);p+=n;return b;}
  public void readNull(){need(1);if((in[p++]&255)!=0xf6)throw new IllegalArgumentException("CBOR null");}
  public byte[] slice(int start,int end){return Arrays.copyOfRange(in,start,end);}
+ public byte[] readEncoded(){int start=p;skipValue();return slice(start,p);}
+ public void skipValue(){
+  int b=peekByte(),major=b>>>5;
+  if(major==0){readUnsigned();return;}if(major==1){readNegative();return;}
+  if(major==2){readByteString();return;}if(major==3){readTextString();return;}
+  if(major==4){long n=readArrayHeader();for(long i=0;i<n;i++)skipValue();return;}
+  if(major==5){long n=readMapHeader();for(long i=0;i<n;i++){skipValue();skipValue();}return;}
+  if(b==0xf6){readNull();return;}throw new IllegalArgumentException("unsupported CBOR value");
+ }
 
  private record Head(int ai,long value){}
 
