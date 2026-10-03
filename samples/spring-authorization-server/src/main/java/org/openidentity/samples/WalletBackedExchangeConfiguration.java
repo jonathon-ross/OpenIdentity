@@ -1,13 +1,13 @@
 package org.openidentity.samples;
 
-import com.fasterxml.jackson.databind.*;import org.openidentity.auth.*;import org.openidentity.cbor.StrictCborReader;import org.openidentity.delegation.*;import org.openidentity.oauth.*;
+import org.openidentity.auth.*;import org.openidentity.cbor.StrictCborReader;import org.openidentity.delegation.*;import org.openidentity.oauth.*;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;import org.springframework.beans.factory.annotation.Value;import org.springframework.context.annotation.*;import java.nio.charset.StandardCharsets;import java.nio.file.*;import java.time.Instant;import java.util.*;
 
 @Configuration
-@ConditionalOnProperty(name="openidentity.wallet-dir")
+@ConditionalOnProperty(name="openidentity.oauth-resolver-bundle")
 public class WalletBackedExchangeConfiguration {
  static final ObjectMapper J=new ObjectMapper();static final HexFormat H=HexFormat.of();static final byte[] DOMAIN="openidentity:wallet:agent-grants:v1".getBytes(StandardCharsets.UTF_8);
- @Bean @Primary DelegatedAgentExchangeService walletExchange(@Value("${openidentity.wallet-dir}")String d)throws Exception{
+ @Bean @Primary DelegatedAgentExchangeService walletExchange(@Value("${openidentity.oauth-resolver-bundle}")String d)throws Exception{
   Path dir=Path.of(d);JsonNode wallet=J.readTree(dir.resolve("wallet.json").toFile());byte[] root=H.parseHex(wallet.path("identityHex").asText()),rootHash=H.parseHex(wallet.path("stateHashHex").asText()),state=H.parseHex(wallet.path("stateBytesHex").asText());long dg=generation(state,9);
   Map<String,JsonNode> grants=new HashMap<>();try(var s=Files.list(dir.resolve("grants"))){s.forEach(p->{try{JsonNode g=J.readTree(p.toFile());grants.put(g.path("grantIdHex").asText(),g);}catch(Exception e){throw new RuntimeException(e);}});}
   RegisteredGrantStateResolver records=(domain,id)->{JsonNode g=grants.get(H.formatHex(id));return g==null?null:new RegisteredGrantState(DOMAIN,id,1,RegisteredGrantState.ACTIVE,H.parseHex(g.path("rootStateHashHex").asText()),g.path("delegationGeneration").asLong(),g.path("registeredAt").asLong());};
