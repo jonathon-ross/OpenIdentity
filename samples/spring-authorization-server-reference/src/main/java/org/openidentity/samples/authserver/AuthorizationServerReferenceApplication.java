@@ -24,7 +24,7 @@ public class AuthorizationServerReferenceApplication {
   return http.build();
  }
  @Bean RegisteredClientRepository clients(){
-  var c=RegisteredClient.withId(UUID.randomUUID().toString()).clientId("openidentity-reference-client").clientAuthenticationMethod(ClientAuthenticationMethod.NONE).authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE).authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN).redirectUri("http://127.0.0.1:8081/login/oauth2/code/openidentity").scope("openid").scope("profile").clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(true).build()).build();
+  var c=RegisteredClient.withId(UUID.randomUUID().toString()).clientId("openidentity-reference-client").clientAuthenticationMethod(ClientAuthenticationMethod.NONE).authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE).authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN).redirectUri("http://localhost:8081/login/oauth2/code/openidentity").scope("openid").scope("profile").clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(true).build()).build();
   return new InMemoryRegisteredClientRepository(c);
  }
  @Bean AuthorizationServerSettings settings(@Value("${openidentity.authorization-server.issuer:http://127.0.0.1:9000}") String issuer){return AuthorizationServerSettings.builder().issuer(issuer).build();}
