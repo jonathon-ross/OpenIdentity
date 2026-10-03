@@ -15,6 +15,7 @@ public class AuthorizationServerReferenceApplication {
   }
   http.oauth2AuthorizationServer(as->as.oidc(Customizer.withDefaults()));
   http.authorizeHttpRequests(a->a
+      .requestMatchers("/openidentity/auth/**").permitAll()
       .requestMatchers(HttpMethod.GET,"/oauth2/authorize").hasRole("OPENIDENTITY")
       .requestMatchers(HttpMethod.POST,"/oauth2/authorize").hasRole("OPENIDENTITY")
       .anyRequest().permitAll());
