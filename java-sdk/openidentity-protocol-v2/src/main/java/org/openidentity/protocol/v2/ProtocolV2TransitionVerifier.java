@@ -8,7 +8,7 @@ import java.security.MessageDigest;
 import java.util.*;
 
 public final class ProtocolV2TransitionVerifier {
- private static final long SET_AUTHENTICATION_POLICY=6;
+ private static final long CREATE=1,SET_AUTHENTICATION_POLICY=6;
  private ProtocolV2TransitionVerifier(){}
 
  public static VerifiedIdentityTransition verifyAndApply(byte[] predecessorStateBytes,byte[] signedOperationBytes){
@@ -30,13 +30,27 @@ public final class ProtocolV2TransitionVerifier {
   return new VerifiedIdentityTransition(pc.identity(),pc.sequence(),pc.stateHash(),sc.sequence(),successor,sc.stateHash(),2,sc.stateVersion(),sc.status());
  }
 
+ public static VerifiedIdentityCreation verifyCreate(byte[] signedOperationBytes){
+  Signed signed=parseSigned(signedOperationBytes);Operation op=parseOperation(signed.operationBytes);
+  require(op.protocolVersion==2&&op.type==CREATE,"not Protocol v2 CREATE");require(op.sequence==1,"CREATE sequence");require(op.previousStateHash==null,"CREATE predecessor must be null");
+  require(signed.controllerPops.isEmpty(),"CREATE forbids controller PoP");
+  CreatePayload p=parseCreatePayload(op.payload);Policy controller=parsePolicy(p.controllerPolicy);
+  require(verifyThreshold(controller,signed.controllerProofs,signing("OpenIdentity Operation",signed.operationBytes,null)),"CREATE controller authorization invalid");
+  if(p.authenticationPolicy==null)require(signed.authenticationProofs.isEmpty(),"unexpected authentication proofs");else require(verifyPop(parsePolicy(p.authenticationPolicy),signed.authenticationProofs,signed.operationBytes,"OpenIdentity Authentication Proof"),"authentication PoP invalid");
+  if(p.assertionPolicy==null)require(signed.assertionProofs.isEmpty(),"unexpected assertion proofs");else require(verifyPop(parsePolicy(p.assertionPolicy),signed.assertionProofs,signed.operationBytes,"OpenIdentity Assertion Proof"),"assertion PoP invalid");
+  if(p.delegationPolicy==null)require(signed.delegationProofs.isEmpty(),"unexpected delegation proofs");else require(verifyPop(parsePolicy(p.delegationPolicy),signed.delegationProofs,signed.operationBytes,"OpenIdentity Delegation Proof"),"delegation PoP invalid");
+  byte[] state=encodeCreateState(op.identity,p);var sc=IdentityStateCommitment.parse(state);
+  return new VerifiedIdentityCreation(sc.identity(),state,sc.stateHash(),2,3,sc.sequence(),sc.status());
+ }
+
  private record State(byte[] identity,long sequence,int status,byte[] controllerPolicy,byte[] recovery,byte[] assertion){}
  private record Operation(long protocolVersion,long type,byte[] identity,long sequence,byte[] previousStateHash,byte[] payload){}
- private record Signed(byte[] operationBytes,List<Proof> controllerProofs,List<Proof> authenticationProofs){}
+ private record Signed(byte[] operationBytes,List<Proof> controllerProofs,List<Proof> controllerPops,List<Proof> authenticationProofs,List<Proof> assertionProofs,List<Proof> delegationProofs){}
  private record Proof(byte[] methodId,byte[] signature){}
  private record Method(byte[] id,byte[] publicKey){}
  private record Policy(long threshold,List<Method> methods){}
  private record Payload(byte[] authenticationPolicy){}
+ private record CreatePayload(byte[] controllerPolicy,byte[] assertionPolicy,byte[] authenticationPolicy,byte[] delegationPolicy){}
 
  private static State parseState(byte[] bytes){
   StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader(),prev=0,version=-1,seq=-1,status=-1;byte[] id=null,cp=null,recovery=null,assertion=null;
@@ -48,16 +62,19 @@ public final class ProtocolV2TransitionVerifier {
   return new State(id,seq,Math.toIntExact(status),cp,recovery,assertion);
  }
  private static Signed parseSigned(byte[] bytes){
-  StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()>=1,"signed operation");byte[] op=null;List<Proof> controller=List.of(),auth=List.of();long prev=0;
-  while(!r.done()){long k=r.readUnsigned();require(k>prev,"noncanonical signed labels");prev=k;if(k==1)op=r.readEncoded();else if(k==2)controller=proofs(r);else if(k==5)auth=proofs(r);else r.skipValue();}
-  require(op!=null,"missing operation");return new Signed(op,controller,auth);
+  StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()>=1,"signed operation");byte[] op=null;List<Proof> controller=List.of(),controllerPops=List.of(),auth=List.of(),assertion=List.of(),delegation=List.of();long prev=0;
+  while(!r.done()){long k=r.readUnsigned();require(k>prev,"noncanonical signed labels");prev=k;if(k==1)op=r.readEncoded();else if(k==2)controller=proofs(r);else if(k==3)controllerPops=proofs(r);else if(k==5)auth=proofs(r);else if(k==6)assertion=proofs(r);else if(k==7)delegation=proofs(r);else r.skipValue();}
+  require(op!=null,"missing operation");return new Signed(op,controller,controllerPops,auth,assertion,delegation);
  }
  private static List<Proof> proofs(StrictCborReader r){long n=r.readArrayHeader();List<Proof> out=new ArrayList<>();for(long i=0;i<n;i++){require(r.readMapHeader()==2,"proof");require(r.readUnsigned()==1,"proof method");byte[] id=r.readByteString();require(r.readUnsigned()==2,"proof signature");out.add(new Proof(id,r.readByteString()));}return List.copyOf(out);}
  private static Operation parseOperation(byte[] bytes){
   StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()==6,"operation fields");long pv=-1,type=-1,seq=-1,prevLabel=0;byte[] id=null,ph=null,payload=null;
-  for(int i=0;i<6;i++){long k=r.readUnsigned();require(k>prevLabel,"operation labels");prevLabel=k;if(k==1)pv=r.readUnsigned();else if(k==2)type=r.readUnsigned();else if(k==3)id=r.readByteString();else if(k==4)seq=r.readUnsigned();else if(k==5)ph=r.readByteString();else if(k==6)payload=r.readEncoded();else throw new IllegalArgumentException("operation label");}
-  require(r.done()&&id!=null&&ph!=null&&payload!=null,"operation");return new Operation(pv,type,id,seq,ph,payload);
+  for(int i=0;i<6;i++){long k=r.readUnsigned();require(k>prevLabel,"operation labels");prevLabel=k;if(k==1)pv=r.readUnsigned();else if(k==2)type=r.readUnsigned();else if(k==3)id=r.readByteString();else if(k==4)seq=r.readUnsigned();else if(k==5){if(r.peekByte()==0xf6){r.readNull();ph=null;}else ph=r.readByteString();}else if(k==6)payload=r.readEncoded();else throw new IllegalArgumentException("operation label");}
+  require(r.done()&&id!=null&&payload!=null,"operation");return new Operation(pv,type,id,seq,ph,payload);
  }
+
+ private static CreatePayload parseCreatePayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader(),prev=0;byte[] controller=null,assertion=null,authentication=null,delegation=null;for(long i=0;i<n;i++){long k=r.readUnsigned();require(k>prev,"CREATE payload labels");prev=k;if(k==1)controller=r.readEncoded();else if(k==3)assertion=r.readEncoded();else if(k==4)authentication=r.readEncoded();else if(k==5)delegation=r.readEncoded();else throw new IllegalArgumentException("unsupported CREATE payload field");}require(controller!=null,"CREATE controller policy");return new CreatePayload(controller,assertion,authentication,delegation);}
+ private static byte[] encodeCreateState(byte[] identity,CreatePayload p){int n=7+(p.assertionPolicy==null?0:1);var w=new DeterministicCborWriter();w.writeMapHeader(n);w.writeUnsigned(1);w.writeUnsigned(3);w.writeUnsigned(2);w.writeByteString(identity);w.writeUnsigned(3);w.writeUnsigned(1);w.writeUnsigned(4);w.writeUnsigned(1);w.writeUnsigned(5);w.writeEncoded(p.controllerPolicy);if(p.assertionPolicy!=null){w.writeUnsigned(7);w.writeEncoded(p.assertionPolicy);}w.writeUnsigned(8);w.writeEncoded(authority(0,p.authenticationPolicy));w.writeUnsigned(9);w.writeEncoded(authority(0,p.delegationPolicy));return w.toByteArray();}
  private static Payload parsePayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()>=1,"payload");require(r.readUnsigned()==1,"authentication policy payload");byte[] p=r.readEncoded();while(!r.done())r.skipValue();return new Payload(p);}
  private static Policy parsePolicy(byte[] bytes){
   StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()==2&&r.readUnsigned()==1,"policy");long threshold=r.readUnsigned();require(r.readUnsigned()==2,"policy methods");long n=r.readArrayHeader();List<Method> ms=new ArrayList<>();
