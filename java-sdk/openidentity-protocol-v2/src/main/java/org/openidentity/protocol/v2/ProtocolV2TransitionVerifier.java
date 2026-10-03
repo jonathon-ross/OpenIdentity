@@ -21,7 +21,7 @@ public final class ProtocolV2TransitionVerifier {
   require(MessageDigest.isEqual(op.previousStateHash,IdentityStateCommitment.sha256Multihash(predecessorStateBytes)),"previous StateHash mismatch");
   require(predecessor.status==1||op.type==RECOVER,"operation not permitted while DEACTIVATED");
   Policy controller=parsePolicy(predecessor.controllerPolicy);
-  require(verifyThreshold(controller,signed.controllerProofs,signing("OpenIdentity Operation",signed.operationBytes,null)),"controller authorization invalid");
+  if(op.type!=RECOVER)require(verifyThreshold(controller,signed.controllerProofs,signing("OpenIdentity Operation",signed.operationBytes,null)),"controller authorization invalid");
   byte[] successor;
   if(op.type==RECOVER){
    require(signed.controllerProofs.isEmpty(),"RECOVER forbids ordinary controller authorization");require(signed.authenticationProofs.isEmpty()&&signed.delegationProofs.isEmpty(),"RECOVER forbids derived-authority proofs");
