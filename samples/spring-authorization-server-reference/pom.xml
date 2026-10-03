@@ -10,6 +10,7 @@
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-spring-authorization-server</artifactId><version>${openidentity.version}</version></dependency>
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-spring-core</artifactId><version>${openidentity.version}</version></dependency>
  <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-spring-active-directory</artifactId><version>${openidentity.version}</version></dependency>
+ <dependency><groupId>org.openidentity</groupId><artifactId>openidentity-spring-authentication</artifactId><version>${openidentity.version}</version></dependency>
 </dependencies>
 <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
 </project>
