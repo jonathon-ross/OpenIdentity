@@ -6,7 +6,8 @@ public class AuthorizationServerReferenceApplication {
  public static void main(String[] a){SpringApplication.run(AuthorizationServerReferenceApplication.class,a);}
  @Bean @Order(1) SecurityFilterChain authorizationServer(HttpSecurity http,ObjectProvider<DevelopmentOpenIdentityPrincipalConfiguration.DevelopmentOpenIdentityPrincipalFilter> dev,ObjectProvider<OpenIdentityActiveDirectorySecurityConfigurer> ad,ObjectProvider<AuthenticationEntryPoint> nativeEntryPoint)throws Exception{
   var devFilter=dev.getIfAvailable();if(devFilter!=null)http.addFilterAfter(devFilter,SecurityContextHolderFilter.class);
-  var nativeEntry=nativeEntryPoint.getIfAvailable();if(nativeEntry!=null)http.exceptionHandling(e->e.authenticationEntryPoint(nativeEntry));\n  var adConfigurer=ad.getIfAvailable();if(adConfigurer!=null){
+  var nativeEntry=nativeEntryPoint.getIfAvailable();if(nativeEntry!=null)http.exceptionHandling(e->e.authenticationEntryPoint(nativeEntry));
+  var adConfigurer=ad.getIfAvailable();if(adConfigurer!=null){
     http.with(adConfigurer,x->{});
     http.exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->{
       res.setHeader("WWW-Authenticate","Negotiate");
