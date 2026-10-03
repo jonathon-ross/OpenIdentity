@@ -11,4 +11,26 @@ final class ProtocolV2TransitionVerifierTest {
  @Test void tamperedPredecessorRejected(){byte[] x=PREV.clone();x[x.length-1]^=1;assertThrows(IllegalArgumentException.class,()->ProtocolV2TransitionVerifier.verifyAndApply(x,SIGNED));}
  @Test void tamperedControllerSignatureRejected(){byte[] x=SIGNED.clone();x[x.length-100]^=1;assertThrows(IllegalArgumentException.class,()->ProtocolV2TransitionVerifier.verifyAndApply(PREV,x));}
  @Test void tamperedAuthenticationPopRejected(){byte[] x=SIGNED.clone();x[x.length-1]^=1;assertThrows(IllegalArgumentException.class,()->ProtocolV2TransitionVerifier.verifyAndApply(PREV,x));}
+ @Test void missingAuthenticationPopRejected(){
+  byte[] x=removeAuthenticationProofField(SIGNED);
+  assertThrows(IllegalArgumentException.class,()->ProtocolV2TransitionVerifier.verifyAndApply(PREV,x));
+ }
+ @Test void duplicateAuthenticationPopRejected(){
+  byte[] proof=extractAuthenticationProof(SIGNED);byte[] x=replaceAuthenticationProofArray(SIGNED,proof,proof);
+  assertThrows(IllegalArgumentException.class,()->ProtocolV2TransitionVerifier.verifyAndApply(PREV,x));
+ }
+ @Test void unauthorizedAuthenticationMethodRejected(){
+  byte[] x=SIGNED.clone();int method=lastIndexOf(x,H.parseHex("101112131415161718191a1b1c1d1e1f"));assertTrue(method>0);x[method]=(byte)0x20;
+  assertThrows(IllegalArgumentException.class,()->ProtocolV2TransitionVerifier.verifyAndApply(PREV,x));
+ }
+ private static byte[] removeAuthenticationProofField(byte[] in){
+  // V304 envelope is map(3): 1 operation, 2 controller proofs, 5 auth proofs.
+  // Re-encode as map(2) using exact encoded values.
+  var r=new org.openidentity.cbor.StrictCborReader(in);r.readMapHeader();r.readUnsigned();byte[] op=r.readEncoded();r.readUnsigned();byte[] cp=r.readEncoded();
+  var w=new org.openidentity.cbor.DeterministicCborWriter();w.writeMapHeader(2);w.writeUnsigned(1);w.writeEncoded(op);w.writeUnsigned(2);w.writeEncoded(cp);return w.toByteArray();
+ }
+ private static byte[] extractAuthenticationProof(byte[] in){var r=new org.openidentity.cbor.StrictCborReader(in);r.readMapHeader();r.readUnsigned();r.skipValue();r.readUnsigned();r.skipValue();r.readUnsigned();long n=r.readArrayHeader();assertEquals(1,n);return r.readEncoded();}
+ private static byte[] replaceAuthenticationProofArray(byte[] in,byte[]... proofs){var r=new org.openidentity.cbor.StrictCborReader(in);r.readMapHeader();r.readUnsigned();byte[] op=r.readEncoded();r.readUnsigned();byte[] cp=r.readEncoded();r.readUnsigned();r.skipValue();var w=new org.openidentity.cbor.DeterministicCborWriter();w.writeMapHeader(3);w.writeUnsigned(1);w.writeEncoded(op);w.writeUnsigned(2);w.writeEncoded(cp);w.writeUnsigned(5);w.writeArrayHeader(proofs.length);for(byte[] p:proofs)w.writeEncoded(p);return w.toByteArray();}
+ private static int lastIndexOf(byte[] a,byte[] needle){outer:for(int i=a.length-needle.length;i>=0;i--){for(int j=0;j<needle.length;j++)if(a[i+j]!=needle[j])continue outer;return i;}return -1;}
+
 }
