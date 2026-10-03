@@ -14,6 +14,7 @@ public class AuthorizationServerReferenceApplication {
     }));
   }
   http.oauth2AuthorizationServer(as->as.oidc(Customizer.withDefaults()));
+  http.csrf(csrf->csrf.ignoringRequestMatchers("/openidentity/auth/**"));
   http.authorizeHttpRequests(a->a
       .requestMatchers("/openidentity/auth/**").permitAll()
       .requestMatchers(HttpMethod.GET,"/oauth2/authorize").hasRole("OPENIDENTITY")
