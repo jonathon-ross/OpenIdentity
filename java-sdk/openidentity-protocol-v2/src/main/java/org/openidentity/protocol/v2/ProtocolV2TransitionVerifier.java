@@ -16,6 +16,7 @@ public final class ProtocolV2TransitionVerifier {
   Signed signed=parseSigned(signedOperationBytes);
   Operation op=parseOperation(signed.operationBytes);
   require(op.protocolVersion==2&&(op.type==SET_AUTHENTICATION_POLICY||op.type==ROTATE_CONTROLLER||op.type==RESET_AUTHENTICATION||op.type==SET_DELEGATION_POLICY||op.type==RESET_DELEGATIONS||op.type==RECOVER||op.type==DEACTIVATE),"unsupported Protocol v2 operation");
+  validateProofFields(op.type,signed);
   require(MessageDigest.isEqual(op.identity,predecessor.identity),"operation identity mismatch");
   require(predecessor.sequence!=Long.MAX_VALUE&&op.sequence==predecessor.sequence+1,"operation sequence mismatch");
   require(MessageDigest.isEqual(op.previousStateHash,IdentityStateCommitment.sha256Multihash(predecessorStateBytes)),"previous StateHash mismatch");
@@ -74,7 +75,7 @@ public final class ProtocolV2TransitionVerifier {
 
  public static VerifiedIdentityCreation verifyCreate(byte[] signedOperationBytes){
   Signed signed=parseSigned(signedOperationBytes);Operation op=parseOperation(signed.operationBytes);
-  require(op.protocolVersion==2&&op.type==CREATE,"not Protocol v2 CREATE");require(op.sequence==1,"CREATE sequence");require(op.previousStateHash==null,"CREATE predecessor must be null");
+  require(op.protocolVersion==2&&op.type==CREATE,"not Protocol v2 CREATE");validateProofFields(CREATE,signed);require(op.sequence==1,"CREATE sequence");require(op.previousStateHash==null,"CREATE predecessor must be null");
   require(signed.controllerPops.isEmpty(),"CREATE forbids controller PoP");
   CreatePayload p=parseCreatePayload(op.payload);Policy controller=parsePolicy(p.controllerPolicy);
   require(verifyThreshold(controller,signed.controllerProofs,signing("OpenIdentity Operation",signed.operationBytes,null)),"CREATE controller authorization invalid");
@@ -108,6 +109,15 @@ public final class ProtocolV2TransitionVerifier {
   return new State(Math.toIntExact(version),id,seq,Math.toIntExact(status),cp,recovery,assertion,auth,delegation);
  }
  private static Authority parseAuthority(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader();require(n==1||n==2,"authority");require(r.readUnsigned()==1,"authority generation");long g=r.readUnsigned();byte[] p=null;if(n==2){require(r.readUnsigned()==2,"authority policy");p=r.readEncoded();}require(r.done(),"authority trailing");return new Authority(g,p);}
+ private static void validateProofFields(long type,Signed s){
+  if(type==CREATE){require(s.controllerPops.isEmpty(),"CREATE forbids controller PoP");require(s.recoveryProofs.isEmpty(),"CREATE forbids recovery proof");return;}
+  if(type==RECOVER){require(s.controllerProofs.isEmpty(),"RECOVER forbids ordinary authorization");require(s.authenticationProofs.isEmpty()&&s.delegationProofs.isEmpty(),"RECOVER forbids derived proofs");return;}
+  require(s.recoveryProofs.isEmpty(),"recovery proof forbidden");
+  if(type==ROTATE_CONTROLLER){require(s.authenticationProofs.isEmpty()&&s.assertionProofs.isEmpty()&&s.delegationProofs.isEmpty(),"unexpected rotation proofs");return;}
+  if(type==SET_AUTHENTICATION_POLICY){require(s.controllerPops.isEmpty()&&s.assertionProofs.isEmpty()&&s.delegationProofs.isEmpty(),"unexpected authentication-operation proofs");return;}
+  if(type==SET_DELEGATION_POLICY){require(s.controllerPops.isEmpty()&&s.authenticationProofs.isEmpty()&&s.assertionProofs.isEmpty(),"unexpected delegation-operation proofs");return;}
+  if(type==RESET_AUTHENTICATION||type==RESET_DELEGATIONS||type==DEACTIVATE)require(s.controllerPops.isEmpty()&&s.authenticationProofs.isEmpty()&&s.assertionProofs.isEmpty()&&s.delegationProofs.isEmpty(),"proof-of-possession forbidden for operation");
+ }
  private static Signed parseSigned(byte[] bytes){
   StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()>=1,"signed operation");byte[] op=null;List<Proof> controller=List.of(),controllerPops=List.of(),recovery=List.of(),auth=List.of(),assertion=List.of(),delegation=List.of();long prev=0;
   while(!r.done()){long k=r.readUnsigned();require(k>prev,"noncanonical signed labels");prev=k;if(k==1)op=r.readEncoded();else if(k==2)controller=proofs(r);else if(k==3)controllerPops=proofs(r);else if(k==4)recovery=proofs(r);else if(k==5)auth=proofs(r);else if(k==6)assertion=proofs(r);else if(k==7)delegation=proofs(r);else r.skipValue();}
@@ -137,7 +147,7 @@ public final class ProtocolV2TransitionVerifier {
  private static Policy parsePolicy(byte[] bytes){
   StrictCborReader r=new StrictCborReader(bytes);require(r.readMapHeader()==2&&r.readUnsigned()==1,"policy");long threshold=r.readUnsigned();require(r.readUnsigned()==2,"policy methods");long n=r.readArrayHeader();List<Method> ms=new ArrayList<>();
   for(long i=0;i<n;i++){require(r.readMapHeader()==2&&r.readUnsigned()==1,"method");byte[] id=r.readByteString();require(r.readUnsigned()==2,"method cose");StrictCborReader c=new StrictCborReader(r.readEncoded());long fields=c.readMapHeader();byte[] pk=null;for(long j=0;j<fields;j++){long k=c.peekByte()>>>5==1?c.readNegative():c.readUnsigned();if(k==-2)pk=c.readByteString();else c.skipValue();}require(pk!=null&&pk.length==32,"Ed25519 public key");ms.add(new Method(id,pk));}
-  require(r.done()&&threshold>0&&threshold<=ms.size(),"policy threshold");return new Policy(threshold,List.copyOf(ms));
+  require(r.done()&&threshold>0&&threshold<=ms.size(),"policy threshold");Set<String> ids=new HashSet<>(),keys=new HashSet<>();for(Method m:ms){require(ids.add(HexFormat.of().formatHex(m.id)),"duplicate method id");require(keys.add(HexFormat.of().formatHex(m.publicKey)),"duplicate effective verification key");}return new Policy(threshold,List.copyOf(ms));
  }
  private static boolean verifyThreshold(Policy p,List<Proof> proofs,byte[] signing){Set<String> used=new HashSet<>();long good=0;for(Proof proof:proofs)for(Method m:p.methods)if(Arrays.equals(proof.methodId,m.id)&&used.add(HexFormat.of().formatHex(m.id))&&verify(m.publicKey,signing,proof.signature))good++;return good>=p.threshold;}
  private static boolean verifyPop(Policy p,List<Proof> proofs,byte[] op,String domain){if(proofs.size()!=p.methods.size())return false;for(Method m:p.methods){Proof found=null;for(Proof x:proofs)if(Arrays.equals(x.methodId,m.id)){if(found!=null)return false;found=x;}if(found==null||!verify(m.publicKey,signing(domain,op,m.id),found.signature))return false;}return true;}
