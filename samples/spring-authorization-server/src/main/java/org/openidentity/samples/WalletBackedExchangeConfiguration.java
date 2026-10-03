@@ -20,6 +20,7 @@ public class WalletBackedExchangeConfiguration {
   CapabilityMapper mapper=(subject,target,scope)->target.equals("https://api.example.test/")&&subject.effectiveCapabilities().stream().anyMatch(x->x instanceof CapabilityRef cr&&scope.equals(new String(cr.capabilityId(),StandardCharsets.UTF_8)));
   Set<String> used=Collections.synchronizedSet(new HashSet<>());return new DelegatedAgentExchangeService(oi016,oi015,x->x,mapper,id->used.add(H.formatHex(id)),300);
  }
+ @Bean @Primary org.openidentity.spring.OpenIdentityExchange walletOpenIdentityExchange(DelegatedAgentExchangeService walletExchange){return walletExchange::exchange;}
  @Bean @Primary org.openidentity.spring.ActorNonceResolver walletNonce(){return request->request.getParameter("openidentity_actor_nonce")==null?new byte[32]:Base64.getUrlDecoder().decode(request.getParameter("openidentity_actor_nonce"));}
  static long generation(byte[] state,long label){StrictCborReader r=new StrictCborReader(state);long n=r.readMapHeader();for(long i=0;i<n;i++){long k=r.readUnsigned();if(k==label){StrictCborReader a=new StrictCborReader(r.readEncoded());a.readMapHeader();a.readUnsigned();return a.readUnsigned();}r.skipValue();}throw new IllegalArgumentException();}
  record P(byte[] profileHash,String cap)implements CapabilityProfile{public long maximumGrantLifetimeSeconds(){return 86400;}public int maximumDelegationDepth(){return 1;}public boolean permitsChild(List<CapabilityRef>a,List<CapabilityRef>b){return false;}public List<Object> effectiveCapabilities(List<CapabilityRef> c){return new ArrayList<>(c);}}
