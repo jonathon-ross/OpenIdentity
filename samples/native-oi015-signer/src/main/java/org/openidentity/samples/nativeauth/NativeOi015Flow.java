@@ -35,19 +35,24 @@ public final class NativeOi015Flow {
     }
    }
   }
+  String gateFailure=null;
   if(referenceMode){
-   require("AUTHENTICATED".equals(result.path("status").asText()),"native OI-015 authentication");
-   require(result.path("identity").asText().equals(h.formatHex(identity)),"authenticated identity continuity");
-   require(result.path("authorizationStatus").asInt()==200,"OAuth authorization/consent");
-   require(result.path("consentStatus").asInt()/100==3,"OAuth consent submission");
-   require(result.path("authorizationCodeReceived").asBoolean(false),"authorization code issuance");
-   require(result.path("tokenStatus").asInt()==200,"PKCE token exchange");
-   require(result.path("accessTokenReceived").asBoolean(false),"access token issuance");
-   require(result.path("subjectMatchesIdentity").asBoolean(false),"OIDC subject continuity");
-   result.put("gate","NATIVE OI-015 -> OAUTH2/OIDC END-TO-END: PASS");
+   gateFailure=failedGate(result,h.formatHex(identity));
+   if(gateFailure==null)result.put("gate","NATIVE OI-015 -> OAUTH2/OIDC END-TO-END: PASS");else result.put("gate","FAIL: "+gateFailure);
   }
   System.out.println(json.writerWithDefaultPrettyPrinter().writeValueAsString(result));
+  if(gateFailure!=null)throw new IllegalStateException("END-TO-END GATE FAILED: "+gateFailure);
  }
- private static void require(boolean ok,String gate){if(!ok)throw new IllegalStateException("END-TO-END GATE FAILED: "+gate);}
+ private static String failedGate(JsonNode result,String identity){
+  if(!"AUTHENTICATED".equals(result.path("status").asText()))return "native OI-015 authentication";
+  if(!result.path("identity").asText().equals(identity))return "authenticated identity continuity";
+  if(result.path("authorizationStatus").asInt()!=200)return "OAuth authorization/consent";
+  if(result.path("consentStatus").asInt()/100!=3)return "OAuth consent submission";
+  if(!result.path("authorizationCodeReceived").asBoolean(false))return "authorization code issuance";
+  if(result.path("tokenStatus").asInt()!=200)return "PKCE token exchange";
+  if(!result.path("accessTokenReceived").asBoolean(false))return "access token issuance";
+  if(!result.path("subjectMatchesIdentity").asBoolean(false))return "OIDC subject continuity";
+  return null;
+ }
  private static String queryParam(String query,String name){if(query==null)return null;for(String pair:query.split("&")){int i=pair.indexOf('=');String k=URLDecoder.decode(i<0?pair:pair.substring(0,i),StandardCharsets.UTF_8);if(k.equals(name))return URLDecoder.decode(i<0?"":pair.substring(i+1),StandardCharsets.UTF_8);}return null;}
 }
