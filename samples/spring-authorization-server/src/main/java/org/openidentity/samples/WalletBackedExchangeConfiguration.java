@@ -10,12 +10,12 @@ public class WalletBackedExchangeConfiguration {
  @Bean @Primary DelegatedAgentExchangeService walletExchange(@Value("${openidentity.oauth-resolver-bundle}")String file)throws Exception{
   Properties p=new Properties();try(var r=Files.newBufferedReader(Path.of(file))){p.load(r);}
   byte[] root=H.parseHex(p.getProperty("root.identity")),rootHash=H.parseHex(p.getProperty("root.stateHash")),state=H.parseHex(p.getProperty("root.stateBytes")),gid=H.parseHex(p.getProperty("grant.id")),ph=H.parseHex(p.getProperty("grant.profileHash")),agent=H.parseHex(p.getProperty("agent.identity")),pk=H.parseHex(p.getProperty("agent.publicKey")),mid=H.parseHex(p.getProperty("agent.authenticationMethodId"));
-  long dg=generation(state,9),ag=generation(state,8),bound=Long.parseLong(p.getProperty("grant.delegationGeneration")),registered=Long.parseLong(p.getProperty("grant.registeredAt"));
+  long dg=generation(state,9),ag=Long.parseLong(p.getProperty("agent.authenticationGeneration")),bound=Long.parseLong(p.getProperty("grant.delegationGeneration")),registered=Long.parseLong(p.getProperty("grant.registeredAt"));byte[] agentState=H.parseHex(p.getProperty("agent.authenticationStateHash"));
   RegisteredGrantStateResolver records=(d,id)->Arrays.equals(id,gid)?new RegisteredGrantState(DOMAIN,gid,1,RegisteredGrantState.ACTIVE,H.parseHex(p.getProperty("grant.rootStateHash")),bound,registered):null;
   RootDelegationStateResolver roots=id->Arrays.equals(id,root)?new RootDelegationState(root,rootHash,true,dg):null;
   CapabilityProfileResolver profiles=x->Arrays.equals(x,ph)?new P(ph,p.getProperty("grant.capability")):null;
   var oi016=new Oi016DelegatedSubjectVerifier(new Oi016Verifier(new DefaultOi014GrantVerifier(records,roots,profiles),profiles),()->Instant.now().getEpochSecond());
-  AuthenticationStateResolver auth=id->Arrays.equals(id,agent)?new CurrentAuthenticationState(agent,rootHash,true,new AuthenticationPolicySnapshot(ag,1,List.of(new AuthenticationMethod(mid,pk)))):null;
+  AuthenticationStateResolver auth=id->Arrays.equals(id,agent)?new CurrentAuthenticationState(agent,agentState,true,new AuthenticationPolicySnapshot(ag,1,List.of(new AuthenticationMethod(mid,pk)))):null;
   var oi015=new Oi015AuthenticationAssertionVerifier(new Oi015Verifier(auth,300));
   CapabilityMapper mapper=(subject,target,scope)->target.equals("https://api.example.test/")&&subject.effectiveCapabilities().stream().anyMatch(x->x instanceof CapabilityRef cr&&scope.equals(new String(cr.capabilityId(),StandardCharsets.UTF_8)));
   Set<String> used=Collections.synchronizedSet(new HashSet<>());return new DelegatedAgentExchangeService(oi016,oi015,x->x,mapper,id->used.add(H.formatHex(id)),300);
