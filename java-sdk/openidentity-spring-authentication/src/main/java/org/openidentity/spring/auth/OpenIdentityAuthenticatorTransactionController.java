@@ -14,11 +14,11 @@ public final class OpenIdentityAuthenticatorTransactionController {
  @GetMapping("/{id}/challenge") public ResponseEntity<String> challenge(@PathVariable String id){var t=store.get(id);return t==null?ResponseEntity.notFound().build():ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(t.challengeJson());}
  @PostMapping("/{id}/assertion") public ResponseEntity<Map<String,Object>> assertion(@PathVariable String id,@RequestBody AssertionRequest r){
   var t=store.get(id);if(t==null||t.state()!=OpenIdentityAuthenticationTransactionStore.Transaction.State.PENDING)return ResponseEntity.status(409).body(Map.of("status","REJECTED"));
-  try{var a=service.verify(t.challengeId(),Base64.getUrlDecoder().decode(r.assertionBase64Url()));store.authenticated(id,a.openIdentityIdHex());return ResponseEntity.ok(Map.of("status","AUTHENTICATED","identity",a.openIdentityIdHex()));}catch(RuntimeException e){store.rejected(id);return ResponseEntity.status(401).body(Map.of("status","REJECTED"));}
+  try{var a=service.verify(t.challengeId(),Base64.getUrlDecoder().decode(r.assertionBase64Url()));store.authenticated(id,a);return ResponseEntity.ok(Map.of("status","AUTHENTICATED","identity",a.openIdentityIdHex()));}catch(RuntimeException e){store.rejected(id);return ResponseEntity.status(401).body(Map.of("status","REJECTED"));}
  }
  @PostMapping("/{id}/complete") public ResponseEntity<Map<String,Object>> complete(@PathVariable String id,HttpServletRequest req,HttpServletResponse res){
   var t=store.consume(id);if(t==null||t.state()!=OpenIdentityAuthenticationTransactionStore.Transaction.State.AUTHENTICATED)return ResponseEntity.status(409).body(Map.of("status",t==null?"UNKNOWN":t.state().name()));
-  byte[] identity=HexFormat.of().parseHex(t.identity());var auth=new OpenIdentityNativeAuthenticationToken(identity,new byte[0]);var ctx=SecurityContextHolder.createEmptyContext();ctx.setAuthentication(auth);SecurityContextHolder.setContext(ctx);new HttpSessionSecurityContextRepository().saveContext(ctx,req,res);return ResponseEntity.ok(Map.of("status","AUTHENTICATED","continue",t.requestTarget()));
+  var ctx=SecurityContextHolder.createEmptyContext();ctx.setAuthentication(t.authentication());SecurityContextHolder.setContext(ctx);new HttpSessionSecurityContextRepository().saveContext(ctx,req,res);return ResponseEntity.ok(Map.of("status","AUTHENTICATED","continue",t.requestTarget()));
  }
  @GetMapping("/{id}") public ResponseEntity<Map<String,Object>> status(@PathVariable String id){var t=store.get(id);return t==null?ResponseEntity.notFound().build():ResponseEntity.ok(Map.of("status",t.state().name()));}
  private String randomId(){byte[] b=new byte[32];random.nextBytes(b);return Base64.getUrlEncoder().withoutPadding().encodeToString(b);}
