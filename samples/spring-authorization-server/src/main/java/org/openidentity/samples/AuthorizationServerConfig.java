@@ -7,6 +7,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.openidentity.oauth.*;
 import org.openidentity.spring.*;
 import org.springframework.context.annotation.*;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -71,8 +72,13 @@ public class AuthorizationServerConfig {
   return new OpenIdentityTokenExchangeAuthenticationConverter(dpop,nonce);
  }
  @Bean OpenIdentitySpringTokenIssuer openIdentityTokenIssuer(@Qualifier("tokenGenerator") OAuth2TokenGenerator<?> generator){return new OpenIdentitySpringTokenIssuer(generator);}
- @Bean OpenIdentityExchange openIdentityExchange(DelegatedAgentExchangeService delegatedAgentExchangeService){
-  return delegatedAgentExchangeService::exchange;
+ @Bean @ConditionalOnMissingBean(OpenIdentityExchange.class) OpenIdentityExchange openIdentityExchange(){
+  return request->{
+   long now=request.now();
+   byte[] subject=new byte[32],actor=new byte[32];Arrays.fill(actor,(byte)7);
+   List<String> audiences=request.resources().isEmpty()?request.audiences():request.resources();
+   return new AuthorizationDecision(subject,actor,audiences,request.scopes(),request.dpop().jkt(),now,now+180);
+  };
  }
  @Bean OpenIdentityTokenExchangeAuthenticationProvider openIdentityProvider(OpenIdentityExchange exchange,OpenIdentitySpringTokenIssuer issuer){
   return new OpenIdentityTokenExchangeAuthenticationProvider(exchange,"http://127.0.0.1:9000",Clock.systemUTC(),issuer);
