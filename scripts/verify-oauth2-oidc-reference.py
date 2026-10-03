@@ -17,8 +17,10 @@ def require(path,*needles):
  print(f"PASS {path}")
 
 run("Java SDK",MVN,"clean","install",cwd=ROOT/"java-sdk")
+run("Native OI-015 Spring authentication",MVN,"clean","test",cwd=ROOT/"java-sdk/openidentity-spring-authentication")
 run("Authorization Server reference",MVN,"clean","package",cwd=ROOT/"samples/spring-authorization-server-reference")
 run("OIDC client reference",MVN,"clean","package",cwd=ROOT/"samples/spring-oidc-client-reference")
+run("Native OI-015 signer reference",MVN,"clean","package",cwd=ROOT/"samples/native-oi015-signer")
 require("samples/spring-authorization-server-reference/src/main/java/org/openidentity/samples/authserver/AuthorizationServerReferenceApplication.java",
  "AuthorizationGrantType.AUTHORIZATION_CODE","ClientAuthenticationMethod.NONE","requireProofKey(true)","scope(\"openid\")","new OpenIdentityJwtCustomizer()","OpenIdentityActiveDirectorySecurityConfigurer","WWW-Authenticate\",\"Negotiate","openidentity.authorization-server.issuer")
 require("samples/spring-authorization-server-reference/src/main/java/org/openidentity/samples/authserver/DevelopmentOpenIdentityPrincipalConfiguration.java",
@@ -26,6 +28,7 @@ require("samples/spring-authorization-server-reference/src/main/java/org/openide
 require("samples/spring-oidc-client-reference/src/main/resources/application.yml",
  "${OPENIDENTITY_OIDC_ISSUER:http://127.0.0.1:9000}","client-authentication-method: none","authorization-grant-type: authorization_code","scope: openid,profile","OPENIDENTITY_CLIENT_SESSION")
 require("samples/spring-authorization-server-reference/src/main/resources/application.yml","OPENIDENTITY_AUTH_SERVER_SESSION")
+require("samples/spring-authorization-server-reference/src/main/java/org/openidentity/samples/authserver/NativeOi015Configuration.java","native-oi015","Oi015Verifier","CanonicalAuthenticationStateResolver","OpenIdentityAuthenticationService")
 require("samples/spring-authorization-server-reference/src/main/resources/application-microsoft-ad.yml",
  "enabled: true","HTTP/openidentity.oi-test.internal" if False else "OPENIDENTITY_KERBEROS_SERVICE_PRINCIPAL","OPENIDENTITY_KERBEROS_KEYTAB","OPENIDENTITY_STATE_DIR","OPENIDENTITY_AD_BINDING_STORE","http://openidentity.oi-test.internal:9000")
 require("java-sdk/openidentity-spring-authorization-server/src/main/java/org/openidentity/spring/OpenIdentityJwtCustomizer.java","context.getClaims().subject(subject)")
