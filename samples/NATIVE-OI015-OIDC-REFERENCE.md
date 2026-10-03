@@ -44,3 +44,15 @@ NATIVE OI-015 -> OAUTH2/OIDC END-TO-END: PASS
 ```
 
 The authentication continuation implementation separately enforces local `/oauth2/authorize` continuations and single-use continuation consumption in the `openidentity-spring-authentication` tests.
+
+
+## Adversarial coverage
+
+The integration boundary is intentionally split across layers:
+
+- OI-015 verifier tests reject mutated audience, nonce, context, identity/state/generation mismatches, and expiry.
+- Spring authentication-service tests require challenge single-use even after failed verification and reject expired challenges before assertion verification.
+- OAuth continuation tests restrict continuations to local `/oauth2/authorize` targets and require continuation single-use.
+- The live reference gate requires OIDC `sub` to equal the authenticated OpenIdentity identity and, after a successful PKCE exchange, replays the same authorization code and requires the token endpoint to reject it.
+
+Wrong-PKCE testing should use a separately issued authorization code so a deliberately failed token request cannot make the positive-path code ambiguous.
