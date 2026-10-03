@@ -50,13 +50,16 @@ public final class NativeOi015Flow {
   if(result.path("tokenStatus").asInt()!=200)return "PKCE token exchange";
   if(!result.path("accessTokenReceived").asBoolean(false))return "access token issuance";
   if(!result.path("subjectMatchesIdentity").asBoolean(false))return "OIDC subject continuity";
+  if(!result.path("authorizationCodeReplayRejected").asBoolean(false))return "authorization code replay rejection";
   return null;
  }
  private static void exchangeCode(HttpClient http,ObjectMapper json,ObjectNode result,String base,String code,String verifier)throws Exception{
   result.put("authorizationCodeReceived",true);
   String tokenForm="grant_type=authorization_code&client_id="+URLEncoder.encode("openidentity-reference-client",StandardCharsets.UTF_8)+"&code="+URLEncoder.encode(code,StandardCharsets.UTF_8)+"&redirect_uri="+URLEncoder.encode("http://localhost:8081/login/oauth2/code/openidentity",StandardCharsets.UTF_8)+"&code_verifier="+URLEncoder.encode(verifier,StandardCharsets.UTF_8);
   HttpResponse<String> token=http.send(HttpRequest.newBuilder(URI.create(base+"/oauth2/token")).header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(tokenForm)).build(),HttpResponse.BodyHandlers.ofString());
-  result.put("tokenStatus",token.statusCode());if(token.statusCode()==200){JsonNode tokens=json.readTree(token.body());result.put("accessTokenReceived",tokens.hasNonNull("access_token"));if(tokens.hasNonNull("id_token")){String[] parts=tokens.get("id_token").asText().split("\\.");if(parts.length==3){JsonNode claims=json.readTree(Base64.getUrlDecoder().decode(parts[1]));String subject=claims.path("sub").asText();result.put("idTokenSubject",subject);result.put("subjectMatchesIdentity",subject.equals(result.path("identity").asText()));}}}else result.put("tokenBody",token.body());
+  result.put("tokenStatus",token.statusCode());if(token.statusCode()==200){JsonNode tokens=json.readTree(token.body());result.put("accessTokenReceived",tokens.hasNonNull("access_token"));if(tokens.hasNonNull("id_token")){String[] parts=tokens.get("id_token").asText().split("\\.");if(parts.length==3){JsonNode claims=json.readTree(Base64.getUrlDecoder().decode(parts[1]));String subject=claims.path("sub").asText();result.put("idTokenSubject",subject);result.put("subjectMatchesIdentity",subject.equals(result.path("identity").asText()));}}
+   HttpResponse<String> replay=http.send(HttpRequest.newBuilder(URI.create(base+"/oauth2/token")).header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(tokenForm)).build(),HttpResponse.BodyHandlers.ofString());result.put("authorizationCodeReplayStatus",replay.statusCode());result.put("authorizationCodeReplayRejected",replay.statusCode()>=400);
+  }else result.put("tokenBody",token.body());
  }
  private static String queryParam(String query,String name){if(query==null)return null;for(String pair:query.split("&")){int i=pair.indexOf('=');String k=URLDecoder.decode(i<0?pair:pair.substring(0,i),StandardCharsets.UTF_8);if(k.equals(name))return URLDecoder.decode(i<0?"":pair.substring(i+1),StandardCharsets.UTF_8);}return null;}
 }
