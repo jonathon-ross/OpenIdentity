@@ -12,6 +12,7 @@ public final class StrictCborReader {
  public int position(){return p;}
  public int peekByte(){need(1);return in[p]&255;}
  public long readUnsigned(){Head h=head(0);return h.value;}
+ public long readNegative(){Head h=head(1);if(h.value==Long.MAX_VALUE)throw new IllegalArgumentException("CBOR negative integer overflow");return -1-h.value;}
  public long readArrayHeader(){return head(4).value;}
  public long readMapHeader(){return head(5).value;}
  public byte[] readByteString(){Head h=head(2);int n=size(h.value);need(n);byte[] b=Arrays.copyOfRange(in,p,p+n);p+=n;return b;}
