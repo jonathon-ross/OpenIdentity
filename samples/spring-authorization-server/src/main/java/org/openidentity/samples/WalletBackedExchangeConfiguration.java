@@ -4,7 +4,7 @@ import org.openidentity.auth.*;import org.openidentity.cbor.StrictCborReader;imp
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;import org.springframework.beans.factory.annotation.Value;import org.springframework.context.annotation.*;import java.nio.charset.StandardCharsets;import java.nio.file.*;import java.time.Instant;import java.util.*;
 
 @Configuration
-@ConditionalOnProperty(name="openidentity.oauth-resolver-bundle")
+@ConditionalOnProperty(name="openidentity.wallet-backed-exchange.enabled",havingValue="true")
 public class WalletBackedExchangeConfiguration {
  static final HexFormat H=HexFormat.of();static final byte[] DOMAIN="openidentity:wallet:agent-grants:v1".getBytes(StandardCharsets.UTF_8);
  @Bean @Primary DelegatedAgentExchangeService walletExchange(@Value("${openidentity.oauth-resolver-bundle}")String file)throws Exception{
