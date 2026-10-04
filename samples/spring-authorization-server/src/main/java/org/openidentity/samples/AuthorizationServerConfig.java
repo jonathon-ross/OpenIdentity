@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.server.authorization.settings.*;
 import org.springframework.security.oauth2.server.authorization.token.*;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.Customizer;
+import org.springframework.http.HttpMethod;
 import java.security.*;
 import java.security.interfaces.RSAPublicKey;
 import java.security.interfaces.RSAPrivateKey;
@@ -86,7 +87,10 @@ public class AuthorizationServerConfig {
 
  @Bean @Order(2) SecurityFilterChain resourceServerSecurityFilterChain(HttpSecurity http) throws Exception{
   http.securityMatcher("/api/**")
-      .authorizeHttpRequests(a->a.anyRequest().hasAuthority("SCOPE_records.read"))
+      .authorizeHttpRequests(a->a
+          .requestMatchers(HttpMethod.GET,"/api/records/**").hasAuthority("SCOPE_records.read")
+          .requestMatchers(HttpMethod.DELETE,"/api/records/**").hasAuthority("SCOPE_records.write")
+          .anyRequest().authenticated())
       .oauth2ResourceServer(o->o.jwt(Customizer.withDefaults()).dPoP(Customizer.withDefaults()));
   return http.build();
  }
