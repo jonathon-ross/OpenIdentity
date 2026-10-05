@@ -1,11 +1,12 @@
 package org.openidentity.samples;
 
-import com.fasterxml.jackson.databind.*;
 import org.openidentity.auth.*;
 import org.openidentity.delegation.*;
 import org.openidentity.oauth.*;
+import org.openidentity.spring.OpenIdentityExchange;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.*;
+import java.io.StringReader;
 import java.net.URI;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
@@ -20,8 +21,8 @@ public class LiveWalletExchangeConfiguration {
  record Agent(byte[] identity,byte[] publicKey,byte[] methodId,long generation,byte[] stateHash){}
  record Grant(byte[] id,byte[] rootHash,long generation,long registeredAt,byte[] profileHash,String capability){}
  static final class Client{
-  final HttpClient http=HttpClient.newHttpClient();final String url=System.getenv().getOrDefault("OPENIDENTITY_WALLET_API_URL","http://127.0.0.1:9300")+"/v1/oauth/resolver";final String token=require("OPENIDENTITY_WALLET_API_TOKEN");final ObjectMapper json=new ObjectMapper();
-  Snapshot get(){try{var req=HttpRequest.newBuilder(URI.create(url)).header("Authorization","Bearer "+token).GET().build();var res=http.send(req,HttpResponse.BodyHandlers.ofString());if(res.statusCode()!=200)throw new IllegalStateException("wallet resolver HTTP "+res.statusCode());JsonNode n=json.readTree(res.body());List<Agent> agents=new ArrayList<>();for(JsonNode a:n.path("agents"))agents.add(new Agent(H.parseHex(a.path("identityHex").asText()),H.parseHex(a.path("publicKeyHex").asText()),H.parseHex(a.path("keyReference").asText()),a.path("authenticationGeneration").asLong(),H.parseHex(a.path("authenticationStateHash").asText())));List<Grant> grants=new ArrayList<>();for(JsonNode g:n.path("grants"))grants.add(new Grant(H.parseHex(g.path("grantIdHex").asText()),H.parseHex(g.path("rootStateHashHex").asText()),g.path("delegationGeneration").asLong(),g.path("registeredAt").asLong(),H.parseHex(g.path("profileHashHex").asText()),g.path("capability").asText()));return new Snapshot(H.parseHex(n.path("rootIdentity").asText()),H.parseHex(n.path("rootStateHash").asText()),H.parseHex(n.path("rootStateBytes").asText()),agents,grants);}catch(Exception e){throw new IllegalStateException("live wallet resolver failed",e);}}
+  final HttpClient http=HttpClient.newHttpClient();final String url=System.getenv().getOrDefault("OPENIDENTITY_WALLET_API_URL","http://127.0.0.1:9300")+"/v1/oauth/resolver";final String token=require("OPENIDENTITY_WALLET_API_TOKEN");
+  Snapshot get(){try{var req=HttpRequest.newBuilder(URI.create(url)).header("Authorization","Bearer "+token).GET().build();var res=http.send(req,HttpResponse.BodyHandlers.ofString());if(res.statusCode()!=200)throw new IllegalStateException("wallet resolver HTTP "+res.statusCode());Properties p=new Properties();p.load(new StringReader(res.body()));List<Agent> agents=new ArrayList<>();for(int i=0;i<Integer.parseInt(p.getProperty("agent.count","0"));i++){String x="agent."+i+".";agents.add(new Agent(H.parseHex(p.getProperty(x+"identity")),H.parseHex(p.getProperty(x+"publicKey")),H.parseHex(p.getProperty(x+"authenticationMethodId")),Long.parseLong(p.getProperty(x+"authenticationGeneration")),H.parseHex(p.getProperty(x+"authenticationStateHash"))));}List<Grant> grants=new ArrayList<>();for(int i=0;i<Integer.parseInt(p.getProperty("grant.count","0"));i++){String x="grant."+i+".";grants.add(new Grant(H.parseHex(p.getProperty(x+"id")),H.parseHex(p.getProperty(x+"rootStateHash")),Long.parseLong(p.getProperty(x+"delegationGeneration")),Long.parseLong(p.getProperty(x+"registeredAt")),H.parseHex(p.getProperty(x+"profileHash")),p.getProperty(x+"capability")));}return new Snapshot(H.parseHex(p.getProperty("root.identity")),H.parseHex(p.getProperty("root.stateHash")),H.parseHex(p.getProperty("root.stateBytes")),agents,grants);}catch(Exception e){throw new IllegalStateException("live wallet resolver failed",e);}}
   static String require(String n){String v=System.getenv(n);if(v==null||v.isBlank())throw new IllegalStateException(n+" required");return v;}
  }
  @Bean @Primary DelegatedAgentExchangeService liveWalletExchange(){
