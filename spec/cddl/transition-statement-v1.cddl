@@ -1,0 +1,9 @@
+; OI-TS-001 TransitionStatement v1
+transition-statement-v1 = {
+  1 => 1,
+  2 => bstr .size 32,
+  3 => bstr .size 34 / null,
+  4 => bstr .size 32,
+  5 => uint,
+  6 => bstr .size 34
+}
