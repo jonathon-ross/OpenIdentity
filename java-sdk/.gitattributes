@@ -1,0 +1,13 @@
+# Keep normal repository text deterministic across Windows, macOS, and Linux.
+* text=auto eol=lf
+
+# Frozen OpenIdentity protocol conformance artifacts are byte-sensitive.
+# Never apply line-ending conversion or other text normalization.
+openidentity-conformance/src/test/resources/** -text
+
+# Checksum manifests are deterministic LF text.
+*.sha256 text eol=lf
+
+# Preserve native Windows line endings for command scripts when introduced.
+*.cmd text eol=crlf
+*.bat text eol=crlf

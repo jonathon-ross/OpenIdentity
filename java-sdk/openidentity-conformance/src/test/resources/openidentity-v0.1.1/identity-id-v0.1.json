@@ -1,0 +1,109 @@
+{
+  "specification": "OpenIdentity Identity Identifier",
+  "version": "0.1",
+
+  "valid": [
+    {
+      "id": "V01",
+      "description": "32 zero bytes",
+      "inputHex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "base58btc": "11111111111111111111111111111111",
+      "multibase": "z11111111111111111111111111111111",
+      "did": "did:open:z11111111111111111111111111111111"
+    },
+    {
+      "id": "V02",
+      "description": "Sequential bytes 00 through 1f",
+      "inputHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "base58btc": "1thX6LZfHDZZKUs92febYZhYRcXddmzfzF2NvTkPNE",
+      "multibase": "z1thX6LZfHDZZKUs92febYZhYRcXddmzfzF2NvTkPNE",
+      "did": "did:open:z1thX6LZfHDZZKUs92febYZhYRcXddmzfzF2NvTkPNE"
+    },
+    {
+      "id": "V03",
+      "description": "Maximum 256-bit value",
+      "inputHex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "base58btc": "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG",
+      "multibase": "zJEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG",
+      "did": "did:open:zJEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG"
+    }
+  ],
+
+  "invalid": [
+    {
+      "id": "I01",
+      "did": "http:open:z11111111111111111111111111111111",
+      "error": "INVALID_DID_SCHEME"
+    },
+    {
+      "id": "I02",
+      "did": "did:other:z11111111111111111111111111111111",
+      "error": "INVALID_DID_METHOD"
+    },
+    {
+      "id": "I03",
+      "did": "DID:OPEN:z11111111111111111111111111111111",
+      "error": "INVALID_DID_PREFIX"
+    },
+    {
+      "id": "I04",
+      "did": "did:open:",
+      "error": "MISSING_METHOD_ID"
+    },
+    {
+      "id": "I05",
+      "did": "did:open:11111111111111111111111111111111",
+      "error": "INVALID_MULTIBASE_PREFIX"
+    },
+    {
+      "id": "I06",
+      "did": "did:open:uAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "error": "UNSUPPORTED_MULTIBASE"
+    },
+    {
+      "id": "I07",
+      "did": "did:open:z11111111111111111111111111111110",
+      "error": "INVALID_BASE58BTC_CHARACTER"
+    },
+    {
+      "id": "I08",
+      "did": "did:open:z1111111111111111111111111111111O",
+      "error": "INVALID_BASE58BTC_CHARACTER"
+    },
+    {
+      "id": "I09",
+      "did": "did:open:z1111111111111111111111111111111I",
+      "error": "INVALID_BASE58BTC_CHARACTER"
+    },
+    {
+      "id": "I10",
+      "did": "did:open:z1111111111111111111111111111111l",
+      "error": "INVALID_BASE58BTC_CHARACTER"
+    },
+    {
+      "id": "I11",
+      "did": "did:open:z1111111111111111111111111111111",
+      "error": "INVALID_IDENTIFIER_LENGTH"
+    },
+    {
+      "id": "I12",
+      "did": "did:open:z111111111111111111111111111111111",
+      "error": "INVALID_IDENTIFIER_LENGTH"
+    },
+    {
+      "id": "I13",
+      "did": "did:open:ed25519:z11111111111111111111111111111111",
+      "error": "INVALID_METHOD_ID"
+    },
+    {
+      "id": "I14",
+      "did": "did:open:solana:z11111111111111111111111111111111",
+      "error": "INVALID_METHOD_ID"
+    },
+    {
+      "id": "I15",
+      "did": "did:open:paralax:z11111111111111111111111111111111",
+      "error": "INVALID_METHOD_ID"
+    }
+  ]
+}
