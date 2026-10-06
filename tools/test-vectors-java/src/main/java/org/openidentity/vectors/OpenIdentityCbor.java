@@ -22,6 +22,12 @@ public final class OpenIdentityCbor {
             "OpenIdentity Controller Proof";
     private static final String CREDENTIAL_CONTEXT = "OpenIdentity Credential";
     private static final String RECOVERY_CONTEXT = "OpenIdentity Recovery";
+    private static final String AUTHENTICATION_PROOF_CONTEXT =
+            "OpenIdentity Authentication Proof";
+    private static final String ASSERTION_PROOF_CONTEXT =
+            "OpenIdentity Assertion Proof";
+    private static final String DELEGATION_PROOF_CONTEXT =
+            "OpenIdentity Delegation Proof";
 
     private OpenIdentityCbor() {
     }
@@ -490,6 +496,31 @@ public final class OpenIdentityCbor {
         var c = new DeterministicCborWriter();
         c.writeArrayHeader(4);
         c.writeTextString(RECOVERY_CONTEXT);
+        c.writeUnsigned(SIGNING_STRUCTURE_VERSION);
+        c.writeByteString(operationBytes);
+        c.writeByteString(methodId);
+        return c.toByteArray();
+    }
+
+    public static byte[] authenticationProofSigningInput(byte[] operationBytes, byte[] methodId) {
+        return purposeProofSigningInput(AUTHENTICATION_PROOF_CONTEXT, operationBytes, methodId);
+    }
+
+    public static byte[] assertionProofSigningInput(byte[] operationBytes, byte[] methodId) {
+        return purposeProofSigningInput(ASSERTION_PROOF_CONTEXT, operationBytes, methodId);
+    }
+
+    public static byte[] delegationProofSigningInput(byte[] operationBytes, byte[] methodId) {
+        return purposeProofSigningInput(DELEGATION_PROOF_CONTEXT, operationBytes, methodId);
+    }
+
+    private static byte[] purposeProofSigningInput(String context, byte[] operationBytes, byte[] methodId) {
+        if (operationBytes == null)
+            throw new IllegalArgumentException("Operation bytes cannot be null");
+        validateMethodId(methodId);
+        var c = new DeterministicCborWriter();
+        c.writeArrayHeader(4);
+        c.writeTextString(context);
         c.writeUnsigned(SIGNING_STRUCTURE_VERSION);
         c.writeByteString(operationBytes);
         c.writeByteString(methodId);
