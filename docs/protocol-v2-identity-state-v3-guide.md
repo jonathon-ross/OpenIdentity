@@ -111,6 +111,15 @@ A signature valid in one purpose domain is not valid evidence for another. Every
 
 ## 5. Derived-authority lifecycle
 
+For policy-replacement disposition, the ProtocolVersion 2 wire values are:
+
+| Value | Meaning |
+|---:|---|
+| 1 | INVALIDATE_EXISTING |
+| 2 | PRESERVE_EXISTING |
+
+These values are byte-frozen and MUST NOT be inferred from enum declaration order or UI terminology.
+
 For AuthenticationAuthority and DelegationAuthority, let the current policy be A and generation be N.
 
 | Transition | Disposition | Resulting policy | Resulting generation |
