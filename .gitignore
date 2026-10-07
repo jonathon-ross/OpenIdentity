@@ -44,3 +44,21 @@ node_modules/
 ### Python cache / bytecode ###
 __pycache__/
 *.py[cod]
+
+# Local development identity state and private keys
+/dev/
+
+# Native/browser authentication runtime artifacts
+/native-assertion.json
+/native-challenge.json
+/native-cookies.txt
+/browser-native-assertion.json
+/browser-native-challenge.json
+/browser-native-challenge.json{
+
+# Local scratch output
+/tmp/
+
+# Local generated checksum verification artifacts
+/checksums/algorithm-agility-v1.json.sha256
+/checksums/transition-statement-v1.json.sha256
