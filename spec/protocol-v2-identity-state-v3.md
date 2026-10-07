@@ -88,6 +88,13 @@ ProtocolVersion 2 allocates:
 
 `generation` is a uint64 security generation, not a blockchain/consensus epoch.
 
+SET_AUTHENTICATION_POLICY disposition wire values are:
+
+- 1 INVALIDATE_EXISTING
+- 2 PRESERVE_EXISTING
+
+These numeric values are part of the byte-frozen ProtocolVersion 2 wire semantics.
+
 SET_AUTHENTICATION_POLICY rules:
 
 - absent -> A: install A; generation unchanged; disposition MUST be absent.
