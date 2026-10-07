@@ -121,7 +121,7 @@ public final class ProtocolV2TransitionVerifier {
  }
 
 
- private static RecoveryPayload parseRecoveryPayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader();require(n==4||n==5,"recovery payload shape");require(r.readUnsigned()==1,"recovery controller");byte[] cp=r.readEncoded();require(r.readUnsigned()==2,"recovery policy");byte[] rp=r.readEncoded();require(r.readUnsigned()==3,"new recovery commitment");byte[] rc=r.readByteString();require(rc.length==34,"new recovery commitment length");require(r.readUnsigned()==4,"assertion disposition");long d=r.readUnsigned();byte[] ap=null;if(n==5){require(r.readUnsigned()==5,"replacement assertion");ap=r.readEncoded();}require(r.done(),"recovery payload trailing");return new RecoveryPayload(cp,rp,rc,d,ap);}
+ private static RecoveryPayload parseRecoveryPayload(byte[] bytes){StrictCborReader r=new StrictCborReader(bytes);long n=r.readMapHeader();require(n==4||n==5,"recovery payload shape");require(r.readUnsigned()==1,"recovery controller");byte[] cp=r.readEncoded();require(r.readUnsigned()==2,"recovery policy");byte[] rp=r.readEncoded();require(r.readUnsigned()==3,"new recovery commitment");byte[] rc=r.readByteString();require(rc.length==34&&rc[0]==0x12&&rc[1]==0x20,"new recovery commitment must be SHA2-256 Multihash");require(r.readUnsigned()==4,"assertion disposition");long d=r.readUnsigned();byte[] ap=null;if(n==5){require(r.readUnsigned()==5,"replacement assertion");ap=r.readEncoded();}require(r.done(),"recovery payload trailing");return new RecoveryPayload(cp,rp,rc,d,ap);}
  private static Policy parseRecoveryPolicy(byte[] bytes){
   StrictCborReader r=new StrictCborReader(bytes);long fields=r.readMapHeader();
   require(fields==3||fields==4,"recovery policy");
