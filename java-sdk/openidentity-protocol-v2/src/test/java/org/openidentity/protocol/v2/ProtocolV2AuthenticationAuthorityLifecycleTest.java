@@ -51,11 +51,15 @@ final class ProtocolV2AuthenticationAuthorityLifecycleTest {
   @Test
   void v305PlannedRotation() {
     check(V305_PREV, V305_SIGNED, V305_STATE, V305_HASH);
+    assertEquals(0, authenticationGeneration(H.parseHex(V305_STATE)),
+        "disposition 2 PRESERVE_EXISTING must preserve generation");
   }
 
   @Test
   void v306SecurityRotation() {
     check(V306_PREV, V306_SIGNED, V306_STATE, V306_HASH);
+    assertEquals(1, authenticationGeneration(H.parseHex(V306_STATE)),
+        "disposition 1 INVALIDATE_EXISTING must increment generation");
   }
 
   @Test
@@ -103,6 +107,22 @@ final class ProtocolV2AuthenticationAuthorityLifecycleTest {
                 wrapUnsignedOperation(
                     H.parseHex(
                         "a601020208035820000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f04050558221220e89429e8f4cbe61062cfd7e0e3e011ab6db73ce989d2a0064a9c8288bbf27bc606a0"))));
+  }
+
+  private static long authenticationGeneration(byte[] state) {
+    var r = new org.openidentity.cbor.StrictCborReader(state);
+    long n = r.readMapHeader();
+    for (long i = 0; i < n; i++) {
+      long label = r.readUnsigned();
+      if (label == 8) {
+        var authority = new org.openidentity.cbor.StrictCborReader(r.readEncoded());
+        authority.readMapHeader();
+        assertEquals(1, authority.readUnsigned());
+        return authority.readUnsigned();
+      }
+      r.skipValue();
+    }
+    throw new AssertionError("AuthenticationAuthority missing");
   }
 
   private static void check(String p, String s, String state, String hash) {
