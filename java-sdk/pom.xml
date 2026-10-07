@@ -37,6 +37,7 @@
     <module>openidentity-cbor</module>
     <module>openidentity-crypto</module>
     <module>openidentity-operations</module>
+    <module>openidentity-protocol-v2</module>
     <module>openidentity-credentials</module>
     <module>openidentity-conformance</module>
   </modules>
